@@ -2,17 +2,18 @@
 
 A movie platform with one Flutter app for web and Android, and a Python backend.
 
-**Status: documentation only.** No application code exists yet. See [docs/roadmap.md](docs/roadmap.md) for what is done and what is planned.
+**Status: early development.** Only the Flutter app shell exists, with no movies, accounts or payments yet, and it has not been run on an Android device. See [docs/roadmap.md](docs/roadmap.md) for what is done and what is planned.
 
 ## How the repository is organised
 
 | Folder | What will live there | Status |
 | --- | --- | --- |
-| `apps/client/` | The Flutter app people use, on web and Android | Placeholder |
+| `apps/client/` | The Flutter app people use, on web and Android | App shell |
 | `services/api/` | The FastAPI backend: the app's trusted server, which handles accounts, payments and access checks | Placeholder |
 | `services/worker/` | Background media processing: turns uploaded movies into streamable video | Placeholder |
+| `services/media_gateway/` | The Cloudflare Worker: checks access, then delivers video to viewers | Placeholder |
 | `infra/` | Docker and cloud configuration | Placeholder |
-| `docs/` | Architecture, roadmap and Windows setup | Written |
+| `docs/` | Architecture, roadmap, Windows setup and step reports | Written |
 
 Why separate the API and the worker? Converting a movie can take a long time and uses a lot of CPU. Keeping that work apart means the API stays responsive while a movie is processing.
 

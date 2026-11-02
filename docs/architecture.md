@@ -1,6 +1,6 @@
 # Architecture
 
-This is the approved plan. **None of it is built yet.**
+This is the approved plan. **Only the Flutter app shell is built so far.** Everything else here is still planned.
 
 ## The parts
 
@@ -14,7 +14,7 @@ This is the approved plan. **None of it is built yet.**
 | Uploads | tusd | Uploads that can resume after a dropped connection |
 | Media processing | FFmpeg/FFprobe | Inspects movies and converts them to HLS |
 | Video storage | Cloudflare R2 | Private storage for published HLS files |
-| Video delivery | Cloudflare Worker | Checks access, then serves video from R2 |
+| Video delivery | Cloudflare Worker, in `services/media_gateway/` | Checks access, then serves video from R2 |
 | Backend hosting | Docker Compose on Oracle ARM64 | Runs the API, media worker and tusd |
 | Payments | Pesapal | Initial payment provider |
 | Source archive | Telegram | Optional archive of original files |
@@ -42,6 +42,13 @@ Two rules follow from this design:
 
 - The app is never trusted to decide who has paid. The backend decides.
 - R2 stays private. Viewers only reach video through the Worker.
+
+## Open design tasks
+
+These are undecided, and neither feature exists yet:
+
+- **Upload authorization:** who may upload a movie, and how tusd checks that before accepting a file. To settle before Milestone 7.
+- **Playback authorization:** what FastAPI gives the app when it grants access, how the Worker checks it on every video chunk, and when it expires. To settle before Milestone 8.
 
 ## Where configuration and secrets will live
 

@@ -8,7 +8,7 @@ Versions checked on 2 November 2026 on Windows 11. Newer versions may also work.
 | Flutter / Dart | 3.47.9 / 3.13.7 |
 | Python / pip | 3.13.14 / 26.1.2 |
 | Docker engine / Compose | 29.9.2 / v5.6.1 |
-| Android SDK | Platform 37.0, Build-Tools 36.0.0, Platform-Tools 37.0.1 |
+| Android SDK | Platforms 36 and 37.0, Build-Tools 36.0.0, Platform-Tools 37.0.1, NDK 28.2.13676358 |
 | Browsers | Chrome 156, Edge 156 |
 
 Visual Studio's C++ tools are not needed, because web and Android are the only targets. `flutter doctor` will still report them as missing, and you can ignore that line.
@@ -64,6 +64,16 @@ The checked machine has about 6 GB of RAM, which is not enough to run Android St
 
 Running `sdkmanager` on the checked version downloaded an extra Android CLI tool and showed a usage-data notice. Use `flutter doctor -v` for routine checks.
 
+## First Android build
+
+The first `flutter build apk` can fail with `Android sdkmanager did not install NDK 28.2.13676358`, after `Package ndk not found`. On the checked version, Gradle's automatic install did not work. Install that one NDK yourself, about 2.1 GB unpacked, then build again:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\android.exe" sdk install "ndk/28.2.13676358"
+```
+
+The build then adds Android SDK Platform 36 by itself.
+
 ## Not verified yet
 
-An Android device run, an Android build and an actual Docker container run. See the [roadmap](roadmap.md#still-unverified).
+An Android device run and an actual Docker container run. See the [roadmap](roadmap.md#still-unverified).

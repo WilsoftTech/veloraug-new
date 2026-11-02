@@ -6,7 +6,7 @@ Planned home for deployment configuration. Nothing here has been created or depl
 | --- | --- |
 | Docker Compose file | Runs the API, media worker and tusd on the Oracle server |
 | Dockerfiles or build notes | Build the images for those services |
-| Cloudflare Worker configuration | Protected media delivery |
+| Cloudflare Worker deployment notes | Protected media delivery. The code and its configuration will live in [`services/media_gateway/`](../services/media_gateway/README.md) |
 | Cloudflare Pages notes | Hosting for the Flutter web build |
 | `.env.example` | Variable names with fake values, created when variables first exist |
 

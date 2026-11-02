@@ -2,7 +2,7 @@
 
 Last updated: 2 November 2026.
 
-Milestones 1 and 2 match the setup steps already carried out. Milestones 3 onward are a proposed order and may change.
+Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in progress: see the [Step 3 report](step-03-report.md). Milestones 4 onward are a proposed order and may change.
 
 ## Completed
 
@@ -20,22 +20,26 @@ Milestones 1 and 2 match the setup steps already carried out. Milestones 3 onwar
 - [x] Git repository, ignore rules and line-ending rules
 - [x] Placeholder folders and documentation
 
+## In progress
+
+### Milestone 3: Flutter app shell
+
+- [x] Create the app in `apps/client/`
+- [x] Run it in Chrome
+- [x] Build a debug APK for Android
+- [ ] Click through every screen by hand in a browser
+- [ ] Run it on a phone or emulator (**not tested**: no device was online)
+
 ## Still unverified
 
 These have **not** been shown to work on this machine:
 
 | Item | Current state | Checked in |
 | --- | --- | --- |
-| Android device testing | No device was connected at the last check. An earlier emulator session stayed offline | Milestone 3 |
-| Android build | No Android app has been built | Milestone 3 |
+| Android device testing | No device was connected at the last check. An earlier emulator session stayed offline. A debug APK builds, but it has never been run | Milestone 3 |
 | Docker container run | The engine responds, but no container has been run | Milestone 4 |
 
 ## Planned
-
-### Milestone 3: Flutter app shell
-- [ ] Create the app in `apps/client/`
-- [ ] Run it in Chrome
-- [ ] Build it for Android and run it on a phone or emulator
 
 ### Milestone 4: FastAPI skeleton
 - [ ] Create the service in `services/api/` with its own virtual environment
@@ -53,12 +57,14 @@ These have **not** been shown to work on this machine:
 - [ ] Add browse, search and detail screens
 
 ### Milestone 7: Uploads and processing
+- [ ] Design upload authorization: who may upload, and how tusd checks it
 - [ ] Add resumable uploads with tusd
 - [ ] Inspect files with FFprobe and convert them to HLS with FFmpeg
 - [ ] Publish to private R2, with optional Telegram archive
 
 ### Milestone 8: Protected playback
-- [ ] Deliver video through the Cloudflare Worker
+- [ ] Design playback authorization: what the API grants, and how the Worker checks it
+- [ ] Deliver video through the Cloudflare Worker in `services/media_gateway/`
 - [ ] Test playback on web and Android
 - [ ] Confirm that direct access without permission fails
 

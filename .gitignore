@@ -12,6 +12,9 @@ compose.override.yml
 dart_defines*.json
 !dart_defines.example.json
 
+# Node tooling, at any depth
+node_modules/
+
 # Python
 .venv/
 venv/
@@ -59,6 +62,7 @@ key.properties
 secrets/
 .oci/
 .ssh/
+.netrc
 id_rsa*
 id_ed25519*
 oci_api_key*
@@ -71,11 +75,13 @@ rclone.conf
 
 # Uploaded movies and generated media.
 # Do not ignore *.ts by extension: it also matches TypeScript (the Cloudflare
-# Worker). Keep HLS .ts segments inside the folders listed below. These folder
-# names are distinctive so that code folders such as lib/features/uploads/ and
-# lib/data/ stay tracked.
+# Worker in services/media_gateway/). Keep HLS .ts segments inside the folders
+# listed below. These paths are specific so that code folders such as
+# lib/features/uploads/ and lib/data/ stay tracked.
 /uploads/
 /media/
+/services/worker/uploads/
+/services/worker/transcoding/
 local-media/
 tusd-data/
 hls-output/
@@ -102,6 +108,7 @@ hls-output/
 ffmpeg2pass-*
 
 # Logs, operating system and editor files
+.claude/settings.local.json
 *.log
 .DS_Store
 Thumbs.db
