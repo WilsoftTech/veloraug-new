@@ -1,0 +1,110 @@
+# Environment files: never commit real values. Sanitized examples are allowed.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+docker-compose.override.yml
+compose.override.yml
+
+# Flutter public build settings, per environment. Examples are allowed.
+dart_defines*.json
+!dart_defines.example.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Flutter and Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Android
+.gradle/
+.kotlin/
+local.properties
+captures/
+
+# Cloudflare and Supabase local state
+.wrangler/
+dist/
+.supabase/
+supabase/.temp/
+
+# Signing keys
+key.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.ppk
+
+# Credentials
+secrets/
+.oci/
+.ssh/
+id_rsa*
+id_ed25519*
+oci_api_key*
+credentials.json
+*credentials*.json
+client_secret*.json
+service-account*.json
+rclone.conf
+*.session
+
+# Uploaded movies and generated media.
+# Do not ignore *.ts by extension: it also matches TypeScript (the Cloudflare
+# Worker). Keep HLS .ts segments inside the folders listed below. These folder
+# names are distinctive so that code folders such as lib/features/uploads/ and
+# lib/data/ stay tracked.
+/uploads/
+/media/
+local-media/
+tusd-data/
+hls-output/
+*.mp4
+*.m4v
+*.mkv
+*.mov
+*.avi
+*.webm
+*.wmv
+*.flv
+*.mpg
+*.mpeg
+*.m2ts
+*.m3u8
+*.m4s
+*.mp3
+*.aac
+*.m4a
+*.flac
+*.wav
+*.srt
+*.vtt
+ffmpeg2pass-*
+
+# Logs, operating system and editor files
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.iml

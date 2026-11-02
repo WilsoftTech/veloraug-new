@@ -1,0 +1,27 @@
+# LF in the repository and in every checkout, on every OS.
+* text=auto eol=lf
+
+# Windows scripts need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Never touch binary files. *.ts is left out because it also matches TypeScript.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.jks binary
+*.keystore binary
+*.mp4 binary
+*.mkv binary
+*.mov binary
+*.webm binary
+*.m4s binary
