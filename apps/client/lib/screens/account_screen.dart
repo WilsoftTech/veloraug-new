@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/dev_auth_proof.dart';
 import '../widgets/dev_connection_check.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/screen_body.dart';
@@ -22,6 +23,7 @@ class AccountScreen extends StatelessWidget {
         ),
         // kDebugMode is a constant, so release builds leave this code out.
         if (kDebugMode) DevConnectionCheck(),
+        if (kDebugMode) DevAuthProof(),
       ],
     );
   }

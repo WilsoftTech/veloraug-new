@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:veloraug/app.dart';
 import 'package:veloraug/shell/app_shell.dart';
+import 'package:veloraug/widgets/dev_auth_proof.dart';
 import 'package:veloraug/widgets/dev_connection_check.dart';
 
 const _narrow = Size(400, 800);
@@ -153,14 +154,18 @@ void main() {
       await _pumpApp(tester, _narrow);
       await _goTo(tester, 'Account');
 
-      // The only button allowed is the debug-only connection check's.
+      // The only buttons allowed are the debug-only development tools'.
       final devCheckButtons = find.descendant(
         of: find.byType(DevConnectionCheck),
         matching: find.byType(ButtonStyleButton),
       );
+      final devProofButtons = find.descendant(
+        of: find.byType(DevAuthProof),
+        matching: find.byType(ButtonStyleButton),
+      );
       expect(
         find.byType(ButtonStyleButton).evaluate().length,
-        devCheckButtons.evaluate().length,
+        devCheckButtons.evaluate().length + devProofButtons.evaluate().length,
       );
       expect(find.byType(TextField), findsNothing);
       expect(

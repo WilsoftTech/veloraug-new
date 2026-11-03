@@ -53,7 +53,7 @@ These have **not** been shown to work on this machine:
 
 ### Milestone 5: Accounts and database
 
-Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded [Supabase plan](step-05a-plan.md). Nothing is implemented yet.
+Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded [Supabase plan](step-05a-plan.md). The Step 5B proof is built and passes local checks, but its gates haven't run against Neon or a phone: see the [Step 5B report](step-05b-report.md).
 
 - [ ] 5B: Set up a Neon development branch and minimal sign-in pages, and test the sign-in route on web and one phone
 - [ ] 5C: Finish the sign-in pages on Cloudflare Pages

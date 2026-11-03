@@ -159,3 +159,11 @@ The value must look like `scheme://host[:port]`. Plain `http` is only accepted f
 ## Android application ID
 
 `com.example.veloraug` is Flutter's default, used for local development only. **The production application ID is undecided.** Choose it before the first store release, because it cannot change afterwards.
+
+## Sign-in proof (Step 5B)
+
+Debug builds show a development-only **Sign-in proof** panel on the Account screen, used to test the [Step 5B gates](../../docs/step-05b-report.md). It needs the Neon settings from an ignored `dart_defines.local.json` file. Without them, it says it isn't configured. It isn't the finished sign-in, and release builds leave it out.
+
+## Sign-in proof (Step 5B)
+
+Debug builds show a development-only sign-in proof on the Account screen. It stays inactive until it has settings from `dart_defines.local.json`, and release builds leave it out. See the [Step 5B report](../../docs/step-05b-report.md).

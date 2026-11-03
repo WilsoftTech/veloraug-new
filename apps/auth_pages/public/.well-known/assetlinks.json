@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.veloraug",
+      "sha256_cert_fingerprints": [
+        "50:2F:52:2C:26:FC:C5:DB:38:A0:C5:48:8E:33:DF:A4:D5:BF:C2:03:C4:CA:B5:04:86:04:C8:92:57:E8:87:D1"
+      ]
+    }
+  }
+]
