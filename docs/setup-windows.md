@@ -46,6 +46,8 @@ PATH is the list of folders Windows searches for commands. The line above assume
 2. Connect it by USB and tap **Allow** on the phone.
 3. Run `flutter devices` and check that the phone is listed without an "offline" message.
 
+To reach the local API from a phone, see [Run on an Android phone over USB](../apps/client/README.md#run-on-an-android-phone-over-usb).
+
 **To use an emulator instead:**
 
 ```powershell
@@ -76,4 +78,4 @@ The build then adds Android SDK Platform 36 by itself.
 
 ## Not verified yet
 
-An Android device run and an ARM64 image. A Linux AMD64 container has run: see [infra/README.md](../infra/README.md). See the [roadmap](roadmap.md#still-unverified).
+A successful API connection from inside the app on a phone, a full click-through on a phone, and an ARM64 image. The app has started on a phone, and a Linux AMD64 container has run: see the [Step 4C report](step-04c-report.md). See the [roadmap](roadmap.md#still-unverified).

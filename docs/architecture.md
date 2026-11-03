@@ -1,6 +1,6 @@
 # Architecture
 
-This is the approved plan. **Only the Flutter app shell and a minimal FastAPI service are built so far, and they are not connected.** The service has health and identification endpoints only. Everything else here is still planned.
+This is the approved plan. **Only the Flutter app shell and a minimal FastAPI service are built so far.** The service has health and identification endpoints only, and the app calls them only from a development-only connection check. Everything else here is still planned.
 
 ## The parts
 
@@ -52,7 +52,7 @@ These are undecided, and neither feature exists yet:
 
 ## Where configuration and secrets will live
 
-Nothing here exists yet, and no values are needed now. The API has two optional settings that are not secret, and it does not load `.env` files yet. See [its README](../services/api/README.md#settings).
+Nothing here exists yet, and no values are needed now. The API has two optional settings that are not secret, and it does not load `.env` files yet. See [its README](../services/api/README.md#settings). The Flutter app has one public setting, `API_BASE_URL`, passed with `--dart-define`. See [its README](../apps/client/README.md#the-api_base_url-setting).
 
 **Public configuration** is safe for anyone to see, because anything built into a web or Android app can be extracted by its users.
 

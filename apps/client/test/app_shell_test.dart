@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:veloraug/app.dart';
 import 'package:veloraug/shell/app_shell.dart';
+import 'package:veloraug/widgets/dev_connection_check.dart';
 
 const _narrow = Size(400, 800);
 const _wide = Size(1200, 800);
@@ -133,13 +134,34 @@ void main() {
       expect(find.text("Search isn't connected yet"), findsOneWidget);
     });
 
+    testWidgets('account labels the connection check as development only', (
+      tester,
+    ) async {
+      await _pumpApp(tester, _narrow);
+      await _goTo(tester, 'Account');
+
+      expect(
+        find.text('Development only: API connection check'),
+        findsOneWidget,
+      );
+      expect(find.text('Check connection'), findsOneWidget);
+    });
+
     testWidgets('account offers no sign-in or payment controls', (
       tester,
     ) async {
       await _pumpApp(tester, _narrow);
       await _goTo(tester, 'Account');
 
-      expect(find.byType(ButtonStyleButton), findsNothing);
+      // The only button allowed is the debug-only connection check's.
+      final devCheckButtons = find.descendant(
+        of: find.byType(DevConnectionCheck),
+        matching: find.byType(ButtonStyleButton),
+      );
+      expect(
+        find.byType(ButtonStyleButton).evaluate().length,
+        devCheckButtons.evaluate().length,
+      );
       expect(find.byType(TextField), findsNothing);
       expect(
         find.textContaining(RegExp('pay|subscri', caseSensitive: false)),

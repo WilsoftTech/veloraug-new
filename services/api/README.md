@@ -2,7 +2,7 @@
 
 The FastAPI backend, written in Python. It will become the trusted part of the system: the app asks it to do things, and it checks whether each request is allowed.
 
-**Today it is only a foundation.** It has two endpoints and no database, sign-in, TMDB, uploads or payments. The Flutter app does not call it yet.
+**Today it is only a foundation.** It has two endpoints and no database, sign-in, TMDB, uploads or payments. The Flutter app calls it only from a [development-only connection check](../../apps/client/README.md#connect-to-the-local-api).
 
 Later it will verify Supabase users, fetch movie details from TMDB, handle Pesapal payments and issue playback access. See the [roadmap](../../docs/roadmap.md).
 
@@ -114,7 +114,7 @@ Three details are easy to trip over:
 
 - **CORS is not security for the API itself.** Browsers enforce it. A script or `curl` can still call the API from anywhere, and the server still answers a disallowed `GET`. Access rules will need real sign-in checks.
 - **`http://127.0.0.1:8765` is a different origin from `http://localhost:8765`,** even though they reach the same computer, so it is refused.
-- **Flutter picks a random web port by default.** When the app is connected in a later step, run it with `flutter run -d chrome --web-port 8765`, or the browser will block it. An Android app is not a browser, so CORS does not apply to it.
+- **Flutter picks a random web port by default.** Use the [command in the client README](../../apps/client/README.md#in-chrome-two-terminals), or the browser will block it. An Android app is not a browser, so CORS does not apply to it.
 
 ## Change a dependency
 

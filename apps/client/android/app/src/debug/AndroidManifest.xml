@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Allows plain HTTP to this phone's loopback address only, for adb reverse.
+         This file is not part of release builds. -->
+    <application android:networkSecurityConfig="@xml/debug_network_security_config"/>
 </manifest>

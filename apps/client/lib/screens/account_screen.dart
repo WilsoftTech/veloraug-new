@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/dev_connection_check.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/screen_body.dart';
 
@@ -18,6 +20,8 @@ class AccountScreen extends StatelessWidget {
               "Accounts aren't available yet, so there is no way to sign in. "
               'Sign-in will be added in a later step.',
         ),
+        // kDebugMode is a constant, so release builds leave this code out.
+        if (kDebugMode) DevConnectionCheck(),
       ],
     );
   }
