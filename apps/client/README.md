@@ -160,6 +160,51 @@ The value must look like `scheme://host[:port]`. Plain `http` is only accepted f
 
 `com.example.veloraug` is Flutter's default, used for local development only. **The production application ID is undecided.** Choose it before the first store release, because it cannot change afterwards.
 
+## Android build warnings
+
+Checked on 3 November 2026 with Flutter 3.47.9, Gradle 9.3.1, AGP 9.1.0, KGP 2.4.0, JDK 25.0.4 and `flutter_web_auth_2` 5.1.0.
+
+### Native access: fixed
+
+JDK 24 and later warn when Gradle's `native-platform` library calls `System::load`. The warning comes from the launcher JVM that `gradlew` starts. The daemon already passes `--enable-native-access=ALL-UNNAMED` to itself and logs no warning, so `org.gradle.jvmargs` can't fix it.
+
+The flag is set as `DEFAULT_JVM_OPTS` in `android/gradlew` and `android/gradlew.bat`, which sets it for this project only.
+
+| Check | Warning lines |
+| --- | --- |
+| Before the fix | 3 |
+| Flag on the launcher only, with a running daemon and with a cold one | 0 |
+| `flutter build apk --debug` after the fix | 0 |
+| `flutter build apk --debug` from a fresh clone | 0 |
+| `android/gradlew` run through Git Bash | 0 |
+
+**Regenerating the wrapper scripts may remove the flag.** That includes running `gradle wrapper`, or deleting the scripts so that Flutter creates its stock copies. Afterwards, check it's still there, and put it back if it isn't:
+
+```powershell
+Select-String -Path android\gradlew, android\gradlew.bat -Pattern 'enable-native-access'
+```
+
+### Wrapper files in a clean checkout
+
+| File | How a clean checkout gets it |
+| --- | --- |
+| `android/gradlew`, `android/gradlew.bat` | Tracked in Git |
+| `android/gradle/wrapper/gradle-wrapper.properties` | Tracked in Git. It pins Gradle 9.3.1 |
+| `android/gradle/wrapper/gradle-wrapper.jar` | Ignored by Git. **Flutter copies it from its own cache during an Android build** |
+| `android/local.properties` | Ignored by Git. Flutter creates it |
+
+So run a Flutter Android build first, for example `flutter build apk --debug`. Until then, the jar and `local.properties` don't exist, so `gradlew` can't run directly. This was tested with a fresh clone: the build succeeded, the jar matched Flutter's cached copy, and no tracked file changed, so Flutter left the scripts as they were.
+
+### `flutter_web_auth_2` applies KGP: open upstream issue
+
+Every Android build prints `Your app uses the following plugins that apply Kotlin Gradle Plugin (KGP): flutter_web_auth_2`. **This remains open.** Nothing in the app can remove it, and builds still work for now, with `android.builtInKotlin=false` in `android/gradle.properties`.
+
+- Flutter says a future version will fail to build apps with plugins that apply KGP, without giving a version or date ([Flutter's guide](https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers)).
+- Stable 5.1.0 is the latest stable release and applies KGP. The maintainer closed the request for a 5.x fix as not planned, and says 6.0.0 will be released when it's production-ready ([issue 223](https://github.com/ThexXTURBOXx/flutter_web_auth_2/issues/223)).
+- **The project stays on 5.1.0.** `6.0.0-alpha.9` is a prerelease, and hasn't been adopted. On a throwaway copy it removed the warning and built with `android.builtInKotlin` true and false. Sign-in wasn't tested with it.
+
+When 6.0.0 is stable, upgrade, set `android.builtInKotlin=true`, and repeat the sign-in and callback checks. Do this sooner if a Flutter upgrade rejects the plugin.
+
 ## Sign-in proof (Step 5B)
 
 Debug builds show a development-only **Sign-in proof** panel on the Account screen, used to test the [Step 5B gates](../../docs/step-05b-report.md). It needs the Neon settings from an ignored `dart_defines.local.json` file. Without them, it says it isn't configured. It isn't the finished sign-in, and release builds leave it out.

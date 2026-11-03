@@ -49,6 +49,12 @@ These have **not** been shown to work on this machine:
 | Real screen reader | Not tested. Automated tests check the labels only | Not scheduled |
 | ARM64 image | The base image and pinned packages are available for ARM64, but no ARM64 image has been built or run. The local container is Linux AMD64 | Milestone 10 |
 
+## Open issues
+
+| Issue | Current state | Next action |
+| --- | --- | --- |
+| `flutter_web_auth_2` applies the Kotlin Gradle Plugin | Open upstream. Stable 5.1.0 still applies it, so every Android build warns, and a future Flutter version will reject it. See [Android build warnings](../apps/client/README.md#android-build-warnings) | Upgrade when 6.0.0 is stable, or sooner if a Flutter upgrade requires it |
+
 ## Planned
 
 ### Milestone 5: Accounts and database
