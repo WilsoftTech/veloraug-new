@@ -20,7 +20,7 @@ Date: 3 November 2026. This follows the [Neon plan](step-05a-neon-plan.md). **St
 
 - **State and nonce.** `state` is always checked, before anything else in the callback is read. The flow requests `openid`, so the app sends a `nonce` and refuses an ID token whose nonce differs. OIDC doesn't require a nonce for the code flow, but it costs little. The ID token isn't otherwise used.
 - **No secrets in public code.** The clients are `public`, so there is no client secret. The app never sends one, and tests confirm that.
-- **Logging.** Neither app logs anything from these flows. The panel shows claim names, shapes and yes/no facts. It never shows tokens, codes or `sub`. Errors keep only an OAuth error code, because a description could quote a value. The Android callback page removes the code from the address bar.
+- **Logging.** The companion logs nothing. The debug-only panel writes one sanitized `auth-proof` line to the device log for each browser step or failure, holding only timing, plugin code, fixed-message meaning and token shape. The panel shows claim names, shapes and yes/no facts. It never shows tokens, codes or `sub`. Errors keep only an OAuth error code, because a description could quote a value. The Android callback page removes the code from the address bar.
 - **Pinned dependencies.** `@neon/auth` 0.8.2, React 19.3.1, Vite 8.3.5, `@vitejs/plugin-react` 6.2.1, `flutter_web_auth_2` 5.1.0 and `crypto` 3.0.8, with both lock files tracked. Wrangler 4.157.0 and the Neon CLI 8.17.1 are pinned in their commands.
 
 **Left out on purpose, for later steps:** token storage on disk, FastAPI changes, database work, `INTERNET` in the release manifest, and finishing a password reset. The proof panel doesn't appear in release builds.
@@ -80,7 +80,56 @@ After deployment, `check_step05b.py` reported `frame-ancestors` missing on `/log
 
 ## User-tested
 
-Nothing yet.
+Reported by the owner on the physical phone, a Samsung `SM-G981U1` on Android 13 with Chrome 156. The times and details of these runs weren't recorded.
+
+| Result | Reported |
+| --- | --- |
+| Sign-in on Android, **twice** | Succeeded both times: code exchanged, refresh token returned, ID token nonce matched |
+| Earlier sign-in attempts | Failed, showing only `PlatformException` |
+| "End browser session" | Failed, showing only `PlatformException` |
+
+## Android `PlatformException` investigation
+
+**The cause of the earlier failures isn't established, so no behaviour fix has been applied.** PKCE, state, nonce, callback checks and the sign-in flow are unchanged.
+
+The panel used to show only the exception type, which discarded the plugin's code and message, so those earlier codes are gone. The device logs don't record them either.
+
+### What was added
+
+[`browser_failure.dart`](../apps/client/lib/auth/browser_failure.dart) reports the plugin's code and a meaning, taken only from `flutter_web_auth_2` 5.1.0's fixed messages. Any other message is withheld, and native details are reduced to present or not, because they could quote an address. The panel and device log also record how long the browser step took, but nothing it returned. Tests confirm that secret values placed in a message or in details never appear.
+
+| Code and meaning | What it would show |
+| --- | --- |
+| `CANCELED`, tab closed (`User canceled authentication`) | Auth Tab returned `RESULT_CANCELED`: closed with no callback. This could be the user, but the code alone doesn't prove it |
+| `CANCELED`, resume clean-up (`User canceled login`) | The app resumed with no result pending |
+| `FAILED`, Auth Tab result 2 or 3 | Callback failure: Digital Asset Links verification failed or timed out |
+| `FAILED`, Auth Tab result -2 or `no URI` | Callback failure: unknown result, or success without an address |
+| `NO_BROWSER`, `SECURITY_EXCEPTION` | Browser launch failure |
+| `CANNOT_RESTORE` | The app process died during the browser step |
+| `failed: The sign-out page did not confirm.` | The tab returned, but without `signed_out=1`. This isn't a `PlatformException` |
+
+### Evidence so far
+
+Sanitized phone logs, with query strings and paths removed before display. Nothing was saved.
+
+| Time, 3 November | Step | Browser step lasted |
+| --- | --- | --- |
+| 18:41:09 | Auth Tab to Neon authorize | About 7 seconds |
+| 18:41:37 | Auth Tab to Neon authorize | About 1 minute 44 seconds |
+| 18:43:58 | Auth Tab to `pages.dev`, which is "End browser session" | About 3.3 seconds |
+| 18:44:09 | Auth Tab to Neon authorize | About 2 seconds |
+
+- **Launch:** in these four attempts, the plugin chose Auth Tab with the HTTPS callback, and Chrome opened each time. This points away from a launch failure for these attempts. An earlier attempt at 18:36 also opened in Chrome.
+- **Verification:** Android reports `veloraug-auth-dev.pages.dev: verified`, read with `pm get-app-links`. That is the current state, and it doesn't show the state during the earliest attempts.
+- **Finish reason:** Chrome logs `app-request` every time, so it can't separate success, cancellation or failure.
+- **Sign-out:** a preflight and a POST from the Pages origin to Neon's `/sign-out` were allowed, with credentials. So CORS doesn't explain it. These requests had no session, and an untrusted origin also got `success`, so this says nothing about signing out a real session or about origin checks.
+- **18:44:09:** two seconds is too short to type a password. Either the session survived the 18:43:58 sign-out attempt, or this attempt ended early. The logs can't tell which.
+
+**Not established:** which earlier attempts failed, and whether "End browser session" failed through cancellation, callback failure or the page. User cancellation hasn't been shown. Logout hasn't been shown to be unsupported.
+
+### Separate finding for G8
+
+Neon's metadata lists `client_secret_basic`, `client_secret_post` and `private_key_jwt` for revocation, and not `none`. A public client has no secret, so the panel's **Revoke refresh token** may be refused. That is untested. The metadata also lists an `end_session_endpoint`, which is the alternative to try if `/sign-out` proves inadequate.
 
 ## Pending: gate results
 
@@ -88,12 +137,12 @@ Nothing yet.
 | --- | --- | --- |
 | G1 | Metadata matches the Auth URL, and JWKS has an Ed25519 key | **Not run on `development`.** Partial evidence above, from `production` |
 | G2 | Neon accepts the `.invalid` resource and issues a JWT | **Not run** |
-| G3 | Sign-up, code and sign-in resume through consent. Life of the signed query | **Not run** |
+| G3 | Sign-up, code and sign-in resume through consent. Life of the signed query | **Open.** Android sign-in reached the callback twice (user-reported). Whether those runs covered sign-up, the email code and consent wasn't recorded |
 | G4 | Session survives the cross-site cookie | **Not run.** See the browser table below |
-| G5 | Public-client exchange and refresh, including browser CORS | **Not run** |
-| G6 | Android domain verification and callback delivery | **Not run.** `apksigner` confirms the certificate, but only the phone can prove verification and delivery |
+| G5 | Public-client exchange and refresh, including browser CORS | **Open.** Android exchange succeeded twice, returning a refresh token (user-reported). Refresh, reuse and browser CORS not reported |
+| G6 | Android domain verification and callback delivery | **Open, partly evidenced.** The phone reports `verified` (observed with `adb`). The callback reached the app twice (user-reported). Earlier failures are unexplained, and no fallback browser was tested |
 | G7 | Real token contents | **Not run** |
-| G8 | Revoke, sign-out, and the form on next sign-in | **Not run** |
+| G8 | Revoke, sign-out, and the form on next sign-in | **Open, failing.** "End browser session" reported `PlatformException` (user-reported), cause not established. Revoke not reported |
 | G9 | What sign-up and reset reveal | **Not run** |
 
 Refresh behaviour still to record: whether the token rotates, whether a rotated token is refused, and whether that reuse also revokes the current token, as Neon warns.

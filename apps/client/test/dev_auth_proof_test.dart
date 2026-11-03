@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -80,5 +81,61 @@ void main() {
     expect(shown, isNot(contains(accessToken)));
     expect(shown, isNot(contains(refreshToken)));
     expect(shown, isNot(contains(code)));
+    expect(shown, contains('browser step returned after'));
+  });
+
+  testWidgets('a platform failure shows its code, and no secret values', (
+    tester,
+  ) async {
+    const secret = 'https://pages.example.test/cb?code=SECRET-VALUE';
+    final logged = <String?>[];
+    final previousPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) => logged.add(message);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DevAuthProof(
+              httpClient: MockClient((request) async {
+                return http.Response(
+                  jsonEncode({
+                    'issuer': _issuer,
+                    'authorization_endpoint': '$_issuer/oauth2/authorize',
+                    'token_endpoint': '$_issuer/oauth2/token',
+                  }),
+                  200,
+                );
+              }),
+              config: OAuthConfig(
+                issuer: _issuer,
+                clientId: 'client-1',
+                resource: 'https://api.example.test',
+                redirectUri: Uri.parse(_callback),
+                signOutPage: Uri.parse('https://pages.example.test/sign-out'),
+              ),
+              browserStep: (url, _) async => throw PlatformException(
+                code: 'CANCELED',
+                message: 'User canceled authentication',
+                details: secret,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Sign in'));
+    await tester.pumpAndSettle();
+    debugPrint = previousPrint;
+
+    final shown = tester
+        .widget<SelectableText>(find.byType(SelectableText))
+        .data!;
+    expect(shown, contains('PlatformException code: CANCELED'));
+    expect(shown, contains('browser step failed after'));
+    expect(shown, isNot(contains('SECRET-VALUE')));
+    expect(logged.join('\n'), contains('CANCELED'));
+    expect(logged.join('\n'), isNot(contains('SECRET-VALUE')));
   });
 }

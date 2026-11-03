@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
 
+import '../auth/browser_failure.dart';
 import '../auth/oauth_client.dart';
 import '../auth/oauth_config.dart';
 
@@ -53,6 +55,7 @@ class _DevAuthProofState extends State<DevAuthProof> {
   OAuthTokens? _tokens;
   String? _previousRefreshToken;
   bool _busy = false;
+  String? _browserStepLine;
   final List<String> _results = [];
 
   @override
@@ -66,7 +69,7 @@ class _DevAuthProofState extends State<DevAuthProof> {
         _client = OAuthClient(
           config: config,
           httpClient: _httpClient,
-          browserStep: widget.browserStep ?? _openBrowserStep,
+          browserStep: _timedBrowserStep,
         );
       }
     } on FormatException catch (error) {
@@ -80,7 +83,22 @@ class _DevAuthProofState extends State<DevAuthProof> {
     super.dispose();
   }
 
+  // Records only how long the browser step took, never what it returned.
+  Future<String> _timedBrowserStep(Uri url, Uri redirectUri) async {
+    final step = widget.browserStep ?? _openBrowserStep;
+    final timer = Stopwatch()..start();
+    try {
+      final result = await step(url, redirectUri);
+      _browserStepLine = 'browser step returned after ${timer.elapsed}';
+      return result;
+    } on Exception {
+      _browserStepLine = 'browser step failed after ${timer.elapsed}';
+      rethrow;
+    }
+  }
+
   Future<void> _run(String name, Future<List<String>> Function() action) async {
+    _browserStepLine = null;
     setState(() {
       _busy = true;
       _results.add('$name: running');
@@ -90,9 +108,19 @@ class _DevAuthProofState extends State<DevAuthProof> {
       lines = await action();
     } on OAuthException catch (error) {
       lines = ['failed: ${error.message}'];
+    } on PlatformException catch (error) {
+      lines = ['failed:', ...describeBrowserFailure(error)];
     } on Exception catch (error) {
-      // Only the type: a platform message could quote a callback address.
+      // Only the type: its message could quote a callback address.
       lines = ['failed: ${error.runtimeType}'];
+    }
+    final browserStepLine = _browserStepLine;
+    if (browserStepLine != null) lines = [browserStepLine, ...lines];
+    // Goes to the device log too, so an outcome is recorded with its time. These
+    // lines hold no token, code or address, and `sub` is reduced to yes or no.
+    if (lines.any((line) => line.startsWith('failed')) ||
+        browserStepLine != null) {
+      debugPrint('auth-proof $name: ${lines.join(' | ')}');
     }
     if (!mounted) return;
     setState(() {
