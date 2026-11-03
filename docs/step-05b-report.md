@@ -67,6 +67,17 @@ Read-only, on 3 November 2026.
 
 `services/api/.env` is empty. Step 5B doesn't use it, so no action is needed.
 
+### Checker correction: `frame-ancestors`
+
+After deployment, `check_step05b.py` reported `frame-ancestors` missing on `/login`, `/consent` and `/auth/callback/android`. **The checker was wrong, and the deployed site was correct.**
+
+- **Cause:** Cloudflare Pages sends headers from `_headers` with lower-case names, such as `content-security-policy`. The checker copied the headers into a plain `dict`, which made its lookup of `Content-Security-Policy` case-sensitive. The `assetlinks.json` type check still passed, because Cloudflare sends `Content-Type` with capitals.
+- **Not the cause:** the policy is present and well formed, `dist/_headers` is identical to its source, and Cloudflare applies it to all three routes.
+- **Fix:** the checker keeps `urllib`'s case-insensitive headers. The requirement is unchanged, and `_headers` wasn't edited.
+- **Tests:** [`test_check_step05b.py`](../infra/neon/test_check_step05b.py) passes on lower-case and usual-case names. It still fails with no policy, no directive, `frame-ancestors *`, or a report-only policy. It fails against the old `dict` code.
+- **Local check:** `wrangler pages dev` served the rebuilt pages with the policy on all three routes.
+- **Live check:** the corrected checker reports no failures. Its only skipped check is Android domain verification, because the app wasn't installed on the connected phone. This is configuration evidence only, and doesn't complete any gate.
+
 ## User-tested
 
 Nothing yet.

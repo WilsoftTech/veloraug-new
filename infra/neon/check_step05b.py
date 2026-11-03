@@ -14,6 +14,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from email.message import Message
 from pathlib import Path
 
 PROJECT_ID = "round-block-80526448"
@@ -51,15 +52,23 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def fetch(url: str) -> tuple[int, dict, bytes]:
-    """Returns the status, headers and body, without following a redirect."""
+def fetch(url: str) -> tuple[int, Message, bytes]:
+    """Returns the status, headers and body, without following a redirect.
+
+    The headers stay in urllib's own object, because header names are not case
+    sensitive and Cloudflare Pages sends those from _headers in lower case.
+    """
     opener = urllib.request.build_opener(_NoRedirect)
     request = urllib.request.Request(url, headers={"User-Agent": "veloraug-check"})
     try:
         with opener.open(request, timeout=25) as response:
-            return response.status, dict(response.headers), response.read()
+            return response.status, response.headers, response.read()
     except urllib.error.HTTPError as error:
-        return error.code, dict(error.headers), error.read()
+        return error.code, error.headers, error.read()
+
+
+def denies_framing(headers: Message) -> bool:
+    return "frame-ancestors 'none'" in headers.get("Content-Security-Policy", "")
 
 
 def neon(*args: str) -> str | None:
@@ -165,10 +174,7 @@ def check_site() -> None:
         for path in ("/login", "/consent", "/auth/callback/android"):
             status, headers, _ = fetch(f"{PAGES_URL}{path}")
             check(f"{path} is 200 with no redirect", status == 200, status)
-            check(
-                f"{path} sends frame-ancestors",
-                "frame-ancestors 'none'" in headers.get("Content-Security-Policy", ""),
-            )
+            check(f"{path} sends frame-ancestors", denies_framing(headers))
         query = urllib.parse.urlencode(
             {
                 "source.web.site": PAGES_URL,
