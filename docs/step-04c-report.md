@@ -4,6 +4,33 @@ Date: 3 November 2026. This covers the Flutter connection item in Milestone 4 of
 
 Tools: Flutter 3.47.9, Dart 3.13.7, `http` 1.6.0, Chrome 156, Docker Compose v5.6.1, Windows 11. Phone: Samsung SM-G981U1, Android 13, `arm64-v8a`.
 
+## Verification note, 3 November 2026
+
+*Added after this report was written. The report below is kept as written, and where they differ, this note is current.*
+
+**The Android API connection is now confirmed by manual, user-reported verification.** On the physical phone `RFCN70850VT` (Samsung SM-G981U1), the project owner opened **Account**, pressed **Check connection** and saw **The API answered**, using the local Docker API and `adb reverse`.
+
+The owner observed this result directly. It was not seen by the automated tooling, and no screenshot was captured.
+
+The following was checked afterwards. It is consistent with the report, but does not prove it on its own:
+
+| Check | Result |
+| --- | --- |
+| `adb -s RFCN70850VT reverse --list` | `tcp:8000 tcp:8000` in place |
+| API container | Running and healthy |
+| API log | Three pairs of `GET /health` and `GET /api/v1`, all 200. The log shows only Docker's gateway address, so it cannot show which device sent them |
+
+**Milestone 4 is complete.** All of its criteria are now met. Its Docker criterion covers a local Linux AMD64 container.
+
+This note does **not** verify:
+
+- Navigation between screens on a phone
+- Rotation on a phone
+- Keyboard use on a phone
+- A failure and retry cycle inside the app on a phone
+- The debug network rule on any other device
+- Building or running an ARM64 image, on Oracle or anywhere else
+
 ## Status at a glance
 
 | Item | Status |

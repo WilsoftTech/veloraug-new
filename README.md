@@ -2,7 +2,7 @@
 
 A movie platform with one Flutter app for web and Android, and a Python backend.
 
-**Status: early development.** Only the Flutter app shell and a minimal API exist, joined by a development-only connection check. There are no movies, accounts or payments yet. The check has passed in a browser, but not yet inside the app on an Android phone. See [docs/roadmap.md](docs/roadmap.md) for what is done and what is planned.
+**Status: early development.** Only the Flutter app shell and a minimal API exist, joined by a development-only connection check. There are no movies, accounts or payments yet. The check has passed in a browser and on one Android phone, but the app has not been fully tested on a phone. See [docs/roadmap.md](docs/roadmap.md) for what is done and what is planned.
 
 ## How the repository is organised
 

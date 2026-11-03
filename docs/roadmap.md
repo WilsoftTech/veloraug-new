@@ -2,7 +2,7 @@
 
 Last updated: 3 November 2026.
 
-Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in progress: see the [Step 3 report](step-03-report.md). Step 4 covers the first part of Milestone 4, Step 4B adds the local Docker run and Step 4C connects the Flutter app, but Milestone 4 stays in progress: see the [Step 4](step-04-report.md), [Step 4B](step-04b-report.md) and [Step 4C](step-04c-report.md) reports. Milestones 5 onward are a proposed order and may change.
+Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in progress: see the [Step 3 report](step-03-report.md). Milestone 4 is complete, through Step 4, the local Docker run in Step 4B and the Flutter connection in Step 4C: see the [Step 4](step-04-report.md), [Step 4B](step-04b-report.md) and [Step 4C](step-04c-report.md) reports. Milestones 5 onward are a proposed order and may change.
 
 ## Completed
 
@@ -20,6 +20,15 @@ Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in 
 - [x] Git repository, ignore rules and line-ending rules
 - [x] Placeholder folders and documentation
 
+### Milestone 4: FastAPI skeleton
+
+- [x] Create the service in `services/api/` with its own virtual environment
+- [x] Add a health-check endpoint
+- [x] Add a service-identification endpoint at `/api/v1`
+- [x] Run it in a local Docker container (Linux AMD64 only)
+- [x] Connect the Flutter app to it in a real browser, with a development-only check
+- [x] See that check succeed inside the app on an Android phone (manually verified and reported by the project owner on one phone: see the [Step 4C verification note](step-04c-report.md#verification-note-3-november-2026))
+
 ## In progress
 
 ### Milestone 3: Flutter app shell
@@ -28,16 +37,7 @@ Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in 
 - [x] Run it in Chrome
 - [x] Build a debug APK for Android
 - [ ] Click through every screen by hand in a browser
-- [ ] Run it on a phone or emulator (**partly tested**: it started on one phone and the Account screen rendered, but the screens have not been clicked through)
-
-### Milestone 4: FastAPI skeleton
-
-- [x] Create the service in `services/api/` with its own virtual environment
-- [x] Add a health-check endpoint
-- [x] Add a service-identification endpoint at `/api/v1`
-- [x] Run it in a local Docker container (Linux AMD64 only)
-- [x] Connect the Flutter app to it in a real browser, with a development-only check
-- [ ] See that check succeed inside the app on an Android phone (**not verified**: `adb reverse` works from the phone, but the app's own check has not been seen to succeed)
+- [ ] Run it on a phone or emulator (**partly tested**: it started on one phone, the Account screen rendered and its connection check succeeded, but navigation, rotation and keyboard use have not been tested)
 
 ## Still unverified
 
@@ -45,8 +45,7 @@ These have **not** been shown to work on this machine:
 
 | Item | Current state | Checked in |
 | --- | --- | --- |
-| Android device testing | A debug build has started on one phone, and the Account screen rendered. The screens have not been clicked through | Milestone 3 |
-| API connection from the app on a phone | `adb reverse` works from the phone, but the only press of the app's check that was observed failed, likely because the mapping was missing | Milestone 4 |
+| Android device testing | A debug build has started on one phone, the Account screen rendered and its connection check succeeded. Navigation, rotation and keyboard use have not been tested | Milestone 3 |
 | ARM64 image | The base image and pinned packages are available for ARM64, but no ARM64 image has been built or run. The local container is Linux AMD64 | Milestone 10 |
 
 ## Planned

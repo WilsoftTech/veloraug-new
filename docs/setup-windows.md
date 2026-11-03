@@ -78,4 +78,4 @@ The build then adds Android SDK Platform 36 by itself.
 
 ## Not verified yet
 
-A successful API connection from inside the app on a phone, a full click-through on a phone, and an ARM64 image. The app has started on a phone, and a Linux AMD64 container has run: see the [Step 4C report](step-04c-report.md). See the [roadmap](roadmap.md#still-unverified).
+Navigation, rotation and keyboard use on a phone, and an ARM64 image. The app has started on a phone and reached the local API, and a Linux AMD64 container has run: see the [Step 4C report](step-04c-report.md). See the [roadmap](roadmap.md#still-unverified).
