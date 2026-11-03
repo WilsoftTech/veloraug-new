@@ -120,6 +120,33 @@ Read from the phone with `adb`, on 3 November. These are the panel's own sanitiz
 | 19:01:43 | Sign in | 3.4 seconds | Code exchanged, refresh token returned, nonce matched |
 | 19:02:17 | Sign in | 1.4 seconds | Same |
 
+### Latest browser results
+
+Reported by the owner from browser testing. **Which browser was used hasn't been confirmed, so these results aren't attributed to one.** The device log holds none of them.
+
+**Latest sequence, with no sign-in between the steps:**
+
+| Step | Observed |
+| --- | --- |
+| 1. Fresh sign-in | Succeeded |
+| 2. Revoke the refresh token | `200` |
+| 3. Refresh immediately | `400 invalid_grant` |
+
+**Earlier results:**
+
+| Step | Observed |
+| --- | --- |
+| Refresh | Succeeded, and the token rotated |
+| Reuse the old refresh token | Rejected |
+| Refresh with the current token after that reuse | Rejected |
+
+**What these do and don't show:**
+
+- They record what happened, and not why. Neon's internal handling isn't established, including what it does with a token family after reuse. Neon's guide describes revoking a user's refresh tokens on reuse, and these results are consistent with that, but they don't prove it.
+- **Only refresh-token behaviour was tested.** Nothing here shows that an access token stops working when its refresh token is revoked. The plan expects an issued access token to stay valid until `exp`, and that is untested.
+- **FastAPI verification hasn't passed, because it doesn't exist yet.** Token signature verification is Step 5E. Sign-out and the Neon browser session are separate from this result too.
+- Whether the earlier results came from the same browser, or from the web app at all, isn't recorded.
+
 ## Android `PlatformException` investigation
 
 **The cause of the earlier failures isn't established, so no behaviour fix has been applied.** PKCE, state, nonce, callback checks and the sign-in flow are unchanged.
@@ -161,6 +188,8 @@ Sanitized phone logs, with query strings and paths removed before display. Nothi
 
 ### Reproduction results
 
+These results concern sign-in and sign-out. The cause of the `CANCELED` result is still unknown, and the [browser results](#latest-browser-results) don't change that.
+
 **The root cause remains unresolved, and no fix has been applied.**
 
 - **What is now known:** the one recorded failure was `CANCELED` with the plugin's "User canceled authentication" message, meaning Auth Tab returned `RESULT_CANCELED`. It wasn't a launch failure, a verification failure or the resume clean-up.
@@ -176,7 +205,11 @@ Sanitized phone logs, with query strings and paths removed before display. Nothi
 
 Neon's metadata lists `client_secret_basic`, `client_secret_post` and `private_key_jwt` for revocation, and not `none`. A public client has no secret, so the panel's **Revoke refresh token** may be refused. That is untested. The metadata also lists an `end_session_endpoint`, which is the alternative to try if `/sign-out` proves inadequate.
 
+**Later result:** revoke was not refused in browser testing. It returned `200`, and the next refresh was refused, despite that metadata. See the [browser results](#latest-browser-results).
+
 ## Gate results
+
+Updated with the [browser results](#latest-browser-results). Gate statuses haven't changed, but the evidence and gaps for G4, G5 and G8 have.
 
 Checked against the `development` branch, whose Auth URL `neon-auth status` confirms is the one in the app's settings. The criteria are the [plan's gate definitions](step-05a-neon-plan.md#step-5b-gates). All phone evidence is from one phone: a Samsung `SM-G981U1` on Android 13 with Chrome 156.
 
@@ -185,11 +218,11 @@ Checked against the `development` branch, whose Auth URL `neon-auth status` conf
 | G1 | **Passed** | Checker: metadata reachable, `issuer` equals the Auth URL, JWKS lists an Ed25519 key | Nothing |
 | G2 | **Passed** | Neon accepted the `.invalid` resource (checker), and real access tokens are JWTs with it in `aud` (device log). The configuration alone wouldn't have passed this | Nothing. Signature checking belongs to Step 5E |
 | G3 | **Partially verified** | Sign-in on the pages reached the callback repeatedly | Sign-up and email code through consent were not recorded. How long the signed query lasts is not measured |
-| G4 | **Partially verified** | Chrome on the phone reached the callback. Sign-ins of 1.3 to 3.4 seconds are consistent with a reused session, but nobody recorded that no form appeared | Confirmation on the phone. Chrome and Edge on the computer are required and not tested. Firefox not tested |
-| G5 | **Partially verified** | Android: code exchange (device log), and two refreshes reporting rotation (user-reported) | **Web not tested, so browser CORS is unproven.** Old refresh token rejection not tested. The pass requires web and Android |
+| G4 | **Partially verified** | Chrome on the phone reached the callback. Sign-ins of 1.3 to 3.4 seconds are consistent with a reused session, but nobody recorded that no form appeared. A fresh sign-in also succeeded in a browser whose identity isn't confirmed | Confirmation on the phone. Which browser was tested, and session reuse in it. Chrome and Edge on the computer are both required, and neither is attributed yet. Firefox not recorded |
+| G5 | **Partially verified** | Android: code exchange (device log), and two refreshes reporting rotation (user-reported). Browser testing: sign-in, rotation, old-token rejection, and rejection of the current token after reuse (user-reported). The panel could only show `200` and `400 invalid_grant` if the browser let it read those responses | **Confirmation that the browser results came from the web app at `http://localhost:8765`.** The pass requires web and Android, so the gate stays open until then |
 | G6 | **Partially verified** | The pass criterion, "code reaches the app", was met repeatedly. The checker and `pm get-app-links` both report `verified`, and Google's Digital Asset Links service confirms the link | One `CANCELED` result of unknown cause, and earlier failures with no recorded code. Whether the return button is ever needed wasn't recorded. No other phone or default browser tested |
 | G7 | **Passed** | Recorded below, with secret values excluded | Nothing. These facts come from an unverified read of the token |
-| G8 | **Partially verified** | The sign-out page confirmed, and the device cleared its tokens | Revoke not reported. Whether the next sign-in shows the form not recorded, and [timing raises doubt](#reproduction-results). Server-side logout not shown |
+| G8 | **Partially verified** | Revoke for a public client: `200`, then an immediate refresh returned `400 invalid_grant`, with no sign-in between (user-reported, browser unconfirmed). The sign-out page confirmed, and the device cleared its tokens | Whether the next sign-in shows the form isn't recorded, and [timing raises doubt](#reproduction-results). Server-side logout not shown. Revoke on the phone isn't attributed. Access token behaviour after revoke not tested |
 | G9 | **Not tested** | None | Everything: what sign-up and reset reveal |
 
 No gate has failed, so the stop rule hasn't been triggered.
@@ -214,12 +247,15 @@ This confirms what Step 5E's plan needs: `aud` as an array means `strict_aud` mu
 
 ### G4: browsers
 
+One browser test has been reported without its browser being named, so the computer browsers below are "not attributed", rather than untested.
+
 | Browser | Sign-in reaches the callback | Session reused on next sign-in |
 | --- | --- | --- |
-| Chrome, computer (required) | Not tested | Not tested |
-| Edge, computer (required) | Not tested | Not tested |
+| Unconfirmed browser | **Yes** (user-reported) | Not recorded |
+| Chrome, computer (required) | Not attributed | Not recorded |
+| Edge, computer (required) | Not attributed | Not recorded |
 | Chrome, phone (required) | **Yes** | Not confirmed. Short sign-ins are consistent with it |
-| Firefox, computer | Not tested | Not tested |
+| Firefox, computer | Not attributed | Not recorded |
 | Safari | Not tested, and none is available on this computer | Not tested |
 
 ### Earlier gate snapshot
@@ -249,6 +285,36 @@ Refresh behaviour still to record: whether the token rotates, whether a rotated 
 | Safari | Not run, and none is available on this computer | Not run |
 
 ## Remaining manual tests
+
+Only checks that aren't complete, in order. The revoke, rotation and old-token results are already recorded, so they aren't repeated for the browser already tested.
+
+**First, confirm:**
+
+1. **Which browser you used,** whether it was the web app at `http://localhost:8765`, and whether the earlier rotation and old-token results came from the same browser. This can close G5, and it decides what step 8 covers.
+
+**On the phone, on the Account screen under Sign-in proof:**
+
+2. **G8, form after sign-out.** Press **End browser session**, then tap the sign-out button on the page. Press **Sign in**, and record whether the sign-in form appears. Complete the sign-in. If the form doesn't appear, record that too, because it means the Neon session survived.
+3. **G4, session reuse.** Press **Sign in** again. Record whether the app returns with no form.
+4. **G8, revoke on the Android client.** Skip this if the revoke sequence has already run on the phone. Press **Revoke refresh token** and record the status, then press **Refresh** and record the result.
+5. **G6, cancelling on purpose.** Press **End browser session**, and tap the sign-out button. Press **Sign in**, then close the tab with Back. Record that you closed it by hand.
+6. **G3, sign-up.** Press **Sign in**, choose **Create an account**, and use a mailbox with no account. Enter the emailed code, and record whether the consent page appears. Press **Allow**, and record whether the app reopens by itself or the "Return to VeloraUG" page appears.
+7. **G3, signed query life.** Press **End browser session** and tap the sign-out button. Press **Sign in** and leave the sign-in form open for 15 minutes, then sign in. If it works, repeat with 60 minutes. Record the outcome and any message.
+8. **G9, what the pages reveal.** Press **Sign in**. Record the exact message for each of these: a wrong password, **Forgot password** with an address that has an account, **Forgot password** with one that doesn't, and **Create an account** with an address that already has one.
+
+**On the computer**, using the web app:
+
+9. **G4 and G8, the browser already tested.** Press **Sign in** and complete it, then press **Sign in** again and record whether the form appears. Press **End browser session**, tap the sign-out button, then press **Sign in** and record whether the form appears.
+10. **G4, each required browser not yet covered.** Chrome and Edge are both required. Repeat step 9 in whichever isn't the browser from step 1.
+11. **G4, Firefox, if you have it and it wasn't the browser tested.** Repeat step 9. A failure here is recorded for you to decide on, and doesn't stop the milestone.
+
+**Last:**
+
+12. Run `python infra\neon\check_step05b.py` again, and send me your notes.
+
+### Earlier test list
+
+Kept as history, and replaced by the list above.
 
 Run them in this order, because the earlier ones leave the state that the later ones need. Successful refreshes and revokes aren't in the device log, so **note those results from the panel**.
 
