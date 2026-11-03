@@ -81,7 +81,7 @@ $env:VELORAUG_ALLOWED_ORIGINS = '["http://localhost:8765","http://localhost:9000
 
 The app refuses to start if a setting is invalid, such as an unknown environment, the wildcard `*`, or an origin with a trailing slash.
 
-**`.env` files are not loaded.** A `.env` file does nothing by itself: a program has to be written to read it, and this one isn't. Creating `services/api/.env` would have no effect, and a test confirms that. There is no `.env.example` for the same reason, as it would suggest a file that does nothing. Add both when the API first needs a secret.
+**`.env` files are not loaded.** A `.env` file does nothing by itself: a program has to be written to read it, and this one isn't. Creating `services/api/.env` would have no effect, and a test confirms that. `.env.example` is a template for a setting that [Milestone 5C proposes](../../docs/step-05a-plan.md#configuration). Nothing reads it yet.
 
 ## The concepts, using this service as the example
 

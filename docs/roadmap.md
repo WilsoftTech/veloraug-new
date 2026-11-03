@@ -52,6 +52,9 @@ These have **not** been shown to work on this machine:
 ## Planned
 
 ### Milestone 5: Accounts and database
+
+Planned in the [Step 5A plan](step-05a-plan.md). Nothing is implemented yet.
+
 - [ ] Set up Supabase sign-in and PostgreSQL
 - [ ] Add database access rules
 - [ ] Have the API verify signed-in users
