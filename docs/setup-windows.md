@@ -62,6 +62,37 @@ flutter devices
 
 The checked machine has about 6 GB of RAM, which is not enough to run Android Studio, an emulator and Docker comfortably together. Close whichever you are not using.
 
+### Android build memory
+
+Android builds start three separate JVMs, and each is configured in a different place:
+
+| JVM | Setting | Where | Peak private memory in a fresh-clone debug build |
+| --- | --- | --- | --- |
+| Launcher, started by `gradlew` | No limit set, because it stays small | `DEFAULT_JVM_OPTS` in `apps/client/android/gradlew` and `gradlew.bat` | 200 MB |
+| Gradle daemon | `-Xmx2g`, 768 MB metaspace, 256 MB code cache | `org.gradle.jvmargs` in `apps/client/android/gradle.properties` | At most 1,500 MB |
+| Kotlin daemon | `-Xmx1g`, 512 MB metaspace, 128 MB code cache | `kotlin.daemon.jvmargs` in the same file | 690 MB |
+
+**Why these limits.** The Gradle daemon had been allowed `-Xmx8G` on a machine with 5.9 GB of RAM, and the Kotlin daemon inherited that because it had no setting of its own. With those settings, the Gradle daemon peaked at 3,687 MB and the Kotlin daemon at 772 MB in a fresh-clone debug build.
+
+**Results on 3 November 2026.** These are single runs of debug builds, so they aren't a benchmark. The later builds also had warmer caches, so their times aren't comparable.
+
+| Build | Result | Time | Lowest free commit |
+| --- | --- | --- | --- |
+| Fresh clone, old settings | Succeeded | 276 s | 4.08 GB |
+| Fresh clone, new settings | Succeeded | 171 s | 5.71 GB |
+| This project, new settings, no daemon running beforehand | Succeeded, and the live JVMs had the new flags | 116 s | 6.09 GB |
+
+**What the crash logs show.** Four JVM crash logs from 3 November, three from the Gradle daemon and one from the launcher, report that the system had run out of commit: 0 to 183 MB left of about 24.5 GB. The crashing JVMs held only 161 MB to 2.3 GB, and desktop apps held much of the rest when measured later, so these limits lower the risk without removing it. None of the three builds above crashed. The cause of the one earlier APK build failure was never captured, so it isn't attributed to memory.
+
+**Before a large build,** close browsers and other apps you don't need, and stop WSL with `wsl --shutdown` if nothing needs it.
+
+**Not tested:** release builds, which may need more memory. If a build reports an `OutOfMemoryError`, raise that JVM's `-Xmx`. To apply a change, stop the daemons first, because a running daemon keeps its settings:
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\apps\client\android
+.\gradlew.bat --stop
+```
+
 ## Known quirk
 
 Running `sdkmanager` on the checked version downloaded an extra Android CLI tool and showed a usage-data notice. Use `flutter doctor -v` for routine checks.
