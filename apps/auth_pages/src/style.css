@@ -1,56 +1,276 @@
+@import './tokens.css';
+
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+  color-scheme: dark;
+  font-family: var(--velora-font-family);
+  line-height: 1.5;
+  color: var(--velora-color-text-primary);
+  background: var(--velora-color-canvas);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  padding: 16px;
+  padding: var(--velora-space-lg) var(--velora-space-md);
+  min-height: 100vh;
+  background: var(--velora-color-canvas);
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  font-size: 1.25rem;
+  font-weight: 800;
+  gap: var(--velora-space-xs);
+  letter-spacing: -0.01em;
+  margin: 0 auto var(--velora-space-lg);
+  max-width: var(--velora-width-form);
+}
+
+.brand-mark {
+  flex: none;
+  height: 24px;
+  width: 24px;
+}
+
+.brand-mark-left {
+  fill: var(--velora-color-text-primary);
+}
+
+.brand-mark-right {
+  fill: var(--velora-color-accent-text);
+}
+
+.brand-suffix {
+  color: var(--velora-color-accent-text);
 }
 
 main {
+  background: var(--velora-color-surface);
+  border: var(--velora-stroke-hairline) solid var(--velora-color-outline-subtle);
+  border-radius: var(--velora-radius-lg);
   margin: 0 auto;
-  max-width: 420px;
+  max-width: var(--velora-width-form);
+  padding: var(--velora-space-lg);
+}
+
+@media (min-width: 600px) {
+  body {
+    padding-top: var(--velora-space-xxl);
+  }
+
+  main {
+    padding: var(--velora-space-xl);
+  }
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 0 0 var(--velora-space-lg);
+}
+
+p {
+  margin: var(--velora-space-sm) 0;
+}
+
+main > p:first-child {
+  margin-top: 0;
+}
+
+main > p:last-child {
+  margin-bottom: 0;
 }
 
 form,
 .actions {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--velora-space-md);
 }
 
 label {
+  color: var(--velora-color-text-secondary);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  font-size: 0.875rem;
+  gap: var(--velora-space-xxs);
 }
 
-input,
-button,
-.button {
-  box-sizing: border-box;
+input {
+  background: var(--velora-color-canvas);
+  border: var(--velora-stroke-hairline) solid var(--velora-color-outline);
+  border-radius: var(--velora-radius-md);
+  color: var(--velora-color-text-primary);
   font: inherit;
-  padding: 10px;
+  font-size: 1rem;
+  min-height: var(--velora-touch-target);
+  padding: var(--velora-space-sm) var(--velora-space-md);
+  transition: border-color var(--velora-motion-fast) ease-out;
   width: 100%;
 }
 
+input:hover {
+  border-color: var(--velora-color-text-secondary);
+}
+
+input:focus {
+  border-color: var(--velora-color-accent-text);
+  outline: var(--velora-stroke-hairline) solid var(--velora-color-accent-text);
+}
+
+input:user-invalid {
+  border-color: var(--velora-color-danger);
+}
+
+input:disabled {
+  border-color: var(--velora-color-outline-subtle);
+  color: var(--velora-color-text-disabled);
+}
+
+/* Keeps a browser's autofill from painting a light box on the dark page. */
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--velora-color-text-primary);
+  box-shadow: 0 0 0 1000px var(--velora-color-surface-raised) inset;
+  caret-color: var(--velora-color-text-primary);
+}
+
+button,
 .button {
-  display: block;
+  align-items: center;
+  background: var(--velora-color-accent);
+  border: var(--velora-stroke-hairline) solid transparent;
+  border-radius: var(--velora-radius-md);
+  color: var(--velora-color-on-accent);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  justify-content: center;
+  min-height: var(--velora-touch-target);
+  padding: var(--velora-space-sm) var(--velora-space-lg);
   text-align: center;
+  text-decoration: none;
+  transition:
+    background-color var(--velora-motion-fast) ease-out,
+    transform var(--velora-motion-fast) ease-out;
+  width: 100%;
 }
 
+form button {
+  margin-top: var(--velora-space-xs);
+}
+
+button:hover:not(:disabled),
+.button:hover {
+  background: var(--velora-color-accent-hover);
+}
+
+button:active:not(:disabled),
+.button:active {
+  background: var(--velora-color-accent-pressed);
+  transform: scale(0.99);
+}
+
+button:disabled {
+  background: var(--velora-color-surface-overlay);
+  color: var(--velora-color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* The second action, Deny on the consent page, is the quieter choice. */
+.actions button + button {
+  background: transparent;
+  border-color: var(--velora-color-outline);
+  color: var(--velora-color-text-primary);
+}
+
+.actions button + button:hover:not(:disabled) {
+  background: var(--velora-color-surface-raised);
+}
+
+.actions button + button:active:not(:disabled) {
+  background: var(--velora-color-surface-overlay);
+}
+
+.actions button + button:disabled {
+  border-color: var(--velora-color-outline-subtle);
+  color: var(--velora-color-text-disabled);
+}
+
+a {
+  color: var(--velora-color-accent-text);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--velora-color-text-primary);
+}
+
+/* A link alone on its line gets a comfortable height to tap. */
+main > p > a:only-child {
+  display: inline-block;
+  padding: var(--velora-space-xxs) 0;
+}
+
+.button,
+.button:hover {
+  color: var(--velora-color-on-accent);
+}
+
+:focus-visible {
+  outline: var(--velora-stroke-focus) solid var(--velora-color-focus-ring);
+  outline-offset: var(--velora-stroke-focus);
+}
+
+input:focus-visible {
+  outline-offset: 0;
+}
+
+/* Used for both progress and failure, so the words carry the meaning. */
 .notice {
-  border-left: 4px solid;
-  margin: 12px 0;
-  padding: 4px 12px;
+  background: var(--velora-color-info-container);
+  border-left: 4px solid var(--velora-color-accent-text);
+  border-radius: var(--velora-radius-sm);
+  margin: var(--velora-space-md) 0;
+  overflow-wrap: anywhere;
+  padding: var(--velora-space-sm) var(--velora-space-md);
 }
 
-dd {
-  margin: 0 0 8px;
-  overflow-wrap: anywhere;
+dl {
+  margin: 0 0 var(--velora-space-lg);
 }
 
 dt {
+  color: var(--velora-color-text-secondary);
+  font-size: 0.875rem;
   font-weight: 600;
+}
+
+dd {
+  margin: 0 0 var(--velora-space-sm);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+  }
+
+  button:active:not(:disabled),
+  .button:active {
+    transform: none;
+  }
 }

@@ -28,6 +28,14 @@ Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is com
 - [x] Click through every screen by hand in a browser (manually verified and reported by the project owner: see the [Step 3 verification note](step-03-report.md#verification-note-3-november-2026))
 - [x] Run it on a phone or emulator (navigation and rotation manually verified and reported by the project owner on a physical phone: see the same note)
 
+### Step 3B: Design system
+
+A first version of the visual design, added after Milestone 3 without renumbering anything. See the [design system](design-system.md) and the [Step 3B report](step-03b-report.md).
+
+- [x] Implementation: shared tokens, Flutter theme and components, restyled screens and sign-in pages, and a development-only showcase
+- [ ] **User visual approval: PENDING USER REVIEW**
+- [ ] Check the showcase and the normal app on the phone (not run: the phone was disconnected)
+
 ### Milestone 4: FastAPI skeleton
 
 - [x] Create the service in `services/api/` with its own virtual environment

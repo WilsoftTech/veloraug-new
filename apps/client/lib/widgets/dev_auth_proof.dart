@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../auth/browser_failure.dart';
 import '../auth/oauth_client.dart';
 import '../auth/oauth_config.dart';
+import '../theme/tokens.dart';
 
 /// Allows time to read an email and enter its code during sign-up.
 const int _browserTimeoutSeconds = 600;
@@ -193,34 +194,40 @@ class _DevAuthProofState extends State<DevAuthProof> {
       'Revoke refresh token': _revoke,
       'End browser session': _endBrowserSession,
     };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Sign-in proof (Step 5B, development only)',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        if (problem != null)
-          Text(problem)
-        else ...[
-          Text('Running on: ${kIsWeb ? 'web' : 'Android'}'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final MapEntry(key: name, value: action) in actions.entries)
-                OutlinedButton(
-                  onPressed: _busy ? null : () => _run(name, action),
-                  child: Text(name),
-                ),
+    return Card.outlined(
+      child: Padding(
+        padding: const EdgeInsets.all(VeloraSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sign-in proof (Step 5B, development only)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: VeloraSpacing.xs),
+            if (problem != null)
+              Text(problem)
+            else ...[
+              Text('Running on: ${kIsWeb ? 'web' : 'Android'}'),
+              const SizedBox(height: VeloraSpacing.xs),
+              Wrap(
+                spacing: VeloraSpacing.xs,
+                runSpacing: VeloraSpacing.xs,
+                children: [
+                  for (final MapEntry(key: name, value: action)
+                      in actions.entries)
+                    OutlinedButton(
+                      onPressed: _busy ? null : () => _run(name, action),
+                      child: Text(name),
+                    ),
+                ],
+              ),
+              const SizedBox(height: VeloraSpacing.xs),
+              SelectableText(_results.join('\n')),
             ],
-          ),
-          const SizedBox(height: 8),
-          SelectableText(_results.join('\n')),
-        ],
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

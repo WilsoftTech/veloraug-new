@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../screens/account_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/search_screen.dart';
+import '../theme/tokens.dart';
+import '../widgets/brand.dart';
 
 /// Screens at least this wide use a side rail. Narrower ones use a bottom bar.
-const double wideLayoutBreakpoint = 600;
+const double wideLayoutBreakpoint = VeloraLayout.mediumBreakpoint;
 
 class _Destination {
   const _Destination(this.label, this.icon, this.selectedIcon, this.screen);
@@ -39,7 +41,7 @@ class _AppShellState extends State<AppShell> {
     final isWide = MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('VeloraUG')),
+      appBar: AppBar(title: const VeloraWordmark()),
       body: SafeArea(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,6 +79,7 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: isWide
           ? null
           : NavigationBar(
+              animationDuration: VeloraMotion.of(context, VeloraMotion.slow),
               selectedIndex: _selectedIndex,
               onDestinationSelected: _select,
               destinations: [

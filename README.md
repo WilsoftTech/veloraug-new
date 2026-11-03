@@ -21,6 +21,7 @@ Why separate the API and the worker? Converting a movie can take a long time and
 
 - [docs/architecture.md](docs/architecture.md): how the parts fit together, and where configuration and secrets go
 - [docs/roadmap.md](docs/roadmap.md): milestones, and what is still unverified
+- [docs/design-system.md](docs/design-system.md): colours, type, spacing, components and accessibility rules
 - [docs/setup-windows.md](docs/setup-windows.md): preparing a Windows development machine
 - [infra/README.md](infra/README.md): running the API in Docker
 

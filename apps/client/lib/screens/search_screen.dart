@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../widgets/empty_state.dart';
 import '../widgets/screen_body.dart';
+import '../widgets/velora_search_field.dart';
 
 class SearchScreen extends StatelessWidget {
   const SearchScreen({super.key});
@@ -11,14 +12,7 @@ class SearchScreen extends StatelessWidget {
     return const ScreenBody(
       heading: 'Search',
       children: [
-        TextField(
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            labelText: 'Search movies',
-            prefixIcon: Icon(Icons.search),
-            border: OutlineInputBorder(),
-          ),
-        ),
+        VeloraSearchField(),
         EmptyState(
           icon: Icons.manage_search,
           title: "Search isn't connected yet",

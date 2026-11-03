@@ -1,0 +1,63 @@
+/*
+  VeloraUG design tokens for the sign-in pages. docs/design-system.md is the
+  specification, and apps/client/lib/theme/tokens.dart holds the same values.
+  A Flutter test fails if the two drift apart.
+
+  The Content-Security-Policy in public/_headers allows only this site, so
+  these pages use system fonts and no data: images.
+*/
+:root {
+  --velora-color-canvas: #0e1014;
+  --velora-color-surface: #171a1f;
+  --velora-color-surface-raised: #1f2329;
+  --velora-color-surface-overlay: #2a2f37;
+
+  --velora-color-text-primary: #f4f2ec;
+  --velora-color-text-secondary: #bcc1ca;
+  --velora-color-text-muted: #9aa1ad;
+  --velora-color-text-disabled: #7f8691;
+
+  --velora-color-accent: #1a66f5;
+  --velora-color-accent-hover: #1e69f5;
+  --velora-color-accent-pressed: #1557d6;
+  --velora-color-on-accent: #ffffff;
+  --velora-color-accent-text: #7db2ff;
+  --velora-color-focus-ring: #b8d4ff;
+
+  --velora-color-outline: #7c8491;
+  --velora-color-outline-subtle: #343a43;
+
+  --velora-color-success: #5fd39a;
+  --velora-color-success-container: #12291f;
+  --velora-color-warning: #f5be5b;
+  --velora-color-warning-container: #2c2312;
+  --velora-color-danger: #ff8a80;
+  --velora-color-danger-container: #301a1a;
+  --velora-color-info-container: #14233d;
+
+  --velora-space-xxs: 4px;
+  --velora-space-xs: 8px;
+  --velora-space-sm: 12px;
+  --velora-space-md: 16px;
+  --velora-space-lg: 24px;
+  --velora-space-xl: 32px;
+  --velora-space-xxl: 48px;
+  --velora-space-xxxl: 64px;
+
+  --velora-radius-sm: 8px;
+  --velora-radius-md: 12px;
+  --velora-radius-lg: 16px;
+
+  --velora-stroke-hairline: 1px;
+  --velora-stroke-focus: 2px;
+
+  --velora-width-form: 420px;
+  --velora-touch-target: 48px;
+
+  --velora-motion-fast: 120ms;
+  --velora-motion-standard: 200ms;
+  --velora-motion-slow: 320ms;
+
+  --velora-font-family:
+    Roboto, 'Segoe UI', 'Helvetica Neue', 'Noto Sans', Arial, sans-serif;
+}

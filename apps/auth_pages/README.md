@@ -2,7 +2,7 @@
 
 A minimal Vite and React site using `@neon/auth`. Neon Auth redirects to these pages during sign-in, because it provides no default pages and has no Flutter SDK. See the [Neon plan](../../docs/step-05a-neon-plan.md#2-auth-pages).
 
-**This is the Step 5B proof, not the finished pages.** Styling, password reset completion, resending codes and final wording come in Step 5C.
+**This is the Step 5B proof, not the finished pages.** Password reset completion, resending codes and final wording come in Step 5C. The styling comes from the [design system](../../docs/design-system.md), and `src/tokens.css` must match the Flutter tokens. Visual approval is pending.
 
 It holds no secrets. Everything here is public, including the Neon Auth URL, which is built into the pages. It never connects to the database.
 
@@ -21,6 +21,8 @@ cd C:\Users\Wilsoft\veloraug\apps\auth_pages
 npm ci
 npm test
 ```
+
+To preview the pages without reaching Neon, see the [Step 3B report](../../docs/step-03b-report.md#preview-the-sign-in-pages).
 
 ## Deploy to the development site
 

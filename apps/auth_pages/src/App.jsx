@@ -390,8 +390,19 @@ const pages = {
 export function App() {
   const Page = pages[window.location.pathname];
   return (
-    <main>
-      {Page ? <Page /> : <p>Open this site from the VeloraUG app.</p>}
-    </main>
+    <>
+      <header className="brand">
+        <svg className="brand-mark" viewBox="0 0 100 100" aria-hidden="true">
+          <path className="brand-mark-left" d="M4 14H32L60 88H40Z" />
+          <path className="brand-mark-right" d="M68 14H96L66 88L53 54Z" />
+        </svg>
+        <span>
+          Velora<span className="brand-suffix">UG</span>
+        </span>
+      </header>
+      <main>
+        {Page ? <Page /> : <p>Open this site from the VeloraUG app.</p>}
+      </main>
+    </>
   );
 }

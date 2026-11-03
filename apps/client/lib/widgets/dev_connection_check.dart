@@ -3,6 +3,9 @@ import 'package:http/http.dart' as http;
 
 import '../api/api_client.dart';
 import '../api/api_config.dart';
+import '../theme/tokens.dart';
+import 'loading_placeholder.dart';
+import 'status_badge.dart';
 
 enum _Phase { idle, loading, success, failure }
 
@@ -108,7 +111,7 @@ class _DevConnectionCheckState extends State<DevConnectionCheck> {
 
     return Card.outlined(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(VeloraSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -116,19 +119,19 @@ class _DevConnectionCheckState extends State<DevConnectionCheck> {
               'Development only: API connection check',
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VeloraSpacing.xs),
             Text(
               'Asks the local API whether it is answering. This check is left '
               'out of release builds.',
               style: mutedStyle,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: VeloraSpacing.xs),
             Text('API address: ${widget.baseUrl}', style: mutedStyle),
-            const SizedBox(height: 16),
+            const SizedBox(height: VeloraSpacing.md),
             Semantics(liveRegion: true, child: _buildStatus(theme, mutedStyle)),
             FilledButton(
               style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
+                minimumSize: const Size.fromHeight(VeloraLayout.minTouchTarget),
               ),
               onPressed: _phase == _Phase.loading ? null : _runCheck,
               child: Text(switch (_phase) {
@@ -151,33 +154,36 @@ class _DevConnectionCheckState extends State<DevConnectionCheck> {
         return const SizedBox.shrink();
       case _Phase.loading:
         return const Padding(
-          padding: EdgeInsets.only(bottom: 16),
+          padding: EdgeInsets.only(bottom: VeloraSpacing.md),
           child: Row(
             children: [
-              SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 12),
+              VeloraSpinner(),
+              SizedBox(width: VeloraSpacing.sm),
               Expanded(child: Text('Checking the API…')),
             ],
           ),
         );
       case _Phase.success:
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: VeloraSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _statusHeading(Icons.check_circle_outline, 'The API answered'),
-              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: StatusBadge(
+                  label: 'The API answered',
+                  tone: StatusTone.success,
+                ),
+              ),
+              const SizedBox(height: VeloraSpacing.xs),
               if (serviceInfo != null)
                 Text(
                   'Service: ${serviceInfo.service}\n'
                   'API version: ${serviceInfo.apiVersion}\n'
                   'Environment: ${serviceInfo.environment}',
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: VeloraSpacing.xs),
               Text(
                 'This only shows that the API process responded. It does not '
                 'check sign-in, payments, a database or production readiness.',
@@ -188,15 +194,21 @@ class _DevConnectionCheckState extends State<DevConnectionCheck> {
         );
       case _Phase.failure:
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: VeloraSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _statusHeading(Icons.error_outline, 'The check failed'),
-              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: StatusBadge(
+                  label: 'The check failed',
+                  tone: StatusTone.danger,
+                ),
+              ),
+              const SizedBox(height: VeloraSpacing.xs),
               Text(_failureMessage ?? 'Something went wrong.'),
               if (_configError == null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: VeloraSpacing.xs),
                 Text(
                   'Check that the API is running. On a phone connected by USB, '
                   'also run: adb reverse tcp:8000 tcp:8000',
@@ -207,15 +219,5 @@ class _DevConnectionCheckState extends State<DevConnectionCheck> {
           ),
         );
     }
-  }
-
-  Widget _statusHeading(IconData icon, String text) {
-    return Row(
-      children: [
-        ExcludeSemantics(child: Icon(icon)),
-        const SizedBox(width: 12),
-        Expanded(child: Text(text)),
-      ],
-    );
   }
 }
