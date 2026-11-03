@@ -1,0 +1,21 @@
+# Local development only. Not for the Oracle server. See infra/README.md.
+name: veloraug-local
+
+services:
+  api:
+    build:
+      context: ../services/api
+    image: veloraug-api:local
+    ports:
+      # 127.0.0.1 keeps the API reachable from this computer only.
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

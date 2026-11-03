@@ -6,6 +6,8 @@ The FastAPI backend, written in Python. It will become the trusted part of the s
 
 Later it will verify Supabase users, fetch movie details from TMDB, handle Pesapal payments and issue playback access. See the [roadmap](../../docs/roadmap.md).
 
+This page runs the API directly with Python. To run it in a container instead, see [infra/README.md](../../infra/README.md).
+
 ## Setup
 
 You need Python 3.13. Check with `python --version`. Run these once in PowerShell:
@@ -58,6 +60,7 @@ cd C:\Users\Wilsoft\veloraug\services\api
 | `requirements.txt` | Exact versions of the packages needed to run the API |
 | `requirements-dev.txt` | The above, plus the test and lint tools |
 | `pyproject.toml` | Settings for pytest and Ruff |
+| `Dockerfile`, `.dockerignore` | How to build the container image, and which files it may contain |
 
 An **application factory** is a function that builds the app when called. It lets each test build an app with its own settings. That is why the start command has `--factory`.
 

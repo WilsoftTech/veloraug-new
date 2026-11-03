@@ -73,7 +73,7 @@ Each service can commit a `.env.example` file containing variable names and fake
 
 ## Oracle production images must support ARM64
 
-The Oracle server has an ARM64 processor, while this development machine's Docker engine is `linux/amd64`. An image must match the server's processor type, so every production image needs an ARM64 build. See [infra/README.md](../infra/README.md).
+The Oracle server has an ARM64 processor, while this development machine's Docker engine is `linux/amd64`. An image must match the server's processor type, so every production image needs an ARM64 build. The local API container runs on `linux/amd64` only, and no ARM64 image has been built or run yet. See [infra/README.md](../infra/README.md).
 
 ## Cost target
 

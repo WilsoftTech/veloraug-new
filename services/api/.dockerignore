@@ -1,0 +1,8 @@
+# Exclude everything, then allow only what the image needs. This covers .venv,
+# caches, Git metadata, secrets, uploaded media, build outputs, tests and
+# anything added later. Patterns here are case-sensitive, so listing what to
+# exclude could miss a file such as MOVIE.MKV.
+*
+
+!requirements.txt
+!app/**/*.py

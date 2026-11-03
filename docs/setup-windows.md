@@ -76,4 +76,4 @@ The build then adds Android SDK Platform 36 by itself.
 
 ## Not verified yet
 
-An Android device run and an actual Docker container run. See the [roadmap](roadmap.md#still-unverified).
+An Android device run and an ARM64 image. A Linux AMD64 container has run: see [infra/README.md](../infra/README.md). See the [roadmap](roadmap.md#still-unverified).

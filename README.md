@@ -12,7 +12,7 @@ A movie platform with one Flutter app for web and Android, and a Python backend.
 | `services/api/` | The FastAPI backend: the app's trusted server, which handles accounts, payments and access checks | Minimal service: health and identification endpoints only |
 | `services/worker/` | Background media processing: turns uploaded movies into streamable video | Placeholder |
 | `services/media_gateway/` | The Cloudflare Worker: checks access, then delivers video to viewers | Placeholder |
-| `infra/` | Docker and cloud configuration | Placeholder |
+| `infra/` | Docker and cloud configuration | Local Docker setup for the API only |
 | `docs/` | Architecture, roadmap, Windows setup and step reports | Written |
 
 Why separate the API and the worker? Converting a movie can take a long time and uses a lot of CPU. Keeping that work apart means the API stays responsive while a movie is processing.
@@ -22,6 +22,7 @@ Why separate the API and the worker? Converting a movie can take a long time and
 - [docs/architecture.md](docs/architecture.md): how the parts fit together, and where configuration and secrets go
 - [docs/roadmap.md](docs/roadmap.md): milestones, and what is still unverified
 - [docs/setup-windows.md](docs/setup-windows.md): preparing a Windows development machine
+- [infra/README.md](infra/README.md): running the API in Docker
 
 ## Secrets
 
