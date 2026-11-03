@@ -1,5 +1,7 @@
 # Step 5A plan: accounts and database
 
+> **Superseded on 3 November 2026. Do not implement this plan.** The project replaced Supabase with Neon PostgreSQL and Neon Auth before any of this was built. The current plan is the [Neon plan](step-05a-neon-plan.md). This file is kept unchanged below as a record of the earlier plan.
+
 Date: 3 November 2026. This plans Milestone 5 in the [roadmap](roadmap.md). **Milestone 5 is not complete, and nothing in this plan is implemented.** No dependency was installed, no Supabase project was created or changed, and no SQL has been run, including the draft below.
 
 Supabase changes often, so its behaviour here comes from the [official pages listed at the end](#sources), as read on this date. Dashboard labels may differ slightly.

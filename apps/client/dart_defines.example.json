@@ -1,5 +1,8 @@
 {
   "API_BASE_URL": "http://127.0.0.1:8000",
-  "SUPABASE_URL": "https://YOUR_PROJECT_REF.supabase.co",
-  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_REPLACE_ME"
+  "NEON_AUTH_URL": "https://ep-example.neonauth.eu-central-1.aws.neon.tech/neondb/auth",
+  "NEON_AUTH_WEB_CLIENT_ID": "REPLACE_ME_WEB_CLIENT_ID",
+  "NEON_AUTH_ANDROID_CLIENT_ID": "REPLACE_ME_ANDROID_CLIENT_ID",
+  "API_RESOURCE": "https://api-dev.veloraug.invalid",
+  "AUTH_PAGES_URL": "https://veloraug-auth-dev.pages.dev"
 }

@@ -9,7 +9,9 @@ This is the approved plan. **Only the Flutter app shell and a minimal FastAPI se
 | App | Flutter/Dart | One app for web and Android |
 | Web hosting | Cloudflare Pages | Serves the Flutter web build |
 | Backend | Python/FastAPI | Trusted server: access rules, payments, TMDB requests |
-| Accounts and database | Supabase | Hosted sign-in and PostgreSQL |
+| Accounts | Neon Auth (Managed Better Auth) | Hosted sign-in. Flutter uses it through OAuth with PKCE |
+| Sign-in pages | Vite and React with `@neon/auth`, on Cloudflare Pages | Login, sign-up, reset and consent pages, because Neon has no Flutter SDK and provides no default pages |
+| Database | Neon PostgreSQL | Stores app data. Only the backend connects to it |
 | Movie details | TMDB | Titles, posters and descriptions |
 | Uploads | tusd | Uploads that can resume after a dropped connection |
 | Media processing | FFmpeg/FFprobe | Inspects movies and converts them to HLS |
@@ -24,9 +26,13 @@ This is the approved plan. **Only the Flutter app shell and a minimal FastAPI se
 ## How it fits together
 
 ```text
+Signing in
+  Flutter app --> Neon Auth --> sign-in pages: the user signs in and consents
+  Neon Auth --> Flutter app: access token and refresh token
+
 Watching
-  Flutter app --> FastAPI: "may I watch this?"
-  FastAPI checks the Supabase user and their payment, then grants access
+  Flutter app --> FastAPI, with the access token: "may I watch this?"
+  FastAPI verifies the token, checks their payment in Neon PostgreSQL, then grants access
   Flutter app --> Cloudflare Worker: checks the access --> private R2
 
 Publishing
@@ -35,13 +41,16 @@ Publishing
 
 Paying
   Flutter app --> FastAPI --> Pesapal
-  Pesapal --> FastAPI: confirms the payment --> Supabase records it
+  Pesapal --> FastAPI: confirms the payment --> Neon PostgreSQL records it
 ```
 
-Two rules follow from this design:
+Three rules follow from this design:
 
 - The app is never trusted to decide who has paid. The backend decides.
 - R2 stays private. Viewers only reach video through the Worker.
+- The app never connects to the database. It has no database address or credentials, and Neon's Data API stays off.
+
+Accounts and database are planned in the [Neon plan](step-05a-neon-plan.md), and its first step tests the sign-in route against a real project before other work depends on it.
 
 ## Open design tasks
 
@@ -59,13 +68,15 @@ Nothing here exists yet, and no values are needed now. The API has two optional 
 | Value | Later location |
 | --- | --- |
 | API address, Worker address | Flutter build settings (`--dart-define-from-file`), using an ignored `dart_defines*.json` file locally and Cloudflare Pages build settings for the web build |
-| Supabase project URL and public client key | Same. The public key is only safe once database access rules (Row Level Security) are in place |
+| Neon Auth URL, OAuth client IDs, API resource identifier, sign-in pages address | Same. Public OAuth clients have no client secret. The sign-in pages use the Neon Auth URL only, from an ignored `.env.local` file and Cloudflare Pages settings |
 
 **Secrets** must never reach the Flutter app or Git.
 
 | Value | Later location |
 | --- | --- |
-| Supabase server key, TMDB key, Pesapal credentials, R2 keys, Telegram token | Local: an ignored `.env` file beside the service that uses it. Production: an `.env` file on the Oracle server, outside Git, readable only by the deployment account |
+| API database connection string, TMDB key, Pesapal credentials, R2 keys, Telegram token | Local: an ignored `.env` file beside the service that uses it. Production: an `.env` file on the Oracle server, outside Git, readable only by the deployment account |
+| Migration connection string (database owner) | The owner's terminal, for the length of a migration only. Never in the API's environment |
+| Email provider (SMTP) credentials, later | Neon Console only |
 | Cloudflare Worker secrets | Cloudflare's encrypted Worker secrets. Local: an ignored `.dev.vars` file |
 | Android signing key | Outside the repository, with a backup. `key.properties` and key files are ignored |
 

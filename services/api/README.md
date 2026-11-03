@@ -4,7 +4,7 @@ The FastAPI backend, written in Python. It will become the trusted part of the s
 
 **Today it is only a foundation.** It has two endpoints and no database, sign-in, TMDB, uploads or payments. The Flutter app calls it only from a [development-only connection check](../../apps/client/README.md#connect-to-the-local-api).
 
-Later it will verify Supabase users, fetch movie details from TMDB, handle Pesapal payments and issue playback access. See the [roadmap](../../docs/roadmap.md).
+Later it will verify Neon Auth users, use Neon PostgreSQL, fetch movie details from TMDB, handle Pesapal payments and issue playback access. See the [roadmap](../../docs/roadmap.md).
 
 This page runs the API directly with Python. To run it in a container instead, see [infra/README.md](../../infra/README.md).
 

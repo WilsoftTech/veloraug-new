@@ -53,11 +53,14 @@ These have **not** been shown to work on this machine:
 
 ### Milestone 5: Accounts and database
 
-Planned in the [Step 5A plan](step-05a-plan.md). Nothing is implemented yet.
+Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded [Supabase plan](step-05a-plan.md). Nothing is implemented yet.
 
-- [ ] Set up Supabase sign-in and PostgreSQL
-- [ ] Add database access rules
-- [ ] Have the API verify signed-in users
+- [ ] 5B: Set up a Neon development branch and minimal sign-in pages, and test the sign-in route on web and one phone
+- [ ] 5C: Finish the sign-in pages on Cloudflare Pages
+- [ ] 5D: Add sign-in to the Flutter app on web and Android
+- [ ] 5E: Have the API verify signed-in users
+- [ ] 5F: Add migrations, the API's database role and database access rules
+- [ ] 5G: Check everything end to end
 
 ### Milestone 6: Movie catalogue
 - [ ] Fetch TMDB details through the API
@@ -82,6 +85,7 @@ Planned in the [Step 5A plan](step-05a-plan.md). Nothing is implemented yet.
 ### Milestone 10: Pilot deployment
 - [ ] Build and run ARM64 images on Oracle with Docker Compose, using a separate Compose file from the local one
 - [ ] Publish the web app on Cloudflare Pages
+- [ ] Set up production Neon Auth, sign-in pages, custom email and the production Android link
 - [ ] Measure real costs against the $20/month pilot target
 
 ## Check before launch

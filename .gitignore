@@ -42,11 +42,10 @@ coverage/
 local.properties
 captures/
 
-# Cloudflare and Supabase local state
+# Cloudflare and Neon local state
 .wrangler/
 dist/
-.supabase/
-supabase/.temp/
+.neon
 
 # Signing keys
 key.properties
