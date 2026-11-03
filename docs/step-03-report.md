@@ -4,6 +4,34 @@ Date: 2 November 2026. This is Milestone 3 in the [roadmap](roadmap.md). Milesto
 
 Tools: Flutter 3.47.9 (stable), Dart 3.13.7, Windows 11, about 6 GB of RAM.
 
+## Verification note, 3 November 2026
+
+*Added after this report was written. The report below is kept as written, and where they differ, this note is current.*
+
+**The remaining Milestone 3 checks are now confirmed by manual, user-reported verification.** The project owner reported that all of these passed:
+
+| Where | Check |
+| --- | --- |
+| Chrome | Navigation between Home, Search and Account |
+| Chrome | Narrow and wide layouts |
+| Chrome | Tab and Enter controls |
+| Physical Android phone | Navigation |
+| Physical Android phone | Rotation between portrait and landscape, and the layout in each |
+
+The owner observed these results directly. They were not seen by the automated tooling, and no screenshots were captured. The report did not name the phone.
+
+**Milestone 3 is complete.** Its two remaining criteria were a click-through of every screen in a browser and a run on a phone or emulator, and both are now met.
+
+This note does **not** verify:
+
+- Keyboard use on a phone, which was not part of the owner's report
+- A failure and retry cycle inside the app on a phone
+- Any other Android device
+- Use with a real screen reader
+- Building or running an ARM64 image, on Oracle or anywhere else
+
+The results from the [Step 4C report](step-04c-report.md#verification-note-3-november-2026) are separate: that note covers the API connection check on the phone.
+
 ## What was built
 
 - A Flutter app in `apps/client/`, for web and Android only, with the Dart package name `veloraug`.

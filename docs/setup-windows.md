@@ -78,4 +78,4 @@ The build then adds Android SDK Platform 36 by itself.
 
 ## Not verified yet
 
-Navigation, rotation and keyboard use on a phone, and an ARM64 image. The app has started on a phone and reached the local API, and a Linux AMD64 container has run: see the [Step 4C report](step-04c-report.md). See the [roadmap](roadmap.md#still-unverified).
+Keyboard use and a failure and retry cycle on a phone, other Android devices, a real screen reader and an ARM64 image. Navigation and rotation on a phone have passed: see the [Step 3 report](step-03-report.md#verification-note-3-november-2026). The app has reached the local API from a phone, and a Linux AMD64 container has run: see the [Step 4C report](step-04c-report.md). See the [roadmap](roadmap.md#still-unverified).
