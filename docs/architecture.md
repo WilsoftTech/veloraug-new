@@ -1,6 +1,6 @@
 # Architecture
 
-This is the approved plan. **Only the Flutter app shell is built so far.** Everything else here is still planned.
+This is the approved plan. **Only the Flutter app shell and a minimal FastAPI service are built so far, and they are not connected.** The service has health and identification endpoints only. Everything else here is still planned.
 
 ## The parts
 
@@ -52,7 +52,7 @@ These are undecided, and neither feature exists yet:
 
 ## Where configuration and secrets will live
 
-Nothing here exists yet, and no values are needed now.
+Nothing here exists yet, and no values are needed now. The API has two optional settings that are not secret, and it does not load `.env` files yet. See [its README](../services/api/README.md#settings).
 
 **Public configuration** is safe for anyone to see, because anything built into a web or Android app can be extracted by its users.
 

@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2 November 2026.
+Last updated: 3 November 2026.
 
-Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in progress: see the [Step 3 report](step-03-report.md). Milestones 4 onward are a proposed order and may change.
+Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in progress: see the [Step 3 report](step-03-report.md). Step 4 covers the first part of Milestone 4, so Milestone 4 is also in progress: see the [Step 4 report](step-04-report.md). Milestones 5 onward are a proposed order and may change.
 
 ## Completed
 
@@ -30,6 +30,14 @@ Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is in 
 - [ ] Click through every screen by hand in a browser
 - [ ] Run it on a phone or emulator (**not tested**: no device was online)
 
+### Milestone 4: FastAPI skeleton
+
+- [x] Create the service in `services/api/` with its own virtual environment
+- [x] Add a health-check endpoint
+- [x] Add a service-identification endpoint at `/api/v1`
+- [ ] Run it in a local Docker container (not part of Step 4)
+- [ ] Connect the Flutter app to it (not part of Step 4)
+
 ## Still unverified
 
 These have **not** been shown to work on this machine:
@@ -40,12 +48,6 @@ These have **not** been shown to work on this machine:
 | Docker container run | The engine responds, but no container has been run | Milestone 4 |
 
 ## Planned
-
-### Milestone 4: FastAPI skeleton
-- [ ] Create the service in `services/api/` with its own virtual environment
-- [ ] Add a health-check endpoint
-- [ ] Run it in a local Docker container
-- [ ] Connect the Flutter app to it
 
 ### Milestone 5: Accounts and database
 - [ ] Set up Supabase sign-in and PostgreSQL
