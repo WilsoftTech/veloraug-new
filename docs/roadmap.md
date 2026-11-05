@@ -67,9 +67,9 @@ These have **not** been shown to work on this machine:
 
 ### Milestone 5: Accounts and database
 
-Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded [Supabase plan](step-05a-plan.md). The Neon project moved to Frankfurt, next to the Oracle server, so Step 5B's setup and tests are being repeated there. The Step 5B proof is built and passes local checks, but its gates haven't all passed against Neon or a phone: see the [Step 5B report](step-05b-report.md).
+Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded [Supabase plan](step-05a-plan.md). The Neon project moved to Frankfurt, next to the Oracle server. Step 5B's gates passed there on one phone and in Chrome and Edge, with some results user-reported: see the [Step 5B report](step-05b-report.md).
 
-- [ ] 5B: Set up a Neon development branch and minimal sign-in pages, and test the sign-in route on web and one phone
+- [x] 5B: Set up a Neon development branch and minimal sign-in pages, and test the sign-in route on web and one phone
 - [ ] 5C: Finish the sign-in pages on Cloudflare Pages
 - [ ] 5D: Add sign-in to the Flutter app on web and Android
 - [ ] 5E: Have the API verify signed-in users

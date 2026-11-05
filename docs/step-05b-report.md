@@ -2,7 +2,7 @@
 
 Date: 3 November 2026. This follows the [Neon plan](step-05a-neon-plan.md).
 
-**Current status: Step 5B is not complete, and its gates must be rechecked.** On 5 November the Neon project was recreated in Frankfurt, next to the Oracle server. [Setup on the new project](#remaining-manual-tests) hasn't been run, so no gate has passed there yet. All earlier gate results come from the old project, and stay here as history. No migration has been run and nothing has been pushed. The cause of the earlier Android `CANCELED` result is unknown.
+**Current status: all nine Step 5B gates have passed on the Frankfurt project,** on one phone and in Chrome and Edge. Some results are user-reported, as marked below. See the [gate results](#gate-results-on-the-new-project) and [what stays open](#what-stays-open). No migration has been run and nothing has been pushed. On 5 November the Neon project was recreated in Frankfurt, next to the Oracle server, so all earlier gate results come from the old project and stay here as history.
 
 Status before the move, kept as history: G1, G2 and G7 had passed, G3, G4, G5, G6 and G8 were partially verified, G9 was not tested, and no gate had failed.
 
@@ -209,9 +209,137 @@ Neon's metadata lists `client_secret_basic`, `client_secret_post` and `private_k
 
 **Later result:** revoke was not refused in browser testing. It returned `200`, and the next refresh was refused, despite that metadata. See the [browser results](#latest-browser-results).
 
+## New project setup
+
+Run by the owner on 5 November 2026, then checked read-only with the Neon CLI. Project `rapid-violet-90573131`, `aws-eu-central-1`, branch `development`.
+
+| Item | Result |
+| --- | --- |
+| Setup script, both phases | Succeeded. No errors reported |
+| Pages | Deployed. The live bundle contains the new Auth host and not the old one |
+| `check_step05b.py` | All checks passed (owner's run) |
+| **G1** | **Passed on the new project:** metadata reachable, `issuer` equals the Auth URL, and JWKS lists an Ed25519 key |
+| OAuth clients | Web and Android clients are public, consent isn't skipped, and the callbacks and resource are exact |
+| Email on `development` | Sign-up on, verification required, by code, with auto sign-in after verification |
+| `main` | Auth not configured, as intended |
+| Data API | Not enabled on `development` |
+
+**What this doesn't show.** It is configuration evidence, with no real sign-in behind it. G2 needs a real token, because Neon accepting the resource doesn't show it issues a JWT for it. The check's `verified` line for Android shows the domain link, and not that a callback works with the new project. The app on the phone was built with the old project's settings, so it must be installed again before testing.
+
+### Gate results on the new project
+
+From the owner's phone runs on 5 November, on the same phone, now with Chrome 157. The panel text was pasted by the owner, and the device log shows the same sign-ins. Refresh results are from the panel only.
+
+| Gate | Status | Evidence | Still missing |
+| --- | --- | --- | --- |
+| G1 | **Passed** | Checker, above | Nothing |
+| G2 | **Passed** | Real access tokens are JWTs with `https://api-dev.veloraug.invalid` in `aud` | Nothing. Signature checking belongs to Step 5E |
+| G3 | **Passed** | The owner created an account and received an emailed code, and a 56-second sign-in then exchanged a code. The signed query lasts 601 seconds, measured | The consent page wasn't recorded. It is inferred, because consent isn't skipped for this client |
+| G4 | **Passed** | Phone: the owner saw the form after sign-out, and a following sign-in took 1.4 seconds, too short to type a password. Chrome and Edge on the computer: the owner reports that both passed the test | Nothing required. Firefox and Safari not tested, and only named browsers are covered |
+| G5 | **Passed** | Android and web both: code exchange, refresh with rotation, old refresh token refused, and then the current token refused too, all `400 invalid_grant`. The [web run](#web-run-on-the-new-project) used the web client, and the panel could read every response, so browser CORS allowed these calls | Nothing for this gate |
+| G6 | **Passed on one phone** | The pass criterion, "code reaches the app", was met repeatedly, and Android reports the domain as `verified`. The owner reports that the "Return to VeloraUG" page never appeared, so the app reopened by itself and the return button wasn't needed | [Three `CANCELED` results stay unexplained](#what-stays-open). No other phone or default browser tested |
+| G7 | **Passed** | Same results as [before](#g7-real-access-token): `EdDSA`, `kid` present, `aud` an array, `sub` a UUID, `iat` present, 3,600 seconds, and the same claim names | Nothing. This is an unverified read of the token |
+| G8 | **Passed** | Revoke on the web client: `200`, then an immediate refresh returned `400 invalid_grant`. Sign-out: the owner saw the sign-in form after **End browser session** on the phone, and reports the browser test passed | Nothing for this gate, which asks about a public client. Not shown: refusal after revoke on the Android client, server-side session state, or whether an issued access token stops working |
+| G9 | **Passed** | Recorded [below](#latest-phone-run-on-the-new-project). Neither reset, sign-up nor a wrong password revealed on screen whether an address has an account | Nothing for this gate, which requires a record. Response timing and email content weren't compared |
+
+### Latest phone run on the new project
+
+Owner's panel text and notes from 5 November, with times from the device log. Reset and sign-up results are user-reported.
+
+| Test | Observed | What it does and doesn't show |
+| --- | --- | --- |
+| **Forgot password**, address with an account | "Request accepted" | Same on-screen result for both addresses |
+| **Forgot password**, address with no account | "Request accepted" | Timing and emails not compared |
+| **Create an account**, existing address | The code page appeared and an email arrived. Entering the code returned "validation failed" and "invalid OTP" | The screen doesn't reveal the account at this step. The owner of the address gets a code that doesn't work, which Step 5C should handle. Why the code was refused isn't established |
+| Revoke | `200` | A sign-in followed, so nothing shows the revoked token was refused on this project |
+| Refresh | Rotated again | |
+| **Reuse old refresh token** | "refresh once first", many times | **Not a result.** The panel only holds the old token straight after **Refresh**, and a sign-in clears it |
+| **End browser session** at 18:01:49 | Confirmed, then sign-in took 4.9 seconds and exchanged a code | Whether a form appeared isn't recorded. Autofill or a surviving session could both fit |
+| **End browser session** at 18:02:16 | Confirmed, then a sign-in tab stayed open for 4 minutes 10 seconds, ending in `CANCELED` | Inside the 10-minute limit, so expiry doesn't explain it. It may be the tab used for the reset and sign-up tests, but that isn't confirmed |
+
+### Second phone run on the new project
+
+Owner's panel text and notes from 5 November.
+
+| Step | Observed | What it does and doesn't show |
+| --- | --- | --- |
+| Sign in, then **Refresh** | Rotated | |
+| **Reuse old refresh token** | `400 invalid_grant` | The old token was refused |
+| **Refresh** with the current token | `400 invalid_grant` | After the reuse, the current token was refused too. Neon's internal reason isn't established |
+| **Revoke refresh token** | `400` | **Not a revoke result.** That token had already been refused. A live token returned `200` in the earlier run |
+| **Refresh** after that | `400 invalid_grant` | Same: the token was already refused |
+| **End browser session**, then **Sign in** | The owner saw the sign-in form, and the sign-in took 36 seconds | Sign-out ended the browser's session. Server-side session state wasn't inspected |
+| **Sign in** again | 1.4 seconds, code exchanged | Session reuse |
+| Wrong password for a real account | `invalid_credentials: Invalid email or password` | Same message as an unknown address, from the [earlier probe](#sign-up-error-validation_failed) and the SDK mapping |
+| Sign in, after sign-out and the wrong password test | `CANCELED` after 1 minute 22 seconds | The test asked for the tab to be closed with Back, but the owner hasn't confirmed that was done. If so, a hand-closed tab gives the same result as the two unexplained ones, but that wouldn't prove those were also closed by hand |
+
+Nothing here tests access tokens, which may stay valid until `exp`, or FastAPI verification, which doesn't exist yet.
+
+### Web run on the new project
+
+Owner's panel text from 5 November. The token's `client_id` is the web client's, which only accepts the callback at `http://localhost:8765/auth.html`, so this ran in the web app. The owner reports testing in both Edge and Chrome, and that all checks passed. This panel text is from one of them, and only this run's text was provided.
+
+| Step | Observed | What it does and doesn't show |
+| --- | --- | --- |
+| **Sign in** | 29 seconds, code exchanged, refresh token returned, nonce matched | Exchange worked from the browser |
+| **Refresh** | Rotated | |
+| **Reuse old refresh token** | `400 invalid_grant` | The old token was refused |
+| **Refresh** with the current token | `400 invalid_grant` | After the reuse, the current token was refused too. Neon's internal reason isn't established |
+| **Sign in** | 2.1 seconds | Too short to type a password, so the session was reused |
+| **Revoke refresh token** | `200` | |
+| **Refresh** straight after | `400 invalid_grant`, with no sign-in between | The revoked refresh token was refused |
+| **End browser session**, then **Sign in** | Confirmed, then 37.5 seconds | Fits a form appearing |
+
+The token's other facts match [G7](#g7-real-access-token).
+
+### What stays open
+
+These don't block a gate, and each needs a later step:
+
+| Item | State | Handled in |
+| --- | --- | --- |
+| `CANCELED` results after 11 minutes 56 seconds, 4 minutes 10 seconds and 1 minute 22 seconds | Cause unknown. The owner hasn't confirmed closing those tabs by hand. Each was a tab left open, and the sign-ins that completed were shorter | 5D, which must show cancelling clearly and test it again |
+| "validation failed" messages | Don't tell the user what to do. The first sign-up error's cause isn't settled | 5C |
+| Create an account with an existing address | The owner of the address gets a code that doesn't work | 5C |
+| Access tokens after revoke or sign-out | Not tested. Expected to stay valid until `exp`, up to one hour | 5G |
+| Token signature verification | Not done. All token facts here are unverified reads | 5E |
+| Refusal after revoke on the Android client | Not shown. It was shown on the web client | 5D |
+| Response timing and email content for G9 | Not compared | 5C |
+| Other phones and default browsers, Firefox, Safari | Not tested | Before the pilot |
+| Visual approval of the restyled pages | Pending: see the [Step 3B report](step-03b-report.md) | Before 5C styling is final |
+
+### Sign-up error: `validation_failed`
+
+The owner's first attempt to create an account on the new project showed a 400 "validation failed" error. The tab then closed with `CANCELED` after 11 minutes 56 seconds, with no callback. The owner then created the account successfully, and received the emailed code.
+
+**The cause isn't settled.** The owner's exact message wasn't captured. An expired signed request fits the timing, and the owner's retry worked, but "validation failed" has at least three sources, as later testing showed.
+
+| What the page shows | Meaning |
+| --- | --- |
+| `validation_failed: HTTP 400 Bad Request` | The signed request expired |
+| `validation_failed: Invalid OTP` | The server refused the code |
+| `validation_failed: Too many attempts` | Too many tries |
+
+Evidence for the expiry explanation:
+
+| Evidence | Result |
+| --- | --- |
+| Life of a real signed query | `exp` was 601 seconds after it was issued |
+| The same query replayed after 615 seconds, to sign-up, sign-in, verify and `oauth2/continue` | All returned `400 {"error":"invalid_signature"}` |
+| That response through the SDK's real error mapping | The page shows `validation_failed: HTTP 400 Bad Request` |
+| A bad email through the same mapping | `email_address_invalid: [body.email] Invalid email address`, so it wouldn't look the same |
+| A short password through the same mapping | `weak_password: Password does not meet security requirements`, so it wouldn't look the same |
+| A fresh signed query with a realistic name | Accepted through to the password check |
+
+The probes used a too-short password or an unknown address, so they created no account.
+
+- **Not a setup fault, as far as tested.** Neon expires the request by design, and starting again from the app worked.
+- **Why it matters.** These messages don't tell the user what to do. Step 5C already requires "a clear message and a way back to the app" for an expired request, and should also give clear messages for the other two. No code was changed here.
+- **The `CANCELED` result.** Its cause still isn't shown. It is consistent with closing the tab after the error, but the owner hasn't confirmed that.
+
 ## Gate results
 
-**These results are from the old project in `aws-us-east-2`. None has been rechecked on the new project, so treat each gate as not yet verified there.** The Android package, certificate, callback and Pages address didn't change, and the sign-in code is the same, so these results are a guide to what to expect, not proof.
+**These results are from the old project in `aws-us-east-2`. Apart from [G1](#new-project-setup), none has been rechecked on the new project, so treat each gate as not yet verified there.** The Android package, certificate, callback and Pages address didn't change, and the sign-in code is the same, so these results are a guide to what to expect, not proof.
 
 Updated with the [browser results](#latest-browser-results). Gate statuses haven't changed, but the evidence and gaps for G4, G5 and G8 have.
 
@@ -290,7 +418,9 @@ Refresh behaviour still to record: whether the token rotates, whether a rotated 
 
 ## Remaining manual tests
 
-These replace all earlier lists, because every result has to come from the new project. Run them in order. The new project has no accounts, so the sign-up comes first. Successful refreshes and revokes aren't in the device log, so **note those results from the panel**. Record the name of each browser you use.
+**All tests needed for the gates are done.** The list below is kept as history.
+
+These replace all earlier lists, because every result has to come from the new project. **Already done on the new project:** setup and every phone step except the refusal check in step 3, which needs a live token: press **Sign in**, then **Revoke refresh token**, then **Refresh**. Then run the computer steps in order. The new project has no accounts, so the sign-up comes first. Successful refreshes and revokes aren't in the device log, so **note those results from the panel**. Record the name of each browser you use.
 
 **Set up the new project, in PowerShell:**
 
