@@ -2,14 +2,14 @@
 
 A minimal Vite and React site using `@neon/auth`. Neon Auth redirects to these pages during sign-in, because it provides no default pages and has no Flutter SDK. See the [Neon plan](../../docs/step-05a-neon-plan.md#2-auth-pages).
 
-**This is the Step 5B proof, not the finished pages.** Password reset completion, resending codes and final wording come in Step 5C. The styling comes from the [design system](../../docs/design-system.md), and `src/tokens.css` must match the Flutter tokens. Visual approval is pending.
+**These are the finished pages for Step 5C, as far as local checks go.** Their results against Neon are in the [Step 5C report](../../docs/step-05c-report.md). The styling comes from the [design system](../../docs/design-system.md), and `src/tokens.css` must match the Flutter tokens. Visual approval is pending.
 
 It holds no secrets. Everything here is public, including the Neon Auth URL, which is built into the pages. It never connects to the database.
 
 | Address | Purpose |
 | --- | --- |
 | `/login`, `/sign-up`, `/consent` | The sign-in flow. Neon sends the signed request here |
-| `/reset` | Requests a reset code, to test what the response reveals (gate G9) |
+| `/reset` | Resets a password with an emailed code. The wording is the same whether or not the address has an account |
 | `/sign-out` | Ends the Neon browser session, then returns to the app |
 | `/auth/callback/android` | The Android App Link target. Android normally opens the app without showing it |
 | `/.well-known/assetlinks.json` | Tells Android that `com.example.veloraug`, signed with this computer's debug certificate, may open those addresses |

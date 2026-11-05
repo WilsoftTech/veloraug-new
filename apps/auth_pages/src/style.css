@@ -187,22 +187,27 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* The second action, Deny on the consent page, is the quieter choice. */
-.actions button + button {
+/* The second action, Deny on the consent page, is the quieter choice. So is
+   sending a new code, which sits outside the form. */
+.actions button + button,
+.actions .button-quiet {
   background: transparent;
   border-color: var(--velora-color-outline);
   color: var(--velora-color-text-primary);
 }
 
-.actions button + button:hover:not(:disabled) {
+.actions button + button:hover:not(:disabled),
+.actions .button-quiet:hover:not(:disabled) {
   background: var(--velora-color-surface-raised);
 }
 
-.actions button + button:active:not(:disabled) {
+.actions button + button:active:not(:disabled),
+.actions .button-quiet:active:not(:disabled) {
   background: var(--velora-color-surface-overlay);
 }
 
-.actions button + button:disabled {
+.actions button + button:disabled,
+.actions .button-quiet:disabled {
   border-color: var(--velora-color-outline-subtle);
   color: var(--velora-color-text-disabled);
 }
@@ -244,6 +249,11 @@ input:focus-visible {
   margin: var(--velora-space-md) 0;
   overflow-wrap: anywhere;
   padding: var(--velora-space-sm) var(--velora-space-md);
+}
+
+.notice-error {
+  background: var(--velora-color-danger-container);
+  border-left-color: var(--velora-color-danger);
 }
 
 dl {
