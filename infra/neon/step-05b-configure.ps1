@@ -2,8 +2,8 @@
 Configures the Neon development branch for Step 5B. The owner runs this.
 
 It uses the owner's own Neon sign-in and handles no secrets. It changes only the
-development branch, apart from creating that branch from production, which does
-not alter production. It runs no migration.
+development branch, apart from creating that branch from main, which does
+not alter main. It runs no migration.
 
   -Phase Branch  Creates the branch, sets up email sign-in, and writes the Auth URL
                  to apps/auth_pages/.env.local. Run this before deploying the pages.
@@ -19,8 +19,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$ProjectId = 'round-block-80526448'
-$Parent = 'production'
+$ProjectId = 'rapid-violet-90573131'
+$Parent = 'main'
 $Branch = 'development'
 $PagesUrl = 'https://veloraug-auth-dev.pages.dev'
 $Resource = 'https://api-dev.veloraug.invalid'

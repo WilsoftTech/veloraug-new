@@ -11,7 +11,7 @@ This is the approved plan. **Only the Flutter app shell and a minimal FastAPI se
 | Backend | Python/FastAPI | Trusted server: access rules, payments, TMDB requests |
 | Accounts | Neon Auth (Managed Better Auth) | Hosted sign-in. Flutter uses it through OAuth with PKCE |
 | Sign-in pages | Vite and React with `@neon/auth`, on Cloudflare Pages | Login, sign-up, reset and consent pages, because Neon has no Flutter SDK and provides no default pages |
-| Database | Neon PostgreSQL | Stores app data. Only the backend connects to it |
+| Database | Neon PostgreSQL, in `aws-eu-central-1` (Frankfurt) | Stores app data. Only the backend connects to it, from the Oracle server, which is also in Frankfurt |
 | Movie details | TMDB | Titles, posters and descriptions |
 | Uploads | tusd | Uploads that can resume after a dropped connection |
 | Media processing | FFmpeg/FFprobe | Inspects movies and converts them to HLS |

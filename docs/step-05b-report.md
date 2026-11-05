@@ -2,7 +2,9 @@
 
 Date: 3 November 2026. This follows the [Neon plan](step-05a-neon-plan.md).
 
-**Current status: Step 5B is not complete.** G1, G2 and G7 have passed, G3, G4, G5, G6 and G8 are partially verified, G9 is not tested, and no gate has failed. See the [gate results](#gate-results) and the [remaining manual tests](#remaining-manual-tests). No migration has been run and nothing has been pushed. The cause of the Android `CANCELED` result is unknown.
+**Current status: Step 5B is not complete, and its gates must be rechecked.** On 5 November the Neon project was recreated in Frankfurt, next to the Oracle server. [Setup on the new project](#remaining-manual-tests) hasn't been run, so no gate has passed there yet. All earlier gate results come from the old project, and stay here as history. No migration has been run and nothing has been pushed. The cause of the earlier Android `CANCELED` result is unknown.
+
+Status before the move, kept as history: G1, G2 and G7 had passed, G3, G4, G5, G6 and G8 were partially verified, G9 was not tested, and no gate had failed.
 
 Status when this report was first written, kept as history: no gate had passed, the code and deployment files were ready and passed local checks, and nothing had been deployed or changed in Neon. The owner has since created the `development` branch, deployed the pages and created the OAuth clients.
 
@@ -209,6 +211,8 @@ Neon's metadata lists `client_secret_basic`, `client_secret_post` and `private_k
 
 ## Gate results
 
+**These results are from the old project in `aws-us-east-2`. None has been rechecked on the new project, so treat each gate as not yet verified there.** The Android package, certificate, callback and Pages address didn't change, and the sign-in code is the same, so these results are a guide to what to expect, not proof.
+
 Updated with the [browser results](#latest-browser-results). Gate statuses haven't changed, but the evidence and gaps for G4, G5 and G8 have.
 
 Checked against the `development` branch, whose Auth URL `neon-auth status` confirms is the one in the app's settings. The criteria are the [plan's gate definitions](step-05a-neon-plan.md#step-5b-gates). All phone evidence is from one phone: a Samsung `SM-G981U1` on Android 13 with Chrome 156.
@@ -285,6 +289,63 @@ Refresh behaviour still to record: whether the token rotates, whether a rotated 
 | Safari | Not run, and none is available on this computer | Not run |
 
 ## Remaining manual tests
+
+These replace all earlier lists, because every result has to come from the new project. Run them in order. The new project has no accounts, so the sign-up comes first. Successful refreshes and revokes aren't in the device log, so **note those results from the panel**. Record the name of each browser you use.
+
+**Set up the new project, in PowerShell:**
+
+```powershell
+cd C:\Users\Wilsoft\veloraug
+powershell -NoProfile -ExecutionPolicy Bypass -File infra\neon\step-05b-configure.ps1 -Phase Branch
+
+cd apps\auth_pages
+npm ci
+npm run build
+npx --yes wrangler@4.157.0 pages deploy dist --project-name veloraug-auth-dev --branch main
+
+cd ..\..
+powershell -NoProfile -ExecutionPolicy Bypass -File infra\neon\step-05b-configure.ps1 -Phase OAuth
+python infra\neon\check_step05b.py
+```
+
+The Auth URL is built into the pages, so they must be deployed again. This also puts the [restyled pages](step-03b-report.md) on the development site, ahead of your visual approval.
+
+**Install the app on the unlocked phone:**
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\apps\client
+flutter run "--dart-define-from-file=dart_defines.local.json"
+```
+
+**On the phone, on the Account screen under Sign-in proof:**
+
+1. **G3, sign-up.** Press **Sign in**, choose **Create an account**, and use one of your test mailboxes. Enter the emailed code, and record whether the consent page appears. Press **Allow**, and record whether the app reopens by itself or the "Return to VeloraUG" page appears.
+2. **G5, old refresh token.** Press **Refresh**, then **Reuse old refresh token**, then **Refresh** again. Record all three results.
+3. **G8, revoke.** Press **Sign in**. Press **Revoke refresh token** and record the status, then press **Refresh** and record the result.
+4. **G8, form after sign-out.** Press **End browser session**, then tap the sign-out button on the page. Press **Sign in**, record whether the sign-in form appears, and complete the sign-in. If the form doesn't appear, record that too, because it means the Neon session survived.
+5. **G4, session reuse.** Press **Sign in** again. Record whether the app returns with no form.
+6. **G6, cancelling on purpose.** Press **End browser session**, and tap the sign-out button. Press **Sign in**, then close the tab with Back. Record that you closed it by hand.
+7. **G3, signed query life.** Press **Sign in** and leave the sign-in form open for 15 minutes, then sign in. If it works, repeat with 60 minutes, after signing out as in step 6. Record the outcome and any message.
+8. **G9, what the pages reveal.** Sign out as in step 6, then press **Sign in**. Record the exact message for each of these: a wrong password, **Forgot password** with an address that has an account, **Forgot password** with one that doesn't, and **Create an account** with an address that already has one.
+
+**On the computer**, start the web app, allow pop-ups, and open `http://localhost:8765`, then Account:
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\apps\client
+flutter run -d web-server --web-hostname localhost --web-port 8765 "--dart-define-from-file=dart_defines.local.json"
+```
+
+9. **G5, G8 and G4, Chrome.** Press **Sign in** and complete it, then press **Refresh**, **Reuse old refresh token** and **Refresh**. Press **Sign in**, then **Revoke refresh token**, then **Refresh**. Press **Sign in** and record whether the form appears. Press **End browser session**, tap the sign-out button, press **Sign in**, and record whether the form appears.
+10. **G4, Edge.** Repeat step 9 in Edge.
+11. **G4, Firefox, if you have it.** Repeat step 9. A failure here is recorded for you to decide on, and doesn't stop the milestone.
+
+**Last:**
+
+12. Run `python infra\neon\check_step05b.py` again, and send me your notes.
+
+### Test list before the region move
+
+Kept as history.
 
 Only checks that aren't complete, in order. The revoke, rotation and old-token results are already recorded, so they aren't repeated for the browser already tested.
 
@@ -418,6 +479,8 @@ flutter run -d web-server --web-hostname localhost --web-port 8765 "--dart-defin
 **To send me:** the output of the check script, the text in the proof panel from each platform, your phone's Android and Chrome versions, its default browser, and your notes. I'll then record these here, investigate any failure within Neon's supported options, and update this report.
 
 ### Decision for you
+
+**Decided on 5 November 2026: recreate the project in `aws-eu-central-1` (Frankfurt).** The Oracle server is in Frankfurt, and the region can't be changed later. The new project is `veloraug`, `rapid-violet-90573131`. Its default branch is `main`, not `production`, and it started with Auth off and no `development` branch. The old project stays until the new one is verified, and then the owner deletes it. The original question follows, as history.
 
 **Keep `aws-us-east-2`, or recreate the project elsewhere?** It can't be changed later. Every API request will travel between the Oracle server and this region, so it should be close to that server, whose region I still don't know. Step 5B isn't affected. Recreating is cheap now, while the project is empty, so decide before Step 5F. It would need new Auth URLs and clients, and a script change.
 
