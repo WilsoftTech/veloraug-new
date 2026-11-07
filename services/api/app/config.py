@@ -1,7 +1,7 @@
 from typing import Literal
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
-from pydantic import field_validator, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,7 +13,10 @@ class Settings(BaseSettings):
     """
 
     # An empty variable, such as KEY="" in a Compose env file, counts as unset.
-    model_config = SettingsConfigDict(env_prefix="VELORAUG_", env_ignore_empty=True)
+    # Errors never quote a value, because the database URL holds a password.
+    model_config = SettingsConfigDict(
+        env_prefix="VELORAUG_", env_ignore_empty=True, hide_input_in_errors=True
+    )
 
     environment: Literal["development", "production"] = "development"
     allowed_origins: list[str] = ["http://localhost:8765"]
@@ -22,6 +25,10 @@ class Settings(BaseSettings):
     neon_auth_url: str | None = None
     api_resource: str | None = None
     neon_auth_client_ids: list[str] = []
+
+    # Secret. The pooled connection as veloraug_app. SecretStr keeps it out of
+    # reprs, logs and error messages.
+    database_url: SecretStr | None = None
 
     @field_validator("allowed_origins")
     @classmethod
@@ -78,6 +85,22 @@ class Settings(BaseSettings):
             raise ValueError("neon_auth_client_ids can't contain an empty ID")
         return client_ids
 
+    @field_validator("database_url")
+    @classmethod
+    def require_app_role(cls, url: SecretStr | None) -> SecretStr | None:
+        # The messages never quote the value: it holds a password.
+        if url is None:
+            return None
+        parts = urlsplit(url.get_secret_value())
+        if parts.scheme not in ("postgresql", "postgres") or not parts.hostname:
+            raise ValueError("database_url must be a postgresql:// connection string")
+        if unquote(parts.username or "") != "veloraug_app":
+            raise ValueError(
+                "database_url must use the veloraug_app role. The owner role "
+                "bypasses row-level security"
+            )
+        return url
+
     @property
     def sign_in_configured(self) -> bool:
         return bool(
@@ -98,4 +121,6 @@ class Settings(BaseSettings):
             )
         if self.environment == "production" and not self.sign_in_configured:
             raise ValueError("Production needs the sign-in settings")
+        if self.environment == "production" and self.database_url is None:
+            raise ValueError("Production needs VELORAUG_DATABASE_URL")
         return self

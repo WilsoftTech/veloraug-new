@@ -37,7 +37,7 @@ Good to know:
 
 ### Settings
 
-The Compose file passes the settings in `services/api/.env` to the container, if that file exists. That is how the API gets its sign-in settings. Without the file, the app's defaults apply: `development`, with `http://localhost:8765` as the allowed origin and no sign-in, so `/api/v1/me` answers `503`. Variables set in your terminal do **not** reach the container. The app itself never reads `.env`, and the image never contains it. The settings are listed in the [API README](../services/api/README.md#settings).
+The Compose file passes the settings in `services/api/.env` to the container, if that file exists. That is how the API gets its sign-in settings. Without the file, the app's defaults apply: `development`, with `http://localhost:8765` as the allowed origin and no sign-in, so `/api/v1/me` answers `503`. If `VELORAUG_DATABASE_URL` in that file uses any role other than `veloraug_app`, the container refuses to start: run the [role script](../services/api/README.md#2-create-the-apis-role) to replace it. Variables set in your terminal do **not** reach the container. The app itself never reads `.env`, and the image never contains it. The settings are listed in the [API README](../services/api/README.md#settings).
 
 ## The concepts, using this service as the example
 

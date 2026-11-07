@@ -28,6 +28,7 @@ def test_service_info_reports_the_configured_environment():
         neon_auth_url="https://auth.example.test/neondb/auth",
         api_resource="https://api.example.invalid",
         neon_auth_client_ids=["client-1"],
+        database_url="postgresql://veloraug_app:pw@127.0.0.1:1/test",
     )
     client = TestClient(create_app(settings))
 

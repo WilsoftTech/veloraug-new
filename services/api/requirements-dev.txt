@@ -1,6 +1,6 @@
-# Everything in requirements.txt, plus the tools for testing and linting.
+# Everything in requirements-migrate.txt, plus the tools for testing and linting.
 # Direct dependencies: httpx2, pytest, ruff.
--r requirements.txt
+-r requirements-migrate.txt
 colorama==0.4.6
 httpcore2==2.16.0
 httpx2==2.16.0

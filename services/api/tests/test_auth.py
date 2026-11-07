@@ -14,6 +14,7 @@ import socket
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import jwt
@@ -178,7 +179,28 @@ def api(jwks_url: str, cooldown: float = 30) -> TestClient:
             jwks_url, timeout=2, lifespan=300, cooldown_duration=cooldown
         ),
     )
-    return TestClient(create_app(SETTINGS, token_verifier=verifier))
+    return TestClient(
+        create_app(SETTINGS, token_verifier=verifier, database=FakeDatabase())
+    )
+
+
+class FakeDatabase:
+    """Stands in for Postgres, which tests/test_database.py covers. Every
+    profile it returns belongs to the user it was asked for."""
+
+    class _Connection:
+        def __init__(self, user_id):
+            self._user_id = user_id
+
+        def execute(self, query, params=()):
+            return self
+
+        def fetchone(self):
+            return (self._user_id, None)
+
+    @contextmanager
+    def as_user(self, user_id):
+        yield self._Connection(user_id)
 
 
 @pytest.fixture
@@ -204,7 +226,7 @@ def test_a_valid_token_returns_the_user_id(client):
     response = me(client, token())
 
     assert response.status_code == 200
-    assert response.json() == {"user_id": USER}
+    assert response.json() == {"user_id": USER, "display_name": None}
 
 
 @pytest.mark.parametrize(

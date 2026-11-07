@@ -12,6 +12,9 @@ def test_defaults_suit_local_development():
 
 
 ISSUER = "https://auth.example.test/neondb/auth"
+APP_DATABASE_URL = (
+    "postgresql://veloraug_app:app-secret@ep-x-pooler.neon.tech/neondb?sslmode=require"
+)
 SIGN_IN = {
     "neon_auth_url": ISSUER,
     "api_resource": "https://api.example.invalid",
@@ -25,6 +28,7 @@ def test_settings_are_read_from_environment_variables(monkeypatch):
     monkeypatch.setenv("VELORAUG_NEON_AUTH_URL", ISSUER)
     monkeypatch.setenv("VELORAUG_API_RESOURCE", "https://api.example.invalid")
     monkeypatch.setenv("VELORAUG_NEON_AUTH_CLIENT_IDS", '["web","android"]')
+    monkeypatch.setenv("VELORAUG_DATABASE_URL", APP_DATABASE_URL)
 
     settings = Settings()
 
@@ -33,6 +37,35 @@ def test_settings_are_read_from_environment_variables(monkeypatch):
     assert settings.neon_auth_url == ISSUER
     assert settings.neon_auth_client_ids == ["web", "android"]
     assert settings.sign_in_configured
+
+
+def test_production_refuses_to_start_without_the_database():
+    with pytest.raises(ValidationError, match="VELORAUG_DATABASE_URL"):
+        Settings(environment="production", **SIGN_IN)
+
+
+def test_the_database_url_is_kept_secret():
+    settings = Settings(database_url=APP_DATABASE_URL)
+
+    assert settings.database_url.get_secret_value() == APP_DATABASE_URL
+    assert "app-secret" not in repr(settings)
+    assert "app-secret" not in str(settings.model_dump())
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://neondb_owner:app-secret@ep-x-pooler.neon.tech/neondb",
+        "postgresql://app-secret@ep-x-pooler.neon.tech/neondb",
+        "mysql://veloraug_app:app-secret@host/db",
+        "postgresql://veloraug_app:app-secret@/db",
+    ],
+)
+def test_only_the_app_role_is_accepted_and_the_error_hides_the_url(url):
+    with pytest.raises(ValidationError) as caught:
+        Settings(database_url=url)
+
+    assert "app-secret" not in str(caught.value)
 
 
 def test_development_starts_without_sign_in_settings():

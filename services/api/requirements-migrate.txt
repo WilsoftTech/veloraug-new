@@ -1,0 +1,8 @@
+# Everything in requirements.txt, plus the migration tools. Not in the API image.
+# Direct dependencies: alembic, sqlalchemy. Migrations use psycopg, which
+# requirements.txt already pins.
+-r requirements.txt
+alembic==1.20.1
+Mako==1.4.3
+MarkupSafe==3.0.4
+SQLAlchemy==2.1.8
