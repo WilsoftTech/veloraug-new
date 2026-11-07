@@ -9,11 +9,46 @@ import 'pkce.dart';
 /// Opens the browser step and returns the address it ended on.
 typedef BrowserStep = Future<String> Function(Uri url, Uri redirectUri);
 
+/// What kind of failure an [OAuthException] is, so the app can word it.
+enum OAuthFailure {
+  /// The request timed out, couldn't connect, or a browser refused it (CORS).
+  network,
+
+  /// The browser came back to an address other than the registered callback.
+  wrongCallback,
+
+  /// The callback's `state` differs from the request's.
+  stateMismatch,
+
+  /// The callback or discovery named another issuer.
+  wrongIssuer,
+
+  /// The ID token's nonce differs from the request's.
+  nonceMismatch,
+
+  /// The person pressed Deny on the consent page (`access_denied`).
+  denied,
+
+  /// The sign-in request expired (`login_required`, from the timed-out page).
+  loginRequired,
+
+  /// The callback carried another OAuth error code.
+  refused,
+
+  /// The token endpoint refused the grant, for example a revoked or reused
+  /// refresh token. The tokens held are no longer usable.
+  grantRefused,
+
+  /// A reply was missing something or couldn't be read.
+  badReply,
+}
+
 /// A failure that is safe to show. It never contains a code or token.
 class OAuthException implements Exception {
-  const OAuthException(this.message);
+  const OAuthException(this.message, [this.kind = OAuthFailure.badReply]);
 
   final String message;
+  final OAuthFailure kind;
 
   @override
   String toString() => 'OAuthException: $message';
@@ -26,6 +61,7 @@ class OAuthTokens {
     required this.refreshToken,
     required this.expiresIn,
     required this.idTokenNonceMatched,
+    this.email,
   });
 
   final String accessToken;
@@ -35,6 +71,9 @@ class OAuthTokens {
   /// Null when the reply had no ID token. An ID token with the wrong nonce is
   /// refused, so this is never false.
   final bool? idTokenNonceMatched;
+
+  /// The `email` claim of the ID token, for display only.
+  final String? email;
 }
 
 class _Endpoints {
@@ -78,7 +117,10 @@ class OAuthClient {
       throw OAuthException('Discovery failed with ${response.statusCode}.');
     }
     if (body['issuer'] != config.issuer) {
-      throw const OAuthException('The issuer does not match this app.');
+      throw const OAuthException(
+        'The issuer does not match this app.',
+        OAuthFailure.wrongIssuer,
+      );
     }
     final authorization = body['authorization_endpoint'];
     final token = body['token_endpoint'];
@@ -139,20 +181,36 @@ class OAuthClient {
         uri.scheme != expected.scheme ||
         uri.authority != expected.authority ||
         uri.path != expected.path) {
-      throw const OAuthException('The sign-in returned to the wrong address.');
+      throw const OAuthException(
+        'The sign-in returned to the wrong address.',
+        OAuthFailure.wrongCallback,
+      );
     }
     final parameters = uri.queryParameters;
     // Checked first, so that an error reply from another request is ignored.
     if (parameters['state'] != expectedState) {
-      throw const OAuthException('The sign-in state did not match.');
+      throw const OAuthException(
+        'The sign-in state did not match.',
+        OAuthFailure.stateMismatch,
+      );
     }
     final issuer = parameters['iss'];
     if (issuer != null && issuer != config.issuer) {
-      throw const OAuthException('The sign-in came from the wrong issuer.');
+      throw const OAuthException(
+        'The sign-in came from the wrong issuer.',
+        OAuthFailure.wrongIssuer,
+      );
     }
     final error = parameters['error'];
     if (error != null) {
-      throw OAuthException('The sign-in was refused: ${_safeCode(error)}.');
+      throw OAuthException(
+        'The sign-in was refused: ${_safeCode(error)}.',
+        switch (error) {
+          'access_denied' => OAuthFailure.denied,
+          'login_required' => OAuthFailure.loginRequired,
+          _ => OAuthFailure.refused,
+        },
+      );
     }
     final code = parameters['code'];
     if (code == null || code.isEmpty) {
@@ -178,7 +236,9 @@ class OAuthClient {
     }, 'refresh');
   }
 
-  /// Revokes a refresh token. Returns the HTTP status for the proof to record.
+  /// Revokes a refresh token and returns the HTTP status. Neon answered `400`
+  /// for a token that was already unusable, so callers treat any status as
+  /// done: the device forgets the token either way.
   Future<int> revoke(String refreshToken) async {
     final endpoints = await _discover();
     final revocation = endpoints.revocation;
@@ -225,7 +285,13 @@ class OAuthClient {
     if (response.statusCode != 200) {
       final error = body['error'];
       final code = error is String ? ' (${_safeCode(error)})' : '';
-      throw OAuthException('Token $step failed: ${response.statusCode}$code.');
+      throw OAuthException(
+        'Token $step failed: ${response.statusCode}$code.',
+        // RFC 6749 section 5.2: a refused grant or client is a 400 or 401.
+        response.statusCode == 400 || response.statusCode == 401
+            ? OAuthFailure.grantRefused
+            : OAuthFailure.badReply,
+      );
     }
     final accessToken = body['access_token'];
     if (accessToken is! String || accessToken.isEmpty) {
@@ -236,10 +302,18 @@ class OAuthClient {
     final idToken = body['id_token'];
     if (expectedNonce != null && idToken is String) {
       if (readJwtPayload(idToken)?['nonce'] != expectedNonce) {
-        throw const OAuthException('The ID token nonce did not match.');
+        throw const OAuthException(
+          'The ID token nonce did not match.',
+          OAuthFailure.nonceMismatch,
+        );
       }
       nonceMatched = true;
     }
+    // Used only to show who is signed in. The token came straight from the
+    // token endpoint over HTTPS, but its signature isn't checked here.
+    final email = idToken is String
+        ? (readJwtPayload(idToken)?['email'])
+        : null;
 
     final refreshToken = body['refresh_token'];
     final expiresIn = body['expires_in'];
@@ -248,6 +322,7 @@ class OAuthClient {
       refreshToken: refreshToken is String ? refreshToken : null,
       expiresIn: expiresIn is int ? expiresIn : null,
       idTokenNonceMatched: nonceMatched,
+      email: email is String ? email : null,
     );
   }
 
@@ -258,11 +333,17 @@ class OAuthClient {
     try {
       return await request().timeout(_timeout);
     } on TimeoutException {
-      throw OAuthException('The $step request timed out.');
+      throw OAuthException(
+        'The $step request timed out.',
+        OAuthFailure.network,
+      );
     } on http.ClientException {
       // The message can include the address, so it isn't passed on. In a
       // browser this is also what a CORS refusal looks like.
-      throw OAuthException('The $step request was blocked or failed.');
+      throw OAuthException(
+        'The $step request was blocked or failed.',
+        OAuthFailure.network,
+      );
     }
   }
 
@@ -291,11 +372,6 @@ Map<String, dynamic>? readJwtPayload(String token) {
   return _readJwtPart(token, 1);
 }
 
-/// Reads a JWT's header, on the same terms as [readJwtPayload].
-Map<String, dynamic>? readJwtHeader(String token) {
-  return _readJwtPart(token, 0);
-}
-
 Map<String, dynamic>? _readJwtPart(String token, int index) {
   final parts = token.split('.');
   if (parts.length != 3) return null;
@@ -308,34 +384,4 @@ Map<String, dynamic>? _readJwtPart(String token, int index) {
   } on FormatException {
     return null;
   }
-}
-
-/// Facts about an access token that are safe to record for gate G7. It holds
-/// claim names and shapes, and leaves out the token, its signature and `sub`.
-List<String> describeAccessToken(String token) {
-  final header = readJwtHeader(token);
-  final payload = readJwtPayload(token);
-  if (header == null || payload == null) {
-    return ['Access token: opaque, not a JWT'];
-  }
-  final issuedAt = payload['iat'];
-  final expiresAt = payload['exp'];
-  final subject = payload['sub'];
-  final uuid = RegExp(
-    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-    caseSensitive: false,
-  );
-  return [
-    'Access token: JWT, signature not checked here',
-    'alg: ${header['alg']}, kid present: ${header['kid'] != null}',
-    'iss: ${payload['iss']}',
-    'aud: ${payload['aud']} (${payload['aud'].runtimeType})',
-    'client_id: ${payload['client_id']}',
-    'scope: ${payload['scope']}',
-    'sub is a UUID: ${subject is String && uuid.hasMatch(subject)}',
-    'iat present: ${issuedAt != null}',
-    if (issuedAt is int && expiresAt is int)
-      'lifetime: ${expiresAt - issuedAt} seconds',
-    'claim names: ${(payload.keys.toList()..sort()).join(', ')}',
-  ];
 }

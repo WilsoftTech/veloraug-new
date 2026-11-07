@@ -2,7 +2,7 @@
 
 The VeloraUG Flutter app: one Dart codebase for web and Android.
 
-It is currently only a shell, with Home, Search and Account screens. There are no movies, working search, accounts or payments yet. Its only network call is a development-only connection check to the local API, and it calls no third-party service.
+It is currently a shell, with Home, Search and Account screens. There are no movies, working search or payments yet. Accounts sign in through Neon Auth and the VeloraUG sign-in pages. Apart from that, its only network call is a development-only connection check to the local API.
 
 Everything built into this app can be read by its users, on web and on Android. It may only hold public configuration, never secrets. See [where configuration lives](../../docs/architecture.md#where-configuration-and-secrets-will-live).
 
@@ -148,11 +148,12 @@ The value must look like `scheme://host[:port]`. Plain `http` is only accepted f
 
 | Path | What is in it |
 | --- | --- |
-| `lib/app.dart` | App title and theme |
+| `lib/app.dart` | App title, theme, and the sign-in controller built from this build's settings |
+| `lib/auth/` | Sign-in: OAuth with PKCE, the session controller, token storage and messages |
 | `lib/theme/` | Design tokens and the theme. See the [design system](../../docs/design-system.md) |
 | `lib/shell/app_shell.dart` | Navigation: a bottom bar below 600 pixels wide, and a side rail from 600 up |
 | `lib/screens/` | The Home, Search and Account screens |
-| `lib/widgets/` | Shared components, and the development-only connection check and sign-in proof |
+| `lib/widgets/` | Shared components, and the development-only connection check |
 | `lib/showcase/` | The development-only design system showcase |
 | `lib/api/` | The API address setting, and the client that calls the API |
 | `test/` | Widget and API client tests, using mocked HTTP |
@@ -217,10 +218,16 @@ Every Android build prints `Your app uses the following plugins that apply Kotli
 
 When 6.0.0 is stable, upgrade, set `android.builtInKotlin=true`, and repeat the sign-in and callback checks. Do this sooner if a Flutter upgrade rejects the plugin.
 
-## Sign-in proof (Step 5B)
+## Sign-in
 
-Debug builds show a development-only **Sign-in proof** panel on the Account screen, used to test the [Step 5B gates](../../docs/step-05b-report.md). It needs the Neon settings from an ignored `dart_defines.local.json` file. Without them, it says it isn't configured. It isn't the finished sign-in, and release builds leave it out.
+The Account screen signs in and out. It needs the Neon settings from the ignored `dart_defines.local.json` file, passed with `--dart-define-from-file=dart_defines.local.json`. Without them, it says sign-in isn't set up and offers no button. See the [Step 5D report](../../docs/step-05d-report.md).
 
-## Sign-in proof (Step 5B)
+| | Web | Android |
+| --- | --- | --- |
+| Sign-in page | A popup, so allow pop-ups for `http://localhost:8765` | Chrome's Auth Tab |
+| Saved session | The tab's `sessionStorage`: survives a reload, not a closed tab | Encrypted with an Android Keystore key, and kept when the app closes |
+| Address | Must be exactly `http://localhost:8765`, the registered callback origin | The callback is `https://veloraug-auth-dev.pages.dev/auth/callback/android` |
 
-Debug builds show a development-only sign-in proof on the Account screen. It stays inactive until it has settings from `dart_defines.local.json`, and release builds leave it out. See the [Step 5B report](../../docs/step-05b-report.md).
+Sign-out revokes the refresh token, clears the device, then opens the sign-out page to end the browser's session. With no network, it still clears the device.
+
+**The Android callback host is the development one,** in the main manifest. A production host and signing certificate are needed before a real release.

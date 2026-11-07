@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Sign-in talks to Neon Auth over HTTPS. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- allowBackup is off, so the saved sign-in is never copied to a backup or
+         another device. Plain HTTP stays off: networkSecurityConfig lives in
+         src/debug/ only. -->
     <application
         android:label="VeloraUG"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -23,6 +29,25 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Receives the sign-in result. The address must match the one
+             registered on the Neon Android client, and assetlinks.json on this
+             host must list this package and its signing certificate. This is
+             the development host: a production host and certificate are needed
+             before release. -->
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true"
+            android:taskAffinity="">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="veloraug-auth-dev.pages.dev"
+                    android:path="/auth/callback/android"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

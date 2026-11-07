@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:veloraug/app.dart';
 import 'package:veloraug/shell/app_shell.dart';
-import 'package:veloraug/widgets/dev_auth_proof.dart';
 import 'package:veloraug/widgets/dev_connection_check.dart';
 
 const _narrow = Size(400, 800);
@@ -148,24 +147,20 @@ void main() {
       expect(find.text('Check connection'), findsOneWidget);
     });
 
-    testWidgets('account offers no sign-in or payment controls', (
-      tester,
-    ) async {
+    testWidgets('without sign-in settings, account offers no sign-in or '
+        'payment controls', (tester) async {
       await _pumpApp(tester, _narrow);
       await _goTo(tester, 'Account');
 
+      expect(find.textContaining("isn't set up"), findsOneWidget);
       // The only buttons allowed are the debug-only development tools'.
       final devCheckButtons = find.descendant(
         of: find.byType(DevConnectionCheck),
         matching: find.byType(ButtonStyleButton),
       );
-      final devProofButtons = find.descendant(
-        of: find.byType(DevAuthProof),
-        matching: find.byType(ButtonStyleButton),
-      );
       expect(
         find.byType(ButtonStyleButton).evaluate().length,
-        devCheckButtons.evaluate().length + devProofButtons.evaluate().length,
+        devCheckButtons.evaluate().length,
       );
       expect(find.byType(TextField), findsNothing);
       expect(

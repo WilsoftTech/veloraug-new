@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 3 November 2026.
+Last updated: 7 November 2026.
 
 Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is complete: see the [Step 3 report](step-03-report.md). Milestone 4 is complete, through Step 4, the local Docker run in Step 4B and the Flutter connection in Step 4C: see the [Step 4](step-04-report.md), [Step 4B](step-04b-report.md) and [Step 4C](step-04c-report.md) reports. Milestones 5 onward are a proposed order and may change.
 
@@ -71,7 +71,7 @@ Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded
 
 - [x] 5B: Set up a Neon development branch and minimal sign-in pages, and test the sign-in route on web and one phone
 - [x] 5C: Finish the sign-in pages on Cloudflare Pages (flows user-reported on one phone: see the [Step 5C report](step-05c-report.md))
-- [ ] 5D: Add sign-in to the Flutter app on web and Android
+- [x] 5D: Add sign-in to the Flutter app on web and Android (device and browser tests user-reported on one phone and in Chrome: see the [Step 5D report](step-05d-report.md))
 - [ ] 5E: Have the API verify signed-in users
 - [ ] 5F: Add migrations, the API's database role and database access rules
 - [ ] 5G: Check everything end to end

@@ -285,25 +285,91 @@ void main() {
     expect(form.containsKey('client_secret'), isFalse);
   });
 
-  group('describeAccessToken', () {
-    test('leaves out the token and the subject', () {
-      const subject = '6ca2a1f2-59a5-4a15-b3c8-96f5ad5de7f4';
-      final token = _jwt({
-        'sub': subject,
-        'iss': _issuer,
-        'aud': 'https://api.example.test',
-        'iat': 1000,
-        'exp': 4600,
+  group('failure kinds', () {
+    Future<OAuthFailure> kindOf(Future<Object?> future) async {
+      try {
+        await future;
+      } on OAuthException catch (error) {
+        return error.kind;
+      }
+      fail('should have thrown');
+    }
+
+    for (final (code, kind) in [
+      ('access_denied', OAuthFailure.denied),
+      ('login_required', OAuthFailure.loginRequired),
+      ('server_error', OAuthFailure.refused),
+    ]) {
+      test('$code is $kind', () async {
+        final server = _Server();
+        expect(
+          await kindOf(
+            _client(
+              server,
+              _approve(
+                server,
+                result: (query) =>
+                    '$_callback?error=$code&state=${query['state']}',
+              ),
+            ).signIn(),
+          ),
+          kind,
+        );
       });
-      final text = describeAccessToken(token).join('\n');
-      expect(text, contains('sub is a UUID: true'));
-      expect(text, contains('lifetime: 3600 seconds'));
-      expect(text, isNot(contains(subject)));
-      expect(text, isNot(contains(token)));
+    }
+
+    test('a changed state is stateMismatch', () async {
+      final server = _Server();
+      expect(
+        await kindOf(
+          _client(
+            server,
+            _approve(server, result: (_) => '$_callback?code=c&state=forged'),
+          ).signIn(),
+        ),
+        OAuthFailure.stateMismatch,
+      );
     });
 
-    test('recognises an opaque token', () {
-      expect(describeAccessToken('opaque').single, contains('opaque'));
+    test('a refused refresh is grantRefused', () async {
+      final server = _Server()
+        ..onToken = (_) => _json({'error': 'invalid_grant'}, 400);
+      expect(
+        await kindOf(_client(server, _approve(server)).refresh('r')),
+        OAuthFailure.grantRefused,
+      );
     });
+
+    test('a server error during refresh is not grantRefused', () async {
+      final server = _Server()..onToken = (_) => _json({'error': 'x'}, 503);
+      expect(
+        await kindOf(_client(server, _approve(server)).refresh('r')),
+        OAuthFailure.badReply,
+      );
+    });
+
+    test('no connection is network', () async {
+      final client = OAuthClient(
+        config: _config,
+        httpClient: MockClient((_) async => throw http.ClientException('x')),
+        browserStep: (_, _) async => '',
+      );
+      expect(await kindOf(client.refresh('r')), OAuthFailure.network);
+    });
+  });
+
+  test('reads the email claim from the ID token', () async {
+    final server = _Server();
+    server.onToken = (request) => _json({
+      'access_token': 'access-1',
+      'refresh_token': 'refresh-1',
+      'expires_in': 3600,
+      'id_token': _jwt({
+        'nonce': server.idTokenNonce,
+        'email': 'person@example.test',
+      }),
+    });
+    final tokens = await _client(server, _approve(server)).signIn();
+    expect(tokens.email, 'person@example.test');
   });
 }

@@ -6,23 +6,5 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Allows plain HTTP to this phone's loopback address only, for adb reverse.
          This file is not part of release builds. -->
-    <application android:networkSecurityConfig="@xml/debug_network_security_config">
-        <!-- Step 5B sign-in proof. The callback must match the address registered
-             on the Neon development client. assetlinks.json on this host lists
-             this package and its debug certificate. -->
-        <activity
-            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
-            android:exported="true"
-            android:taskAffinity="">
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data
-                    android:scheme="https"
-                    android:host="veloraug-auth-dev.pages.dev"
-                    android:path="/auth/callback/android"/>
-            </intent-filter>
-        </activity>
-    </application>
+    <application android:networkSecurityConfig="@xml/debug_network_security_config"/>
 </manifest>
