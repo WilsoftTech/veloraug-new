@@ -6,6 +6,12 @@ services:
     build:
       context: ../services/api
     image: veloraug-api:local
+    # Passes the settings in services/api/.env, if it exists, as environment
+    # variables. The app itself never reads .env, and .dockerignore keeps the
+    # file out of the image.
+    env_file:
+      - path: ../services/api/.env
+        required: false
     ports:
       # 127.0.0.1 keeps the API reachable from this computer only.
       - "127.0.0.1:8000:8000"

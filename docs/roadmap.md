@@ -72,7 +72,7 @@ Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded
 - [x] 5B: Set up a Neon development branch and minimal sign-in pages, and test the sign-in route on web and one phone
 - [x] 5C: Finish the sign-in pages on Cloudflare Pages (flows user-reported on one phone: see the [Step 5C report](step-05c-report.md))
 - [x] 5D: Add sign-in to the Flutter app on web and Android (device and browser tests user-reported on one phone and in Chrome: see the [Step 5D report](step-05d-report.md))
-- [ ] 5E: Have the API verify signed-in users
+- [x] 5E: Have the API verify signed-in users (automated, plus a container run with the real settings: see the [Step 5E report](step-05e-report.md))
 - [ ] 5F: Add migrations, the API's database role and database access rules
 - [ ] 5G: Check everything end to end
 

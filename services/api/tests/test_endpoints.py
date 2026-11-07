@@ -23,7 +23,13 @@ def test_service_info_identifies_the_service(client):
 
 
 def test_service_info_reports_the_configured_environment():
-    client = TestClient(create_app(Settings(environment="production")))
+    settings = Settings(
+        environment="production",
+        neon_auth_url="https://auth.example.test/neondb/auth",
+        api_resource="https://api.example.invalid",
+        neon_auth_client_ids=["client-1"],
+    )
+    client = TestClient(create_app(settings))
 
     assert client.get("/api/v1").json()["environment"] == "production"
 
@@ -36,8 +42,15 @@ def test_docs_page_is_served(client):
     assert "swagger-ui" in response.text
 
 
-def test_openapi_describes_both_endpoints(client):
+def test_openapi_describes_the_endpoints(client):
     response = client.get("/openapi.json")
 
     assert response.status_code == 200
-    assert {"/health", "/api/v1"} <= response.json()["paths"].keys()
+    assert {"/health", "/api/v1", "/api/v1/me"} <= response.json()["paths"].keys()
+
+
+def test_me_without_sign_in_settings_is_unavailable(client):
+    # Development without the settings starts, but can't check anyone.
+    response = client.get("/api/v1/me", headers={"Authorization": "Bearer x"})
+
+    assert response.status_code == 503

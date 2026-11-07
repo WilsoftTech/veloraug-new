@@ -37,7 +37,7 @@ Good to know:
 
 ### Settings
 
-The Compose file sets no settings, so the app's defaults apply: `development`, with `http://localhost:8765` as the allowed origin. Variables set in your terminal do **not** reach the container, and no `.env` file is used. To change a setting for a while, add an `environment:` section under `api` in the Compose file. The settings are listed in the [API README](../services/api/README.md#settings).
+The Compose file passes the settings in `services/api/.env` to the container, if that file exists. That is how the API gets its sign-in settings. Without the file, the app's defaults apply: `development`, with `http://localhost:8765` as the allowed origin and no sign-in, so `/api/v1/me` answers `503`. Variables set in your terminal do **not** reach the container. The app itself never reads `.env`, and the image never contains it. The settings are listed in the [API README](../services/api/README.md#settings).
 
 ## The concepts, using this service as the example
 

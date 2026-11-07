@@ -1,7 +1,10 @@
-from typing import Literal
+from typing import Annotated, Literal
+from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
+
+from app.auth import VerifiedUser, current_user
 
 SERVICE_NAME = "veloraug-api"
 API_VERSION = "v1"
@@ -17,6 +20,10 @@ class ServiceInfoResponse(BaseModel):
     service: str
     api_version: str
     environment: str
+
+
+class MeResponse(BaseModel):
+    user_id: UUID
 
 
 @router.get("/health")
@@ -36,3 +43,13 @@ def service_info(request: Request) -> ServiceInfoResponse:
         api_version=API_VERSION,
         environment=request.app.state.settings.environment,
     )
+
+
+@router.get("/api/v1/me")
+def me(user: Annotated[VerifiedUser, Depends(current_user)]) -> MeResponse:
+    """The signed-in user's ID, from a verified access token.
+
+    Answers 401 without a valid token, and 503 when the token can't be
+    checked. Step 5F adds the profile.
+    """
+    return MeResponse(user_id=user.user_id)

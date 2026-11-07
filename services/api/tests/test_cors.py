@@ -61,8 +61,55 @@ def test_get_from_another_origin_gets_no_cors_permission(client):
     assert "access-control-allow-origin" not in response.headers
 
 
-def test_preflight_for_a_method_other_than_get_is_refused(client):
-    response = preflight(client, FLUTTER_WEB_ORIGIN, method="POST")
+@pytest.mark.parametrize("method", ["POST", "PUT", "DELETE"])
+def test_preflight_for_other_methods_is_refused(client, method):
+    response = preflight(client, FLUTTER_WEB_ORIGIN, method=method)
+
+    assert response.status_code == 400
+
+
+def test_preflight_allows_patch_with_the_authorization_header(client):
+    response = client.options(
+        "/api/v1/me",
+        headers={
+            "Origin": FLUTTER_WEB_ORIGIN,
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": "authorization, content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == FLUTTER_WEB_ORIGIN
+    assert "PATCH" in response.headers["access-control-allow-methods"]
+    allowed = response.headers["access-control-allow-headers"].lower()
+    assert "authorization" in allowed
+    assert "content-type" in allowed
+    assert "access-control-allow-credentials" not in response.headers
+
+
+def test_preflight_with_authorization_from_another_origin_is_refused(client):
+    response = client.options(
+        "/api/v1/me",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_preflight_for_another_header_is_refused(client):
+    response = client.options(
+        "/api/v1/me",
+        headers={
+            "Origin": FLUTTER_WEB_ORIGIN,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "x-user-id",
+        },
+    )
 
     assert response.status_code == 400
 
