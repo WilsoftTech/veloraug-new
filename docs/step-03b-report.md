@@ -5,8 +5,8 @@ Date: 3 November 2026. Branch: `feature/step-05b-neon-oauth-proof`, which was ke
 | Item | Status |
 | --- | --- |
 | **Implementation** | Complete, and automated checks pass |
-| **User visual approval** | **PENDING USER REVIEW** |
-| **Phone check** | **Not done.** The phone dropped off `adb` during this step: see [outstanding checks](#outstanding-checks) |
+| **User visual approval** | **Approved**, user-reported on 5 November 2026 |
+| **Phone check** | **Passed**, user-reported on 5 November 2026: see [outstanding checks](#outstanding-checks) |
 
 The specification is in [design-system.md](design-system.md).
 
@@ -104,8 +104,8 @@ Automated tests cover these, but nobody has seen them:
 
 | Check | State |
 | --- | --- |
-| **Your visual approval** | **PENDING USER REVIEW** |
-| Showcase and normal app on the phone | **Not run.** `RFCN70850VT` was listed at the start, then `adb devices` listed nothing for the rest of the step, including the last retry. Reconnect it and use the commands below |
+| **Your visual approval** | **Approved**, user-reported on 5 November 2026 |
+| Phone | **Passed**, user-reported on 5 November 2026, as "phone test passed". The report doesn't list which screens were checked. At the time of this step, the phone had dropped off `adb` and the check hadn't run |
 | Sign-in on Android and web with the restyled panel | **Not run.** Sign-in code is unchanged and its tests pass, but nothing here shows it working against Neon again. Step 5B's open gates stay open |
 | Real screen reader | Not tested. Automated tests check labels only |
 | Keyboard use on a phone | Not tested |

@@ -33,8 +33,8 @@ Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is com
 A first version of the visual design, added after Milestone 3 without renumbering anything. See the [design system](design-system.md) and the [Step 3B report](step-03b-report.md).
 
 - [x] Implementation: shared tokens, Flutter theme and components, restyled screens and sign-in pages, and a development-only showcase
-- [ ] **User visual approval: PENDING USER REVIEW**
-- [ ] Check the showcase and the normal app on the phone (not run: the phone was disconnected)
+- [x] User visual approval (reported by the project owner on 5 November 2026)
+- [x] Phone test (reported as passed by the project owner on 5 November 2026)
 
 ### Milestone 4: FastAPI skeleton
 
@@ -70,7 +70,7 @@ These have **not** been shown to work on this machine:
 Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded [Supabase plan](step-05a-plan.md). The Neon project moved to Frankfurt, next to the Oracle server. Step 5B's gates passed there on one phone and in Chrome and Edge, with some results user-reported: see the [Step 5B report](step-05b-report.md).
 
 - [x] 5B: Set up a Neon development branch and minimal sign-in pages, and test the sign-in route on web and one phone
-- [ ] 5C: Finish the sign-in pages on Cloudflare Pages
+- [x] 5C: Finish the sign-in pages on Cloudflare Pages (flows user-reported on one phone: see the [Step 5C report](step-05c-report.md))
 - [ ] 5D: Add sign-in to the Flutter app on web and Android
 - [ ] 5E: Have the API verify signed-in users
 - [ ] 5F: Add migrations, the API's database role and database access rules

@@ -1,6 +1,6 @@
 # VeloraUG design system
 
-**Version 1. Visual approval: PENDING USER REVIEW.** The owner hasn't approved how this looks yet, so any value here may still change. See the [Step 3B report](step-03b-report.md).
+**Version 1. Visually approved by the owner on 5 November 2026.** See the [Step 3B report](step-03b-report.md).
 
 This is the shared specification for the Flutter app and the sign-in pages.
 
