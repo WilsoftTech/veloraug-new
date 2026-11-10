@@ -62,6 +62,7 @@ These have **not** been shown to work on this machine:
 | Issue | Current state | Next action |
 | --- | --- | --- |
 | `flutter_web_auth_2` applies the Kotlin Gradle Plugin | Open upstream. Stable 5.1.0 still applies it, so every Android build warns, and a future Flutter version will reject it. See [Android build warnings](../apps/client/README.md#android-build-warnings) | Upgrade when 6.0.0 is stable, or sooner if a Flutter upgrade requires it |
+| TMDB's free licence doesn't allow commercial use | No agreement. No price is published. See [the licence risk](step-06a-catalogue-plan.md#the-licence-risk) | Describe the project truthfully when applying for the key at 6B. Get a quote from sales@themoviedb.org, and sign or switch to the fallback before charging anyone |
 
 ## Planned
 
@@ -77,8 +78,14 @@ Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded
 - [x] 5G: Check everything end to end (web, Android and release runs passed, user-reported: see the [Step 5G report](step-05g-report.md))
 
 ### Milestone 6: Movie catalogue
-- [ ] Fetch TMDB details through the API
-- [ ] Add browse, search and detail screens
+
+Planned in the [catalogue plan](step-06a-catalogue-plan.md). The catalogue lists only VeloraUG's own movies, with details from TMDB. TMDB's free licence doesn't cover a paid app: see [the licence risk](step-06a-catalogue-plan.md#the-licence-risk).
+
+- [x] 6A: Plan the catalogue
+- [ ] 6B: Get a TMDB key, add the catalogue tables and the owner's catalogue script
+- [ ] 6C: Add the API's catalogue routes, with TMDB details kept and refreshed
+- [ ] 6D: Add home, search and detail screens, and TMDB's credit
+- [ ] 6E: Check everything end to end
 
 ### Milestone 7: Uploads and processing
 - [ ] Design upload authorization: who may upload, and how tusd checks it
@@ -105,5 +112,5 @@ Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded
 ## Check before launch
 
 - Rights to distribute each movie
-- TMDB's attribution and commercial-use terms
+- TMDB's attribution and commercial-use terms: a signed TMDB agreement, or the [fallback](step-06a-catalogue-plan.md#the-licence-risk), before anyone is charged
 - Telegram's terms, if the optional archive is used
