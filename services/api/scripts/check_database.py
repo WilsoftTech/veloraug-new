@@ -7,7 +7,8 @@ Run from services/api after the migration:
 It reads VELORAUG_DATABASE_URL from the environment, or from
 services/api/.env, and prints only the host. Every test that writes runs in a
 transaction that is rolled back, with random user IDs, so it leaves nothing
-behind. The checks follow the Step 5F criteria in docs/step-05a-neon-plan.md.
+behind. The checks follow the Step 5F criteria in docs/step-05a-neon-plan.md
+and the Step 6B criteria in docs/step-06a-catalogue-plan.md.
 """
 
 import sys
@@ -293,6 +294,78 @@ def check_isolation(conn: psycopg.Connection) -> list[Result]:
     return results
 
 
+def check_catalogue(conn: psycopg.Connection) -> list[Result]:
+    """The API reads published movies only, and can't change the catalogue.
+
+    These follow the Step 6B criteria in docs/step-06a-catalogue-plan.md.
+    """
+    flags = conn.execute(
+        """
+        select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
+        where oid in ('public.movies'::regclass,
+                      'public.tmdb_movie_details'::regclass)
+        """
+    ).fetchone()[0]
+    results = [Result("RLS and forced RLS on movies and tmdb_movie_details", flags)]
+
+    privileges = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES")
+    expected = {
+        "public.movies": {"SELECT"},
+        "public.tmdb_movie_details": {"SELECT", "INSERT", "UPDATE"},
+    }
+    wrong = []
+    for table, allowed in expected.items():
+        for privilege in (*privileges, "TRIGGER"):
+            has = conn.execute(
+                "select has_table_privilege(%s, %s)", (table, privilege)
+            ).fetchone()[0]
+            if has != (privilege in allowed):
+                wrong.append(f"{table} {privilege}")
+    results.append(
+        Result("catalogue grants match the migration", not wrong, ", ".join(wrong))
+    )
+
+    hidden = conn.execute(
+        "select count(*) from public.movies where not published"
+    ).fetchone()[0]
+    orphans = conn.execute(
+        """
+        select count(*) from public.tmdb_movie_details d
+        where not exists (select from public.movies m where m.tmdb_id = d.tmdb_id)
+        """
+    ).fetchone()[0]
+    results.append(
+        Result(
+            "hidden movies and their details can't be seen",
+            hidden == 0 and orphans == 0,
+            f"{hidden} hidden movies, {orphans} details seen",
+        )
+    )
+    results.append(
+        Result(
+            "can't add, publish, hide or remove movies",
+            refused(conn, "insert into public.movies (tmdb_id) values (2147483000)")
+            and refused(conn, "update public.movies set published = true")
+            and refused(
+                conn, "update public.movies set published = false, published_at = null"
+            )
+            and refused(conn, "delete from public.movies"),
+        )
+    )
+    results.append(
+        Result(
+            "can't delete details, or write details of a movie it can't see",
+            refused(conn, "delete from public.tmdb_movie_details")
+            and refused(
+                conn,
+                "insert into public.tmdb_movie_details (tmdb_id, title) "
+                "values (2147483000, 'x')",
+            ),
+        )
+    )
+    return results
+
+
 def check_no_leak(url: str, connect: Callable[[str], psycopg.Connection]) -> Result:
     """A user set in one transaction is gone in the next, including through
     the pooler and with two users at once."""
@@ -367,6 +440,7 @@ def run_checks(url: str, connect=None) -> list[Result]:
         results += check_schema_rights(conn)
         results += check_table(conn)
         results += check_isolation(conn)
+        results += check_catalogue(conn)
         results.append(check_prepared(conn))
     results.append(check_no_leak(url, connect))
     return results
@@ -384,7 +458,7 @@ def main() -> int:
         print(f"Couldn't connect: {type(error).__name__}", file=sys.stderr)
         return 1
     except psycopg.errors.UndefinedTable:
-        print("public.profiles doesn't exist: run the migration first", file=sys.stderr)
+        print("A table doesn't exist: run the migrations first", file=sys.stderr)
         return 1
     for result in results:
         mark = "PASS" if result.passed else "FAIL"

@@ -36,7 +36,7 @@ Not in Milestone 6: uploads, playback, prices, watch history, favourites, rating
 | 6 | Images load straight from `image.tmdb.org` | TMDB's documented way to show images. VeloraUG doesn't store or serve TMDB's images. Web loading is [gate T2](#gate-t2-images-in-flutter-web) |
 | 7 | Responses use VeloraUG's movie ID, a UUID, never the TMDB ID | The app stays the same if details later come from elsewhere |
 | 8 | Search looks only in VeloraUG's catalogue, by title, in Postgres | The catalogue is small. Searching TMDB would show movies nobody can watch |
-| 9 | The API calls TMDB with `httpx`, using the v4 **read access token** as a bearer token | Header, not URL, so the token stays out of logs. `httpx` has a built-in mock transport for tests |
+| 9 | The API calls TMDB with `httpx2`, using the v4 **read access token** as a bearer token | Header, not URL, so the token stays out of logs. `httpx2` has a built-in mock transport for tests, and the test tools already used it |
 | 10 | Details are fetched in English, `en-US` | The audience reads English, and TMDB's English details are the most complete |
 | 11 | TMDB's notice and logo appear on the Account screen, under **About** | TMDB's terms require them, in an "About" or "Credits" section, less prominent than VeloraUG's own brand |
 
@@ -179,7 +179,7 @@ The list gives `id`, `title`, `year` and `poster_url` only. Image addresses are 
 
 Without it, the catalogue routes still serve existing copies, and nothing is refreshed. The API's start-up log says so once.
 
-New dependency: `httpx`, pinned with what it needs, following [change a dependency](../services/api/README.md).
+New dependency: `httpx2`, pinned with what it needs, following [change a dependency](../services/api/README.md#change-a-dependency). It moved from the test tools into `requirements.txt` at 6B, because the catalogue script needs it.
 
 ## 4. App
 

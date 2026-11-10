@@ -1,3 +1,4 @@
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -11,6 +12,7 @@ VELORAUG_SETTINGS = [
     "VELORAUG_API_RESOURCE",
     "VELORAUG_NEON_AUTH_CLIENT_IDS",
     "VELORAUG_DATABASE_URL",
+    "VELORAUG_TMDB_READ_ACCESS_TOKEN",
 ]
 
 
@@ -27,3 +29,25 @@ def clear_veloraug_environment(monkeypatch, tmp_path):
 @pytest.fixture
 def client():
     return TestClient(create_app())
+
+
+# --- A real Postgres, for the tests marked needs_database --------------------
+
+
+@pytest.fixture(scope="session")
+def owner_url():
+    from tests.db_support import create_test_database
+
+    return create_test_database()
+
+
+@pytest.fixture(scope="session")
+def app_url(owner_url):
+    from scripts.create_app_role import ensure_app_role, role_problems
+    from tests.db_support import APP_PASSWORD, migrate, url_for
+
+    with psycopg.connect(owner_url) as conn:
+        assert ensure_app_role(conn, APP_PASSWORD) is True
+        assert role_problems(conn) == []
+    migrate(owner_url)
+    return url_for("veloraug_app", APP_PASSWORD)

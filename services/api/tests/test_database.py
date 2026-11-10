@@ -1,12 +1,7 @@
 """The migration, row-level security and the profile routes, on a real Postgres.
 
-These run against a throwaway local Postgres, never Neon. Start one and point
-VELORAUG_TEST_ADMIN_URL at it, as "Run the checks" in README.md shows.
-Without it, these tests are skipped.
-
-The setup copies Neon's arrangement: the migration runs as a database owner
-with CREATEROLE and BYPASSRLS, not a superuser, and a neon_auth schema exists
-that veloraug_app must not read.
+These run against a throwaway local Postgres, never Neon, and are skipped
+without one. See tests/db_support.py.
 """
 
 import logging
@@ -14,8 +9,6 @@ import os
 import socket
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
-from urllib.parse import urlsplit
 
 import psycopg
 import pytest
@@ -29,77 +22,18 @@ from app.main import create_app
 from migrations.connection import NEON_AUTH_TABLES
 from scripts.check_database import run_checks
 from scripts.create_app_role import ensure_app_role, role_problems
-
-ADMIN_URL = os.environ.get("VELORAUG_TEST_ADMIN_URL", "")
-pytestmark = pytest.mark.skipif(
-    not ADMIN_URL,
-    reason="needs a local test Postgres: set VELORAUG_TEST_ADMIN_URL (README)",
+from tests.db_support import (
+    ADMIN_URL,
+    API_DIR,
+    APP_PASSWORD,
+    DATABASE,
+    admin_credentials,
+    needs_database,
+    owner_query,
+    url_for,
 )
 
-API_DIR = Path(__file__).resolve().parent.parent
-DATABASE = "veloraug_test"
-OWNER = "veloraug_test_owner"
-OWNER_PASSWORD = "local-test-owner-password"
-APP_PASSWORD = "local-test-app-password"
-
-
-def url_for(user: str, password: str, database: str = DATABASE) -> str:
-    parts = urlsplit(ADMIN_URL)
-    return f"postgresql://{user}:{password}@{parts.hostname}:{parts.port}/{database}"
-
-
-@pytest.fixture(scope="session")
-def owner_url():
-    with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
-        admin.execute(f"drop database if exists {DATABASE} with (force)")
-        admin.execute("drop role if exists veloraug_app")
-        admin.execute(f"drop role if exists {OWNER}")
-        admin.execute(
-            """
-            do $$ begin
-              if not exists (select from pg_roles where rolname = 'neon_superuser')
-              then create role neon_superuser nologin;
-              end if;
-            end $$
-            """
-        )
-        admin.execute(
-            f"create role {OWNER} login createrole bypassrls "
-            f"password '{OWNER_PASSWORD}' in role neon_superuser"
-        )
-        admin.execute(f"create database {DATABASE} owner {OWNER}")
-    with psycopg.connect(url_for(*_admin_credentials(), DATABASE)) as admin_db:
-        admin_db.execute("create schema neon_auth")
-        admin_db.execute("create table neon_auth.users_sync (id text, email text)")
-        admin_db.execute("insert into neon_auth.users_sync values ('1', 'a@b.test')")
-    return url_for(OWNER, OWNER_PASSWORD)
-
-
-def _admin_credentials():
-    parts = urlsplit(ADMIN_URL)
-    return parts.username, parts.password
-
-
-@pytest.fixture(scope="session")
-def app_url(owner_url):
-    with psycopg.connect(owner_url) as conn:
-        assert ensure_app_role(conn, APP_PASSWORD) is True
-        assert role_problems(conn) == []
-    previous = os.environ.get("VELORAUG_MIGRATION_DATABASE_URL")
-    os.environ["VELORAUG_MIGRATION_DATABASE_URL"] = owner_url
-    try:
-        command.upgrade(Config(str(API_DIR / "alembic.ini")), "head")
-    finally:
-        if previous is None:
-            os.environ.pop("VELORAUG_MIGRATION_DATABASE_URL", None)
-        else:
-            os.environ["VELORAUG_MIGRATION_DATABASE_URL"] = previous
-    return url_for("veloraug_app", APP_PASSWORD)
-
-
-def owner_query(owner_url, query, params=()):
-    with psycopg.connect(owner_url) as conn:
-        return conn.execute(query, params).fetchall()
+pytestmark = needs_database
 
 
 # --- The migration and the role ---------------------------------------------
@@ -107,7 +41,7 @@ def owner_query(owner_url, query, params=()):
 
 def test_the_migration_is_at_head(owner_url, app_url):
     assert owner_query(owner_url, "select version_num from alembic_version") == [
-        ("0001",)
+        ("0002",)
     ]
 
 
@@ -152,7 +86,7 @@ def test_a_plain_password_works_too_as_neon_requires(owner_url, app_url):
 
 def test_the_password_never_reaches_the_database_in_plain_text(owner_url, app_url):
     stored = owner_query(
-        url_for(*_admin_credentials(), DATABASE),
+        url_for(*admin_credentials(), DATABASE),
         "select rolpassword from pg_authid where rolname = 'veloraug_app'",
     )[0][0]
 

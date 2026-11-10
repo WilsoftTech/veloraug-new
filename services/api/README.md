@@ -71,11 +71,12 @@ The password is for that container only, which only this computer can reach. Por
 | `app/auth.py` | Checks access tokens, and gives signed-in routes the user's ID |
 | `app/db.py` | The database connection pool. Each request runs in one transaction that acts for one user |
 | `app/profiles.py` | Profile reads and writes |
+| `app/tmdb.py` | Fetches a movie's details from TMDB, with the read access token |
 | `app/config.py` | The typed settings |
 | `migrations/` | Alembic and the hand-written SQL migrations. Not in the image |
 | `alembic.ini` | Alembic's settings. It holds no connection string |
-| `scripts/` | The owner's database scripts: [create the API's role](#2-create-the-apis-role) and [check the database](#4-check-it). Not in the image |
-| `tests/` | Tests for the endpoints, token checks, database rules, migrations, CORS and settings |
+| `scripts/` | The owner's scripts: [create the API's role](#2-create-the-apis-role), [check the database](#4-check-it) and [manage the catalogue](#catalogue). Not in the image |
+| `tests/` | Tests for the endpoints, token checks, database rules, migrations, the catalogue, TMDB, CORS and settings. `tests/db_support.py` sets up the local test database |
 | `requirements.txt` | Exact versions of the packages needed to run the API |
 | `requirements-migrate.txt` | The above, plus the migration tools |
 | `requirements-dev.txt` | All of the above, plus the test and lint tools |
@@ -86,7 +87,7 @@ An **application factory** is a function that builds the app when called. It let
 
 ## Settings
 
-Only `VELORAUG_DATABASE_URL` is secret. The defaults suit local development, without sign-in or a database.
+Only `VELORAUG_DATABASE_URL` and `VELORAUG_TMDB_READ_ACCESS_TOKEN` are secret. The defaults suit local development, without sign-in or a database.
 
 | Environment variable | Default | Meaning |
 | --- | --- | --- |
@@ -96,6 +97,7 @@ Only `VELORAUG_DATABASE_URL` is secret. The defaults suit local development, wit
 | `VELORAUG_API_RESOURCE` | None | The audience a token must contain, such as `https://api-dev.veloraug.invalid` |
 | `VELORAUG_NEON_AUTH_CLIENT_IDS` | None | The web and Android client IDs allowed to call the API, as a JSON list |
 | `VELORAUG_DATABASE_URL` | None | **Secret.** The pooled connection as `veloraug_app`. [The role script](#2-create-the-apis-role) writes it. Any other role is refused |
+| `VELORAUG_TMDB_READ_ACCESS_TOKEN` | None | **Secret.** TMDB's API Read Access Token. Used from Step 6B by [the catalogue script](#catalogue), and by the API from Step 6C |
 
 The three sign-in settings go together: set all three or none. Without them, or without the database, `/api/v1/me` answers `503`. Their values for the development branch are in your Git-ignored `services/api/.env`, which Docker Compose passes to the container.
 
@@ -152,7 +154,7 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe -m alembic current
 ```
 
-`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0001 (head)`.
+`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0002 (head)`: `0001` adds profiles, and `0002` adds the catalogue.
 
 ### 4. Check it
 
@@ -160,7 +162,7 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe scripts\check_database.py
 ```
 
-This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
+This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. For the catalogue, it checks that hidden movies can't be seen, and that the API can't add, publish, hide or remove movies, or delete their details. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
 
 **Rules for migrations:**
 
@@ -168,6 +170,29 @@ This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks t
 - Don't edit a migration that has been applied, and don't `downgrade` on Neon. Fix mistakes with a new migration.
 - Never touch `neon_auth`. It belongs to Neon.
 - New migrations are hand-written SQL in `migrations/versions/`, started with `python -m alembic revision -m "what it does"`.
+
+## Catalogue
+
+The catalogue lists only VeloraUG's own movies. The owner adds each one by its TMDB ID, the number in its themoviedb.org address, such as `550` in `themoviedb.org/movie/550-fight-club`. A new movie is hidden until it is published. See the [catalogue plan](../../docs/step-06a-catalogue-plan.md).
+
+The script needs `VELORAUG_TMDB_READ_ACCESS_TOKEN` in `.env`. It asks for the owner string like the migration does, because the API's role can't change the catalogue, and checks the branch the same way. It never prints the token or the string.
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\services\api
+.\.venv\Scripts\python.exe scripts\catalogue.py add 550
+.\.venv\Scripts\python.exe scripts\catalogue.py publish 550
+.\.venv\Scripts\python.exe scripts\catalogue.py list
+```
+
+| Command | What it does |
+| --- | --- |
+| `add <TMDB ID>` | Fetches the movie from TMDB first and shows its title and year. Then it asks for the owner string, and for `yes`, and adds the movie, hidden |
+| `publish <movie>`, `unpublish <movie>` | Shows or hides it in the app. A movie is its TMDB ID, or the VeloraUG ID from `list` |
+| `list` | Every movie, published first, with how old its TMDB details are |
+| `refresh` | Fetches details older than 7 days again. Details that can't be fetched are deleted at 180 days |
+| `purge-tmdb` | Deletes every copy of TMDB's details and hides every movie, after you type `purge`. For when the TMDB licence ends |
+
+**TMDB's terms forbid keeping its data for more than 6 months.** From Step 6C the API refreshes details itself, and stops showing any older than 150 days. Until then, run `refresh` at least once a month.
 
 ## The concepts, using this service as the example
 
@@ -213,7 +238,7 @@ The pinned files list every package at an exact version, so each install gets th
 cd C:\Users\Wilsoft\veloraug\services\api
 Remove-Item -Recurse -Force .venv
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install fastapi "psycopg[binary,pool]" pydantic-settings "PyJWT[crypto]" uvicorn
+.\.venv\Scripts\python.exe -m pip install fastapi httpx2 "psycopg[binary,pool]" pydantic-settings "PyJWT[crypto]" uvicorn
 .\.venv\Scripts\python.exe -m pip freeze
 ```
 
@@ -227,7 +252,7 @@ Paste that output into `requirements.txt`, under the comments. Then install the 
 Put only the lines that are new into `requirements-migrate.txt`, under `-r requirements.txt`. Then install the test tools and freeze again:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install httpx2 pytest ruff
+.\.venv\Scripts\python.exe -m pip install pytest ruff
 .\.venv\Scripts\python.exe -m pip freeze
 ```
 
