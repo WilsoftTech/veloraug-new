@@ -74,7 +74,7 @@ Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded
 - [x] 5D: Add sign-in to the Flutter app on web and Android (device and browser tests user-reported on one phone and in Chrome: see the [Step 5D report](step-05d-report.md))
 - [x] 5E: Have the API verify signed-in users (automated, plus a container run with the real settings: see the [Step 5E report](step-05e-report.md))
 - [x] 5F: Add migrations, the API's database role and database access rules (migration run and all 20 database checks passed on the development branch, user-reported: see the [Step 5F report](step-05f-report.md))
-- [ ] 5G: Check everything end to end
+- [x] 5G: Check everything end to end (web, Android and release runs passed, user-reported: see the [Step 5G report](step-05g-report.md))
 
 ### Milestone 6: Movie catalogue
 - [ ] Fetch TMDB details through the API

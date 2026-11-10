@@ -5,7 +5,9 @@ import '../auth/auth_controller.dart';
 import '../theme/palette.dart';
 import '../theme/tokens.dart';
 import '../widgets/dev_connection_check.dart';
+import '../widgets/dev_token_checks.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/profile_section.dart';
 import '../widgets/screen_body.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
@@ -23,6 +25,7 @@ class AccountScreen extends StatelessWidget {
         // kDebugMode is a constant, so release builds leave this code out.
         if (kDebugMode) const _DevToolsHeading(),
         if (kDebugMode) const DevConnectionCheck(),
+        if (kDebugMode) DevTokenChecks(auth: auth),
       ],
     );
   }
@@ -91,6 +94,11 @@ class _AccountPanel extends StatelessWidget {
       children: [
         if (notice != null) _Notice(notice, isError: auth.noticeIsError),
         panel,
+        if (auth.status == AuthStatus.signedIn) ...[
+          const SizedBox(height: VeloraSpacing.md),
+          // A new person gets a fresh section, which loads their profile.
+          ProfileSection(key: ValueKey(auth.email), auth: auth),
+        ],
       ],
     );
   }
