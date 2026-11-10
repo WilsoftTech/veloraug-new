@@ -179,15 +179,17 @@ The script needs `VELORAUG_TMDB_READ_ACCESS_TOKEN` in `.env`. It asks for the ow
 
 ```powershell
 cd C:\Users\Wilsoft\veloraug\services\api
-.\.venv\Scripts\python.exe scripts\catalogue.py add 550
+.\.venv\Scripts\python.exe scripts\catalogue.py add 550 27205
 .\.venv\Scripts\python.exe scripts\catalogue.py publish 550
 .\.venv\Scripts\python.exe scripts\catalogue.py list
 ```
 
+Type one command at a time. If several are pasted together, the hidden prompt can read the next line, rather than the string.
+
 | Command | What it does |
 | --- | --- |
-| `add <TMDB ID>` | Fetches the movie from TMDB first and shows its title and year. Then it asks for the owner string, and for `yes`, and adds the movie, hidden |
-| `publish <movie>`, `unpublish <movie>` | Shows or hides it in the app. A movie is its TMDB ID, or the VeloraUG ID from `list` |
+| `add` and TMDB IDs | Fetches every movie from TMDB first and shows its title and year. Then it asks for the owner string, and for `yes`, and adds them all, hidden. If one is already added, nothing changes |
+| `publish`, `unpublish` and movies | Shows or hides them in the app. A movie is its TMDB ID, or the VeloraUG ID from `list`. If one isn't found, nothing changes |
 | `list` | Every movie, published first, with how old its TMDB details are |
 | `refresh` | Fetches details older than 7 days again. Details that can't be fetched are deleted at 180 days |
 | `purge-tmdb` | Deletes every copy of TMDB's details and hides every movie, after you type `purge`. For when the TMDB licence ends |

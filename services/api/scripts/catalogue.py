@@ -307,33 +307,47 @@ def connect() -> psycopg.Connection:
 
 def run(args: argparse.Namespace) -> int:
     if args.command == "add":
+        # Everything is fetched before the owner string is asked for, so a
+        # wrong ID costs nothing.
+        tmdb_ids = list(dict.fromkeys(args.tmdb_ids))
         with tmdb_client() as client:
-            details = client.movie(args.tmdb_id)
-        year = f" ({details.year})" if details.year else ""
-        print(f"TMDB {details.tmdb_id}: {details.title}{year}")
-        if details.genres:
-            print(f"  {', '.join(details.genres)}")
+            found = [client.movie(tmdb_id) for tmdb_id in tmdb_ids]
+        for details in found:
+            year = f" ({details.year})" if details.year else ""
+            genres = f"  {', '.join(details.genres)}" if details.genres else ""
+            print(f"TMDB {details.tmdb_id}: {details.title}{year}{genres}")
         with connect() as conn:
-            try:
-                find_movie(conn, str(details.tmdb_id))
-            except CatalogueError:
-                pass
-            else:
-                raise CatalogueError(f"TMDB movie {details.tmdb_id} is already added")
-            if not typed("Add it, hidden?", "yes"):
+            for details in found:
+                try:
+                    find_movie(conn, str(details.tmdb_id))
+                except CatalogueError:
+                    continue
+                raise CatalogueError(
+                    f"TMDB movie {details.tmdb_id} is already added. Nothing changed"
+                )
+            question = "Add it, hidden?" if len(found) == 1 else "Add them, hidden?"
+            if not typed(question, "yes"):
                 print("Nothing changed.")
                 return 1
-            movie_id = add_movie(conn, details)
+            for details in found:
+                add_movie(conn, details)
+            # One commit: all are added, or none.
             conn.commit()
-        print(f"Added, hidden. Its VeloraUG ID is {movie_id}.")
-        print(f"Publish it with: scripts\\catalogue.py publish {details.tmdb_id}")
+        print(f"Added {plural(len(found), 'movie', 'movies')}, hidden.")
+        ids = " ".join(str(tmdb_id) for tmdb_id in tmdb_ids)
+        print(f"Publish with: scripts\\catalogue.py publish {ids}")
         return 0
 
     if args.command in ("publish", "unpublish"):
         with connect() as conn:
-            movie = set_published(conn, args.movie, args.command == "publish")
+            movies = [
+                set_published(conn, key, args.command == "publish")
+                for key in dict.fromkeys(args.movies)
+            ]
+            # One commit: all change, or none.
             conn.commit()
-        print(describe_movie(movie))
+        for movie in movies:
+            print(describe_movie(movie))
         return 0
 
     if args.command == "list":
@@ -377,11 +391,13 @@ def run(args: argparse.Namespace) -> int:
 def parser() -> argparse.ArgumentParser:
     main_parser = argparse.ArgumentParser(description="Manage VeloraUG's movies.")
     commands = main_parser.add_subparsers(dest="command", required=True)
-    add = commands.add_parser("add", help="add a movie from TMDB, hidden")
-    add.add_argument("tmdb_id", type=int)
+    add = commands.add_parser("add", help="add movies from TMDB, hidden")
+    add.add_argument("tmdb_ids", type=int, nargs="+", metavar="tmdb_id")
     for name, text in (("publish", "show"), ("unpublish", "hide")):
-        command = commands.add_parser(name, help=f"{text} a movie in the app")
-        command.add_argument("movie", help="a TMDB ID or a VeloraUG movie ID")
+        command = commands.add_parser(name, help=f"{text} movies in the app")
+        command.add_argument(
+            "movies", nargs="+", metavar="movie", help="TMDB IDs or VeloraUG movie IDs"
+        )
     commands.add_parser("list", help="every movie, published or not")
     commands.add_parser("refresh", help="fetch TMDB copies older than 7 days")
     commands.add_parser("purge-tmdb", help="delete every TMDB copy")
