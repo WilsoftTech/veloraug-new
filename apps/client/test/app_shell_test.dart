@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:veloraug/api/catalogue_api.dart';
 import 'package:veloraug/app.dart';
 import 'package:veloraug/shell/app_shell.dart';
 import 'package:veloraug/widgets/dev_connection_check.dart';
@@ -14,9 +17,18 @@ void _setScreenSize(WidgetTester tester, Size size) {
   addTearDown(tester.view.reset);
 }
 
+/// An empty catalogue, so these tests are about the shell, not movies.
+final _emptyCatalogue = CatalogueApi(
+  baseUrl: Uri.parse('http://127.0.0.1:8000'),
+  httpClient: MockClient(
+    (request) async =>
+        http.Response('{"movies": [], "next_offset": null}', 200),
+  ),
+);
+
 Future<void> _pumpApp(WidgetTester tester, Size size) async {
   _setScreenSize(tester, size);
-  await tester.pumpWidget(const VeloraApp());
+  await tester.pumpWidget(VeloraApp(catalogueApi: _emptyCatalogue));
   await tester.pumpAndSettle();
 }
 
@@ -87,12 +99,12 @@ void main() {
         expect(find.text('Welcome to VeloraUG'), findsOneWidget);
 
         await _goTo(tester, 'Search');
-        expect(find.text("Search isn't connected yet"), findsOneWidget);
+        expect(find.text('Find a movie'), findsOneWidget);
         expect(find.text('Welcome to VeloraUG'), findsNothing);
 
         await _goTo(tester, 'Account');
         expect(find.text("You're signed out"), findsOneWidget);
-        expect(find.text("Search isn't connected yet"), findsNothing);
+        expect(find.text('Find a movie'), findsNothing);
 
         await _goTo(tester, 'Home');
         expect(find.text('Welcome to VeloraUG'), findsOneWidget);
@@ -116,7 +128,7 @@ void main() {
     });
   });
 
-  group('honest placeholders', () {
+  group('honest empty states', () {
     testWidgets('home shows an empty catalogue and no movies', (tester) async {
       await _pumpApp(tester, _narrow);
 
@@ -124,14 +136,14 @@ void main() {
       expect(find.byType(Image), findsNothing);
     });
 
-    testWidgets('search still explains itself after typing', (tester) async {
+    testWidgets('search says when nothing matches', (tester) async {
       await _pumpApp(tester, _narrow);
       await _goTo(tester, 'Search');
       await tester.enterText(find.byType(TextField), 'anything');
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
 
-      expect(find.text("Search isn't connected yet"), findsOneWidget);
+      expect(find.text('No movies match'), findsOneWidget);
     });
 
     testWidgets('account labels the connection check as development only', (
@@ -199,7 +211,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
 
-        expect(find.text("Search isn't connected yet"), findsOneWidget);
+        expect(find.text('Find a movie'), findsOneWidget);
       });
     }
 

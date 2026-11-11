@@ -22,6 +22,7 @@ class AccountScreen extends StatelessWidget {
       heading: 'Account',
       children: [
         if (auth == null) const _NotConfigured() else _AccountPanel(auth),
+        const AboutSection(),
         // kDebugMode is a constant, so release builds leave this code out.
         if (kDebugMode) const _DevToolsHeading(),
         if (kDebugMode) const DevConnectionCheck(),
@@ -167,6 +168,45 @@ class _DevToolsHeading extends StatelessWidget {
           const StatusBadge(
             label: 'Debug builds only',
             tone: StatusTone.warning,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The wording TMDB's terms and FAQ ask for, word for word.
+const String tmdbNotice =
+    'This product uses the TMDB API but is not endorsed or certified by TMDB.';
+
+/// Credits. TMDB's terms ask for its notice in an "About" or "Credits"
+/// section, less prominent than VeloraUG's own brand, in every build.
+class AboutSection extends StatelessWidget {
+  const AboutSection({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: VeloraSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: VeloraSpacing.xs,
+        children: [
+          Semantics(
+            header: true,
+            child: Text('About', style: theme.textTheme.titleLarge),
+          ),
+          Text(
+            'Movie titles, descriptions and images come from TMDB, '
+            'The Movie Database.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          Text(
+            tmdbNotice,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
