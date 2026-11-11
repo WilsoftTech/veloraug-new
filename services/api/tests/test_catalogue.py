@@ -111,6 +111,32 @@ def test_no_input_at_all_counts_as_no(monkeypatch):
     assert catalogue.typed("Add it?", "yes") is False
 
 
+def test_connection_errors_never_show_the_password():
+    url = "postgresql://owner:S3cret%2Fpw@ep-x.neon.tech/neondb?bogus=1"
+    error = psycopg.ProgrammingError(
+        'invalid URI query parameter: "bogus"\nnear S3cret%2Fpw and S3cret/pw'
+    )
+
+    message = catalogue.safe_message(error, url)
+
+    assert "S3cret" not in message
+    assert message == "near <hidden> and <hidden>"
+
+
+def test_a_malformed_string_is_explained_without_its_password(monkeypatch, capsys):
+    monkeypatch.setenv(
+        "VELORAUG_MIGRATION_DATABASE_URL",
+        "postgresql://owner:S3cret@127.0.0.1:1/db?not_an_option=1",
+    )
+    monkeypatch.setattr(sys, "argv", ["catalogue.py", "list"])
+
+    assert catalogue.main() == 1
+    err = capsys.readouterr().err
+    assert "Couldn't connect" in err
+    assert "not_an_option" in err
+    assert "S3cret" not in err
+
+
 def test_counts_read_naturally():
     assert catalogue.plural(1, "movie", "movies") == "1 movie"
     assert catalogue.plural(0, "movie", "movies") == "0 movies"

@@ -29,6 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import psycopg
 
@@ -295,7 +296,12 @@ def connect() -> psycopg.Connection:
         print(f"Database: {describe(url)}")
     except UnsafeConnection as error:
         raise CatalogueError(f"Refused: {error}") from None
-    conn = psycopg.connect(url, connect_timeout=15)
+    try:
+        conn = psycopg.connect(url, connect_timeout=15)
+    except psycopg.Error as error:
+        raise CatalogueError(
+            f"Couldn't connect ({type(error).__name__}): {safe_message(error, url)}"
+        ) from None
     try:
         tables = conn.execute(NEON_AUTH_TABLES).fetchone()[0]
         print(f"Branch: {require_sign_in_branch(url, tables)}")
@@ -303,6 +309,18 @@ def connect() -> psycopg.Connection:
         conn.close()
         raise CatalogueError(f"Refused: {error}") from None
     return conn
+
+
+def safe_message(error: Exception, url: str) -> str:
+    """The error's last line, with the password masked wherever it appears.
+
+    psycopg's messages about a malformed string can quote part of it.
+    """
+    message = (str(error).strip().splitlines() or [""])[-1]
+    password = urlsplit(url).password
+    for secret in {password, unquote(password or "")} - {None, ""}:
+        message = message.replace(secret, "<hidden>")
+    return message[:300]
 
 
 def run(args: argparse.Namespace) -> int:
