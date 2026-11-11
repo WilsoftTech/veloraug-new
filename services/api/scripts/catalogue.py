@@ -36,6 +36,7 @@ import psycopg
 API_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(API_DIR))
 
+from app.catalogue import REFRESH_AFTER, save_details  # noqa: E402
 from app.tmdb import (  # noqa: E402
     MovieDetails,
     TmdbClient,
@@ -52,8 +53,7 @@ from migrations.connection import (  # noqa: E402
 )
 
 TOKEN_NAME = "VELORAUG_TMDB_READ_ACCESS_TOKEN"
-# A copy older than this is fetched again by `refresh`.
-REFRESH_AFTER = timedelta(days=7)
+# `refresh` fetches copies older than REFRESH_AFTER, 7 days, as the API does.
 # TMDB's terms allow 6 months. A copy that couldn't be refreshed by then is
 # deleted. The API stops serving a copy earlier, at 150 days.
 DELETE_AFTER = timedelta(days=180)
@@ -74,38 +74,6 @@ class Movie:
 
 
 # --- Database work, given a connection. The caller commits. ------------------
-
-
-def save_details(conn: psycopg.Connection, details: MovieDetails) -> None:
-    conn.execute(
-        """
-        insert into public.tmdb_movie_details (
-          tmdb_id, title, original_title, overview, release_date,
-          runtime_minutes, genres, poster_path, backdrop_path, fetched_at
-        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, now())
-        on conflict (tmdb_id) do update set
-          title = excluded.title,
-          original_title = excluded.original_title,
-          overview = excluded.overview,
-          release_date = excluded.release_date,
-          runtime_minutes = excluded.runtime_minutes,
-          genres = excluded.genres,
-          poster_path = excluded.poster_path,
-          backdrop_path = excluded.backdrop_path,
-          fetched_at = excluded.fetched_at
-        """,
-        (
-            details.tmdb_id,
-            details.title,
-            details.original_title,
-            details.overview,
-            details.release_date,
-            details.runtime_minutes,
-            list(details.genres),
-            details.poster_path,
-            details.backdrop_path,
-        ),
-    )
 
 
 def add_movie(conn: psycopg.Connection, details: MovieDetails) -> uuid.UUID:

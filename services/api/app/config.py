@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # reprs, logs and error messages.
     database_url: SecretStr | None = None
 
+    # Secret. TMDB's read access token, for refreshing movie details. Without
+    # it, the catalogue serves the details it already has.
+    tmdb_read_access_token: SecretStr | None = None
+
     @field_validator("allowed_origins")
     @classmethod
     def require_exact_origins(cls, origins: list[str]) -> list[str]:
@@ -100,6 +104,14 @@ class Settings(BaseSettings):
                 "bypasses row-level security"
             )
         return url
+
+    @field_validator("tmdb_read_access_token")
+    @classmethod
+    def require_token(cls, token: SecretStr | None) -> SecretStr | None:
+        # The message never quotes the value.
+        if token is not None and not token.get_secret_value().strip():
+            raise ValueError("tmdb_read_access_token can't be blank")
+        return token
 
     @property
     def sign_in_configured(self) -> bool:

@@ -2,7 +2,7 @@
 
 The FastAPI backend, written in Python. It will become the trusted part of the system: the app asks it to do things, and it checks whether each request is allowed.
 
-**Today it handles sign-in and profiles.** It has two public endpoints, and `/api/v1/me`, which checks Neon Auth access tokens and reads or changes the signed-in user's profile in Neon PostgreSQL. It has no TMDB, uploads or payments yet. The Flutter app calls it only from a [development-only connection check](../../apps/client/README.md#connect-to-the-local-api).
+**Today it handles sign-in, profiles and the movie catalogue.** `/api/v1/me` checks Neon Auth access tokens and reads or changes the signed-in user's profile in Neon PostgreSQL. `/api/v1/movies` lists the published movies, with details from TMDB, and needs no sign-in. It has no uploads or payments yet. The Flutter app calls it only from a [development-only connection check](../../apps/client/README.md#connect-to-the-local-api).
 
 Later it will fetch movie details from TMDB, handle Pesapal payments and issue playback access. See the [roadmap](../../docs/roadmap.md).
 
@@ -34,6 +34,7 @@ Leave that terminal open, then open these in a browser:
 | <http://127.0.0.1:8000/health> | `{"status":"ok"}` |
 | <http://127.0.0.1:8000/api/v1> | `{"service":"veloraug-api","api_version":"v1","environment":"development"}` |
 | <http://127.0.0.1:8000/api/v1/me> | `{"detail":"Not signed in."}`, because a browser address sends no token. Without the [settings](#settings) it says sign-in or the database isn't set up |
+| <http://127.0.0.1:8000/api/v1/movies> | The published movies, as `{"movies": [...], "next_offset": null}`. Without the database it answers `503` |
 | <http://127.0.0.1:8000/docs> | Interactive documentation. The page loads its scripts from the internet, so it needs a connection |
 | <http://127.0.0.1:8000/openapi.json> | The same documentation as raw data |
 
@@ -71,6 +72,7 @@ The password is for that container only, which only this computer can reach. Por
 | `app/auth.py` | Checks access tokens, and gives signed-in routes the user's ID |
 | `app/db.py` | The database connection pool. Each request runs in one transaction that acts for one user |
 | `app/profiles.py` | Profile reads and writes |
+| `app/catalogue.py` | Catalogue reads, the age rules for TMDB's details, and the background refresher |
 | `app/tmdb.py` | Fetches a movie's details from TMDB, with the read access token |
 | `app/config.py` | The typed settings |
 | `migrations/` | Alembic and the hand-written SQL migrations. Not in the image |
@@ -194,7 +196,7 @@ Type one command at a time. If several are pasted together, the hidden prompt ca
 | `refresh` | Fetches details older than 7 days again. Details that can't be fetched are deleted at 180 days |
 | `purge-tmdb` | Deletes every copy of TMDB's details and hides every movie, after you type `purge`. For when the TMDB licence ends |
 
-**TMDB's terms forbid keeping its data for more than 6 months.** From Step 6C the API refreshes details itself, and stops showing any older than 150 days. Until then, run `refresh` at least once a month.
+**TMDB's terms forbid keeping its data for more than 6 months.** The API refreshes details older than 7 days itself, after answering, as long as `VELORAUG_TMDB_READ_ACCESS_TOKEN` is set. It never shows details older than 150 days. If the API isn't running for a long time, run `refresh` at least once a month.
 
 ## The concepts, using this service as the example
 
@@ -206,11 +208,15 @@ Type one command at a time. If several are pasted together, the hidden prompt ca
 
 `--host 127.0.0.1` means only this computer can connect, and `--port 8000` is the door number on it. Together they make the address `127.0.0.1:8000`.
 
-**Endpoint.** An address plus an HTTP method that the service answers. This service has three addresses of its own, all answering `GET`, which means "read this":
+**Endpoint.** An address plus an HTTP method that the service answers. This service's addresses all answer `GET`, which means "read this", and `/api/v1/me` also answers `PATCH`:
 
 - `GET /health` says that this server process is running and can answer. **It does not check the database or any other service.** An `ok` means only that the process responded.
 - `GET /api/v1` says which service this is and which API version it serves. Future endpoints will go under `/api/v1`, so a later `v2` can exist alongside them without breaking older apps.
 - `GET /api/v1/me` returns the signed-in user's ID, from a verified [access token](#the-concepts-using-this-service-as-the-example), and their display name. The profile is created on first use. `PATCH /api/v1/me` with `{"display_name": "…"}` changes the name, from 1 to 80 characters, and `null` clears it. These are the only endpoints that need a token.
+- `GET /api/v1/movies` lists published movies, newest first: `id`, `title`, `year` and `poster_url`. `?q=` searches titles, 2 to 80 characters, with titles that start with it first. `?limit=` is 1 to 50, 24 by default, and `next_offset` gives the next page's `?offset=`, or `null` on the last.
+- `GET /api/v1/movies/{id}` adds `overview`, `runtime_minutes`, `genres` and `backdrop_url`. A movie that doesn't exist and one that isn't published both answer `404`, with the same message. `503` with `Retry-After` means its details are being fetched.
+
+The IDs are VeloraUG's own. TMDB's IDs and token never leave the API, and the image addresses point straight at TMDB's image server.
 
 FastAPI adds `/docs` and `/openapi.json` by itself.
 

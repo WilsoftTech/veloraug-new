@@ -106,6 +106,59 @@ def parse_movie(data: Any, tmdb_id: int) -> MovieDetails:
     )
 
 
+@dataclass(frozen=True)
+class ImageConfig:
+    """How to build an image address: base + size + path."""
+
+    base_url: str = "https://image.tmdb.org/t/p/"
+    poster_size: str = "w342"
+    backdrop_size: str = "w780"
+
+    def poster_url(self, path: str | None) -> str | None:
+        return f"{self.base_url}{self.poster_size}{path}" if path else None
+
+    def backdrop_url(self, path: str | None) -> str | None:
+        return f"{self.base_url}{self.backdrop_size}{path}" if path else None
+
+
+DEFAULT_IMAGES = ImageConfig()
+
+
+def _size(sizes: Any, wanted: str) -> str:
+    """The wanted size if TMDB offers it, else the closest wider one, else
+    the default's."""
+    if not isinstance(sizes, list):
+        return wanted
+    offered = [
+        s for s in sizes if isinstance(s, str) and s[:1] == "w" and s[1:].isdigit()
+    ]
+    if wanted in offered:
+        return wanted
+    width = int(wanted[1:])
+    wider = sorted((int(s[1:]), s) for s in offered if int(s[1:]) >= width)
+    return wider[0][1] if wider else wanted
+
+
+def parse_image_config(data: Any) -> ImageConfig:
+    """ImageConfig from TMDB's /configuration answer. Anything unexpected
+    keeps the default, so a strange answer can't break image addresses."""
+    images = data.get("images") if isinstance(data, dict) else None
+    if not isinstance(images, dict):
+        return DEFAULT_IMAGES
+    base = images.get("secure_base_url")
+    if not (
+        isinstance(base, str)
+        and base.startswith("https://image.tmdb.org/")
+        and base.endswith("/")
+    ):
+        base = DEFAULT_IMAGES.base_url
+    return ImageConfig(
+        base_url=base,
+        poster_size=_size(images.get("poster_sizes"), DEFAULT_IMAGES.poster_size),
+        backdrop_size=_size(images.get("backdrop_sizes"), DEFAULT_IMAGES.backdrop_size),
+    )
+
+
 def _retry_after(response: httpx2.Response) -> float | None:
     try:
         return max(0.0, float(response.headers.get("Retry-After", "")))
@@ -151,10 +204,15 @@ class TmdbClient:
     def movie(self, tmdb_id: int) -> MovieDetails:
         if tmdb_id <= 0:
             raise ValueError("A TMDB ID is a positive number")
+        data = self._get_json(f"/movie/{tmdb_id}", {"language": LANGUAGE}, tmdb_id)
+        return parse_movie(data, tmdb_id)
+
+    def image_config(self) -> ImageConfig:
+        return parse_image_config(self._get_json("/configuration", {}, None))
+
+    def _get_json(self, path: str, params: dict, tmdb_id: int | None) -> Any:
         try:
-            response = self._client.get(
-                f"/movie/{tmdb_id}", params={"language": LANGUAGE}
-            )
+            response = self._client.get(path, params=params)
         except httpx2.TimeoutException:
             raise TmdbUnavailable("TMDB didn't answer in time") from None
         except httpx2.HTTPError as error:
@@ -168,8 +226,10 @@ class TmdbClient:
                 data = response.json()
             except ValueError:
                 raise TmdbUnavailable("TMDB sent an answer that isn't JSON") from None
-            return parse_movie(data, tmdb_id)
+            return data
         if status == 404:
+            if tmdb_id is None:
+                raise TmdbUnavailable("TMDB answered 404")
             raise TmdbNotFound(f"TMDB has no movie {tmdb_id}")
         if status == 401:
             raise TmdbRefused(

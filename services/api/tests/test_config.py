@@ -146,3 +146,24 @@ def test_dotenv_file_is_not_loaded(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     assert Settings().environment == "development"
+
+
+def test_the_tmdb_token_is_kept_secret(monkeypatch):
+    monkeypatch.setenv("VELORAUG_TMDB_READ_ACCESS_TOKEN", "eyJ-tmdb-secret")
+
+    settings = Settings()
+
+    assert settings.tmdb_read_access_token.get_secret_value() == "eyJ-tmdb-secret"
+    assert "tmdb-secret" not in repr(settings)
+    assert "tmdb-secret" not in str(settings.model_dump())
+
+
+def test_a_blank_tmdb_token_is_refused_without_quoting_it():
+    with pytest.raises(ValidationError) as raised:
+        Settings(tmdb_read_access_token="   ")
+
+    assert "can't be blank" in str(raised.value)
+
+
+def test_the_tmdb_token_is_optional():
+    assert Settings().tmdb_read_access_token is None

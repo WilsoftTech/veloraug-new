@@ -47,7 +47,13 @@ def test_openapi_describes_the_endpoints(client):
     response = client.get("/openapi.json")
 
     assert response.status_code == 200
-    assert {"/health", "/api/v1", "/api/v1/me"} <= response.json()["paths"].keys()
+    assert {
+        "/health",
+        "/api/v1",
+        "/api/v1/me",
+        "/api/v1/movies",
+        "/api/v1/movies/{movie_id}",
+    } <= response.json()["paths"].keys()
 
 
 def test_me_without_sign_in_settings_is_unavailable(client):
@@ -55,3 +61,11 @@ def test_me_without_sign_in_settings_is_unavailable(client):
     response = client.get("/api/v1/me", headers={"Authorization": "Bearer x"})
 
     assert response.status_code == 503
+
+
+def test_the_catalogue_without_a_database_is_unavailable(client):
+    assert client.get("/api/v1/movies").status_code == 503
+    assert (
+        client.get(f"/api/v1/movies/{'0' * 8}-0000-0000-0000-{'0' * 12}").status_code
+        == 503
+    )

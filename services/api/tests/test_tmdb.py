@@ -6,10 +6,12 @@ import httpx2
 import pytest
 
 from app.tmdb import (
+    DEFAULT_IMAGES,
     TmdbClient,
     TmdbNotFound,
     TmdbRefused,
     TmdbUnavailable,
+    parse_image_config,
     parse_movie,
 )
 
@@ -153,3 +155,53 @@ def test_bad_ids_and_empty_tokens_are_refused_before_any_request():
     assert requests == []
     with pytest.raises(ValueError):
         TmdbClient("  ")
+
+
+# --- Image settings ----------------------------------------------------------
+
+
+def test_image_settings_are_read_from_tmdb():
+    client, requests = client_answering(
+        lambda request: httpx2.Response(
+            200,
+            json={
+                "images": {
+                    "secure_base_url": "https://image.tmdb.org/t/p/",
+                    "poster_sizes": ["w92", "w185", "w500", "original"],
+                    "backdrop_sizes": ["w300", "w780", "original"],
+                }
+            },
+        )
+    )
+
+    images = client.image_config()
+
+    assert str(requests[0].url) == "https://api.themoviedb.org/3/configuration"
+    # w342 isn't offered, so the next wider size is used.
+    assert images.poster_url("/a.jpg") == "https://image.tmdb.org/t/p/w500/a.jpg"
+    assert images.backdrop_url("/b.jpg") == "https://image.tmdb.org/t/p/w780/b.jpg"
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        [],
+        {"images": None},
+        {"images": {"secure_base_url": "http://image.tmdb.org/t/p/"}},
+        {"images": {"secure_base_url": "https://evil.example/t/p/"}},
+        {"images": {"poster_sizes": "w342", "backdrop_sizes": [1, None]}},
+    ],
+)
+def test_strange_image_settings_keep_the_defaults(answer):
+    images = parse_image_config(answer)
+
+    assert images == DEFAULT_IMAGES
+    assert images.poster_url("/a.jpg") == "https://image.tmdb.org/t/p/w342/a.jpg"
+    assert images.poster_url(None) is None
+
+
+def test_image_settings_failures_are_unavailable():
+    client, _ = client_answering(lambda request: httpx2.Response(404))
+
+    with pytest.raises(TmdbUnavailable):
+        client.image_config()

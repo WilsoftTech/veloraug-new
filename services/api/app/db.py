@@ -59,11 +59,24 @@ class Database:
     @contextmanager
     def as_user(self, user_id: UUID) -> Iterator[psycopg.Connection]:
         """A connection in a transaction that acts for this user only."""
+        with self._transaction(str(user_id)) as conn:
+            yield conn
+
+    @contextmanager
+    def anonymous(self) -> Iterator[psycopg.Connection]:
+        """A connection in a transaction that acts for no user, for data that
+        is the same for everyone, such as the catalogue. No user's rows are
+        visible in it."""
+        with self._transaction("") as conn:
+            yield conn
+
+    @contextmanager
+    def _transaction(self, user_id: str) -> Iterator[psycopg.Connection]:
         try:
             with self._pool.connection() as conn, conn.transaction():
-                conn.execute(
-                    "select set_config('app.user_id', %s, true)", (str(user_id),)
-                )
+                # Set even when empty, so nothing can carry over from an
+                # earlier use of the connection.
+                conn.execute("select set_config('app.user_id', %s, true)", (user_id,))
                 yield conn
         except psycopg.OperationalError as error:
             # Includes the pool's own timeout. Only the type is kept: a
