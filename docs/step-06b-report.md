@@ -2,7 +2,7 @@
 
 Date: 10 November 2026. Branch: `feature/step-06a-catalogue-plan`, from the Step 5G branch. This follows the [catalogue plan](step-06a-catalogue-plan.md#implementation-sequence).
 
-**Step 6B is not complete.** The migration, the TMDB client, the owner's catalogue script and the new database checks pass every local check, including a run of each command against real TMDB and a local Postgres. The remaining work needs the owner's database password: running migration `0002` on the Neon development branch, the database checks there, and adding the test movies. See [test it](#test-it). Nothing was deployed, and no Neon setting changed.
+**Step 6B is complete.** The migration, the TMDB client, the owner's catalogue script and the new database checks pass every local check, including a run of each command against real TMDB and a local Postgres. On the Neon development branch, migration `0002` ran, the owner added four test movies and published three, and the database checks passed 25 of 25 with the hidden one in place. See [the Neon run](#the-neon-run). On the way, the branch was restored by mistake and then [recovered](#the-mistaken-restore-and-the-recovery). Nothing was deployed.
 
 ## What changed
 
@@ -56,8 +56,8 @@ The first token in `.env` was refused with `401`. One character in its scope rea
 | --- | --- |
 | Gate T1 passes, with TMDB's answer recorded | **Met on the owner's decision.** The token works. TMDB's answer to the application wasn't reported |
 | Migration `0002` runs locally, then on the Neon development branch | **Met**: locally, and on Neon, user-reported. See [the Neon run](#the-neon-run) |
-| Database checks for the catalogue | **Met**: locally, and 25 of 25 on Neon through the pooler, user-reported. **Needs the owner**: Neon step 5, with a hidden movie in the table |
-| Every script command works locally with TMDB mocked, and the owner adds and publishes the test movies on the development branch | Local: **met**, with real TMDB too. **Needs the owner**: Neon step 4 |
+| Database checks for the catalogue | **Met**: locally, and 25 of 25 on Neon through the pooler, before and after the test movies, with *The Matrix* hidden |
+| Every script command works locally with TMDB mocked, and the owner adds and publishes the test movies on the development branch | **Met**: locally, with real TMDB too, and on Neon, user-reported. See [the test movies](#the-test-movies) |
 | No token or password printed, logged or tracked | **Met** |
 
 ## The Neon run
@@ -77,6 +77,14 @@ User-reported on 10 November 2026, with secret values excluded. Branch: `develop
 - **The Console's restore screens** offered only `main` as the source. Two were opened by mistake on the wrong branch, and cancelled before anything changed.
 - **The owner approved a CLI restore:** `neon branches restore` of `development` to the head of the backup, keeping the wiped state as `development_wiped_2026-11-11`. Afterwards `development` held all of the above again, and `check_database.py` passed **25 of 25** through the pooler, with the existing `.env`.
 - **`development` is now a child of the backup branch,** so the backup can't be deleted while `development` exists. `development_wiped_2026-11-11` and the read-only compute can be deleted.
+
+### The test movies
+
+User-reported on 11 November 2026, after the recovery. `add 550 27205 157336 603` added *Fight Club (1999)*, *Inception (2010)*, *Interstellar (2014)* and *The Matrix (1999)*, hidden. `publish 550 27205 157336` published the first three. `list` ended `4 movies, 3 published`. `check_database.py` then passed 25 of 25, and the API's role saw none of the hidden movie's rows.
+
+Two `publish` attempts failed first and changed nothing, because the string reached the hidden prompt wrongly: once when four commands were pasted together, and once pasted twice, joined. Two fixes followed:
+- **The scripts explain a connection failure,** with the password masked. Before, they named only the error's type.
+- **A string pasted twice is cut at the second `postgresql://`,** in all the owner's scripts.
 
 ## Test it
 

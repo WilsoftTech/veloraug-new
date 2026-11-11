@@ -142,6 +142,9 @@ def test_a_local_database_needs_no_neon_auth():
         f"psql '{DIRECT}'",
         f'psql "{DIRECT}"',
         f"'{DIRECT}'",
+        # Pasted twice into a hidden prompt, as seen on 11 November.
+        f"{DIRECT}{DIRECT}",
+        f"psql '{DIRECT}'psql '{DIRECT}'",
     ],
 )
 def test_the_connection_string_is_found_in_what_was_pasted(pasted):

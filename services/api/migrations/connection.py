@@ -21,7 +21,10 @@ NEON_AUTH_TABLES = (
     "where n.nspname = 'neon_auth' and c.relkind = 'r'"
 )
 
-_URL = re.compile(r"postgres(?:ql)?(?:\+psycopg)?://[^\s'\"]+")
+# Stops where a second string starts, as when a hidden prompt gets a paste
+# twice.
+_SCHEME = r"postgres(?:ql)?(?:\+psycopg)?://"
+_URL = re.compile(rf"{_SCHEME}(?:(?!{_SCHEME})[^\s'\"])+")
 
 
 class UnsafeConnection(Exception):

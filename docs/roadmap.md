@@ -82,7 +82,7 @@ Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded
 Planned in the [catalogue plan](step-06a-catalogue-plan.md). The catalogue lists only VeloraUG's own movies, with details from TMDB. TMDB's free licence doesn't cover a paid app: see [the licence risk](step-06a-catalogue-plan.md#the-licence-risk).
 
 - [x] 6A: Plan the catalogue
-- [ ] 6B: Get a TMDB key, add the catalogue tables and the owner's catalogue script (key working, code checked locally, owner's Neon run pending: see the [Step 6B report](step-06b-report.md))
+- [x] 6B: Get a TMDB key, add the catalogue tables and the owner's catalogue script (migration, 25 database checks and four test movies on the development branch, partly user-reported: see the [Step 6B report](step-06b-report.md))
 - [ ] 6C: Add the API's catalogue routes, with TMDB details kept and refreshed
 - [ ] 6D: Add home, search and detail screens, and TMDB's credit
 - [ ] 6E: Check everything end to end
