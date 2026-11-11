@@ -69,6 +69,15 @@ User-reported on 10 November 2026, with secret values excluded. Branch: `develop
 - **`check_database.py` passed 25 of 25** through the pooler, as `veloraug_app`: the 20 from Step 5F and the 5 catalogue checks. The catalogue had no movies yet, so "hidden movies can't be seen" passed with 0 hidden movies. Step 5 below repeats it with one.
 - **The old project's owner password** has now been saved in `.env` twice. The owner should reset it in the old project's Console, or delete that project, as the [Step 5F report](step-05f-report.md) says.
 
+### The mistaken restore, and the recovery
+
+- **10 November, 17:50 UTC:** the `development` branch was restored by mistake to `main` as of 7 November, 19:38 UTC. It lost both migrations, `veloraug_app`, and 7 of Neon Auth's 16 tables, with the users and OAuth clients. The next run of the scripts failed with `UndefinedTable`, and the API's role with "password authentication failed". Neon kept the earlier state as `development_old_2026-11-10T17:50:00Z`.
+- **Point-in-time restore couldn't help:** the project keeps 6 hours of history, and that had passed.
+- **11 November:** through the Neon connector, read-only, the backup was confirmed to hold migration `0002`, the four tables, `veloraug_app`, 16 Neon Auth tables, 11 users and both OAuth clients. A read-only compute, `ep-ancient-dust-b9ti0169`, was added to the backup for that, with the owner's approval.
+- **The Console's restore screens** offered only `main` as the source. Two were opened by mistake on the wrong branch, and cancelled before anything changed.
+- **The owner approved a CLI restore:** `neon branches restore` of `development` to the head of the backup, keeping the wiped state as `development_wiped_2026-11-11`. Afterwards `development` held all of the above again, and `check_database.py` passed **25 of 25** through the pooler, with the existing `.env`.
+- **`development` is now a child of the backup branch,** so the backup can't be deleted while `development` exists. `development_wiped_2026-11-11` and the read-only compute can be deleted.
+
 ## Test it
 
 You need the owner connection string for the **`development`** branch of the Frankfurt project, as in [Step 5F](../services/api/README.md#1-copy-the-owner-connection-string): `neondb_owner`, connection pooling **off**. Each command asks for it, hidden. Don't send it, the token or any password.
