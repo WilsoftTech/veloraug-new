@@ -1,6 +1,6 @@
 # Architecture
 
-This is the approved plan. **Only the Flutter app shell and a minimal FastAPI service are built so far.** The service has health and identification endpoints only, and the app calls them only from a development-only connection check. Everything else here is still planned.
+This is the approved plan. **Built so far, locally:** the Flutter app with sign-in, profiles and the catalogue; the FastAPI service with Neon and TMDB; and uploads, from tusd through FFmpeg to private R2. **Still planned:** playback through the Cloudflare Worker, payments, and deployment. See the [roadmap](roadmap.md).
 
 ## The parts
 

@@ -89,16 +89,19 @@ Planned in the [catalogue plan](step-06a-catalogue-plan.md). **Complete on 12 No
 
 ### Milestone 7: Uploads and processing
 
-Planned in the [uploads plan](step-07a-uploads-plan.md). The owner and trusted uploaders upload with one-time keys. Each movie is converted to 360p, 480p, 720p and 1080p, never above its original, and the original is kept in R2. Telegram may become a source of movies in a later milestone.
+Planned in the [uploads plan](step-07a-uploads-plan.md). **Complete on 12 November 2026.** The owner and trusted uploaders upload with one-time keys. Each movie is converted to 360p, 480p, 720p and 1080p, never above its original, and the original is kept in R2. Telegram may become a source of movies in a later milestone.
 
 - [x] 7A: Plan uploads and processing, including upload authorization
 - [x] 7B: Migration `0003`, the media role, and the owner's upload-key commands (on Neon, 27 database checks pass: see the [Step 7B report](step-07b-report.md))
 - [x] 7C: Resumable uploads with tusd, the upload hooks and the upload script (gate U1 passed; a file uploaded against Neon: see the [Step 7C report](step-07c-report.md))
 - [x] 7D: Check files with FFprobe and convert them to the four qualities as HLS (gate U2 passed; see the [Step 7D report](step-07d-report.md))
 - [x] 7E: Publish to a private R2 bucket, keeping the original (a test clip published to `veloraug-dev`: see the [Step 7E report](step-07e-report.md))
-- [ ] 7F: Check everything end to end
+- [x] 7F: Check everything end to end (upload, replacement, refusal, revoked key and removal on Neon and R2, user-run: see the [Step 7F report](step-07f-report.md))
 
 ### Milestone 8: Protected playback
+
+From Milestone 7: test seeking in hls.js and ExoPlayer, and watch a real film to check the bitrates. See the [Step 7F report](step-07f-report.md#what-milestone-7-leaves-for-later).
+
 - [ ] Design playback authorization: what the API grants, and how the Worker checks it
 - [ ] Deliver video through the Cloudflare Worker in `services/media_gateway/`
 - [ ] Test playback on web and Android
