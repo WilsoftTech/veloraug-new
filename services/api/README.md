@@ -314,7 +314,7 @@ A publish that fails is tried again after 1, then 2 minutes, then marked `failed
    VELORAUG_R2_SECRET_ACCESS_KEY=<Secret Access Key>
    ```
 
-   The endpoint is the account's, without `/veloraug-dev` on the end.
+   The dashboard shows the address with `/veloraug-dev` on the end. Either form works: the bucket's name on the end is dropped. Any other path is refused.
 
 Then check it, and restart the worker so it reads the file:
 

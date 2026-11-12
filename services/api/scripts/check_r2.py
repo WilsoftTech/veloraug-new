@@ -23,6 +23,8 @@ from pathlib import Path
 API_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(API_DIR))
 
+from pydantic import ValidationError  # noqa: E402
+
 from app.media_publisher import R2Settings, R2Store  # noqa: E402
 
 ENV_FILE = API_DIR / ".env.r2"
@@ -52,7 +54,15 @@ def anonymous_status(settings: R2Settings, key: str) -> int:
 
 def main() -> int:
     load_env_file()
-    settings = R2Settings()
+    try:
+        settings = R2Settings()
+    except ValidationError as error:
+        # The messages never quote a value.
+        for problem in error.errors():
+            name = ".".join(str(part) for part in problem["loc"]) or "settings"
+            message = problem["msg"].removeprefix("Value error, ")
+            print(f"{ENV_FILE.name}: {name}: {message}")
+        return 1
     if not settings.configured:
         print(f"R2 isn't set up. Put the four VELORAUG_R2_* lines in {ENV_FILE}.")
         return 1

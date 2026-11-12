@@ -109,7 +109,7 @@ def test_r2_settings_are_all_or_none():
     [
         "http://abc.r2.cloudflarestorage.com",
         "https://evil.example",
-        "https://abc.r2.cloudflarestorage.com/veloraug-dev",
+        "https://abc.r2.cloudflarestorage.com/another-bucket",
     ],
 )
 def test_only_an_r2_endpoint_is_accepted(endpoint):
@@ -408,3 +408,29 @@ def test_without_r2_a_converted_original_waits(
 
     assert Worker(media_database, uploads, output).run_once() is False
     assert state_of(owner_url, original_id)[0] == "publishing"
+
+
+def test_the_dashboards_address_with_the_bucket_on_the_end_is_accepted():
+    settings = R2Settings(
+        endpoint="https://abc123.r2.cloudflarestorage.com/veloraug-dev",
+        bucket="veloraug-dev",
+        access_key_id="id",
+        secret_access_key="key",
+    )
+
+    assert settings.endpoint == "https://abc123.r2.cloudflarestorage.com"
+
+
+def test_check_r2_explains_bad_settings_without_a_traceback(monkeypatch, capsys):
+    from scripts import check_r2
+
+    monkeypatch.setattr(check_r2, "ENV_FILE", check_r2.API_DIR / "no-such.env")
+    monkeypatch.setenv("VELORAUG_R2_ENDPOINT", "https://x.r2.cloudflarestorage.com/a/b")
+    monkeypatch.setenv("VELORAUG_R2_BUCKET", "veloraug-dev")
+    monkeypatch.setenv("VELORAUG_R2_ACCESS_KEY_ID", "id")
+    monkeypatch.setenv("VELORAUG_R2_SECRET_ACCESS_KEY", "Zq9-not-shown")
+
+    assert check_r2.main() == 1
+    out = capsys.readouterr().out
+    assert "without /a/b on the end" in out
+    assert "Zq9-not-shown" not in out

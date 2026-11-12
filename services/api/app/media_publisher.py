@@ -84,9 +84,10 @@ class R2Settings(BaseSettings):
             raise ValueError(
                 "endpoint must be https://<account ID>.r2.cloudflarestorage.com"
             )
-        if parts.path not in ("", "/"):
-            raise ValueError("endpoint must not include the bucket or a path")
-        return f"https://{host}"
+        # Kept for now: the bucket's own name on the end, as the dashboard shows
+        # the address, is removed once the bucket is known, below.
+        path = parts.path.strip("/")
+        return f"https://{host}" + (f"/{path}" if path else "")
 
     @field_validator("bucket")
     @classmethod
@@ -111,6 +112,16 @@ class R2Settings(BaseSettings):
                 "VELORAUG_R2_ACCESS_KEY_ID and VELORAUG_R2_SECRET_ACCESS_KEY "
                 "together, or none of them"
             )
+        if self.endpoint is not None:
+            parts = urlsplit(self.endpoint)
+            path = parts.path.strip("/")
+            if path and path != self.bucket:
+                raise ValueError(
+                    "endpoint must be https://<account ID>.r2.cloudflarestorage.com, "
+                    f"without /{path} on the end"
+                )
+            # The dashboard shows the address with the bucket on the end.
+            self.endpoint = f"https://{parts.hostname}"
         return self
 
     @property
