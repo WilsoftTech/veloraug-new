@@ -14,7 +14,7 @@ This is the approved plan. **Only the Flutter app shell and a minimal FastAPI se
 | Database | Neon PostgreSQL, in `aws-eu-central-1` (Frankfurt) | Stores app data. Only the backend connects to it, from the Oracle server, which is also in Frankfurt |
 | Movie details | TMDB | Titles, posters and descriptions |
 | Uploads | tusd | Uploads that can resume after a dropped connection |
-| Media processing | FFmpeg/FFprobe | Inspects movies and converts them to HLS |
+| Media processing | FFmpeg/FFprobe | Inspects movies and converts them to HLS in 360p, 480p, 720p and 1080p |
 | Video storage | Cloudflare R2 | Private storage for published HLS files |
 | Video delivery | Cloudflare Worker, in `services/media_gateway/` | Checks access, then serves video from R2 |
 | Backend hosting | Docker Compose on Oracle ARM64 | Runs the API, media worker and tusd |
@@ -36,7 +36,7 @@ Watching
   Flutter app --> Cloudflare Worker: checks the access --> private R2
 
 Publishing
-  Upload key from the owner --> upload script --> tusd --> media worker (FFprobe, FFmpeg -c copy) --> private R2
+  Upload key from the owner --> upload script --> tusd --> media worker (FFprobe, FFmpeg: 360p to 1080p) --> private R2, original kept
   Later: private Telegram channel --> media worker
 
 Paying

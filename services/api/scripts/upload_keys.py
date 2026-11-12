@@ -1,4 +1,4 @@
-"""One-time upload keys, and the movie versions uploaded with them.
+"""One-time upload keys, the originals uploaded with them, and their qualities.
 
 Used by scripts/catalogue.py, as the database owner. A key lets whoever holds
 it upload one file for one movie. Only its SHA-256 is stored, so the text is
@@ -54,7 +54,7 @@ class UploadKey:
 
 
 @dataclass(frozen=True)
-class Version:
+class Original:
     id: uuid.UUID
     upload_key_id: uuid.UUID
     state: str
@@ -63,6 +63,7 @@ class Version:
     video_codec: str | None
     audio_codec: str | None
     reason: str | None
+    qualities: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -71,7 +72,7 @@ class MovieUploads:
     tmdb_id: int
     title: str | None
     keys: list[UploadKey]
-    versions: list[Version]
+    originals: list[Original]
 
 
 _KEY_COLUMNS = "id, movie_id, label, created_at, expires_at, used_at, revoked_at"
@@ -109,7 +110,7 @@ def grant_upload(
 
 def revoke_upload(conn: psycopg.Connection, key_id: str) -> UploadKey:
     """Stops a key working. A key already used stays used: its upload carries
-    on, and the version can be removed instead."""
+    on, and the original can be removed instead."""
     try:
         parsed = uuid.UUID(key_id)
     except ValueError:
@@ -130,7 +131,7 @@ def revoke_upload(conn: psycopg.Connection, key_id: str) -> UploadKey:
 def list_uploads(
     conn: psycopg.Connection, movie_id: uuid.UUID | None = None
 ) -> list[MovieUploads]:
-    """Every movie with a key, newest key first, with its keys and versions."""
+    """Every movie with a key, newest key first, with its keys and originals."""
     movies = conn.execute(
         """
         select m.id, m.tmdb_id, d.title
@@ -155,19 +156,21 @@ def list_uploads(
                 (id_,),
             )
         ]
-        versions = [
-            Version(*row)
+        originals = [
+            Original(*row[:-1], qualities=tuple(row[-1]))
             for row in conn.execute(
                 """
-                select id, upload_key_id, state, size_bytes, height,
-                       video_codec, audio_codec, reason
-                from public.media_versions where movie_id = %s
-                order by created_at desc
+                select o.id, o.upload_key_id, o.state, o.size_bytes, o.height,
+                       o.video_codec, o.audio_codec, o.reason,
+                       array(select r.height from public.media_renditions r
+                             where r.original_id = o.id order by r.height)
+                from public.media_originals o where o.movie_id = %s
+                order by o.created_at desc
                 """,
                 (id_,),
             )
         ]
-        result.append(MovieUploads(id_, tmdb_id, title, keys, versions))
+        result.append(MovieUploads(id_, tmdb_id, title, keys, originals))
     return result
 
 
@@ -179,31 +182,34 @@ def size_text(size: int) -> str:
 
 
 def describe_uploads(movie: MovieUploads, now: datetime | None = None) -> list[str]:
-    """Lines for `uploads`: the movie, then each key with its version."""
+    """Lines for `uploads`: the movie, then each key with its original."""
     now = now or datetime.now(UTC)
     lines = [f"{movie.title or '(no details)'}  TMDB {movie.tmdb_id}"]
-    by_key = {version.upload_key_id: version for version in movie.versions}
+    by_key = {original.upload_key_id: original for original in movie.originals}
     for key in movie.keys:
         state = key.state(now)
         when = (
             f"expires {key.expires_at:%d %b %H:%M} UTC" if state == "unused" else state
         )
         lines.append(f"  key for {key.label}: {when}  key id {key.id}")
-        version = by_key.get(key.id)
-        if version is None:
+        original = by_key.get(key.id)
+        if original is None:
             continue
-        quality = f"{version.height}p " if version.height else ""
+        quality = f"{original.height}p " if original.height else ""
         codecs = "/".join(
             codec.upper()
-            for codec in (version.video_codec, version.audio_codec)
+            for codec in (original.video_codec, original.audio_codec)
             if codec
         )
         detail = f"{quality}{codecs}".strip()
-        size = size_text(version.size_bytes)
-        text = f"    version {version.id}: {version.state}, {size}"
+        size = size_text(original.size_bytes)
+        text = f"    original {original.id}: {original.state}, {size}"
         if detail:
             text += f", {detail}"
-        if version.reason:
-            text += f". {version.reason}"
+        if original.qualities:
+            made = ", ".join(f"{height}p" for height in original.qualities)
+            text += f". Qualities: {made}"
+        if original.reason:
+            text += f". {original.reason}"
         lines.append(text)
     return lines

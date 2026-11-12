@@ -367,19 +367,19 @@ def check_catalogue(conn: psycopg.Connection) -> list[Result]:
 
 
 def check_uploads(conn: psycopg.Connection) -> list[Result]:
-    """The API can't see or change upload keys or media versions.
+    """The API can't see or change upload keys, originals or qualities.
 
     These follow the Step 7B criteria in docs/step-07a-uploads-plan.md.
     """
-    tables = ("public.upload_keys", "public.media_versions")
+    tables = ("public.upload_keys", "public.media_originals", "public.media_renditions")
     flags = conn.execute(
         """
-        select count(*) = 2 and bool_and(relrowsecurity and relforcerowsecurity)
+        select count(*) = 3 and bool_and(relrowsecurity and relforcerowsecurity)
         from pg_class where oid = any(%s::regclass[])
         """,
         (list(tables),),
     ).fetchone()[0]
-    results = [Result("RLS and forced RLS on upload_keys and media_versions", flags)]
+    results = [Result("RLS and forced RLS on the upload tables", flags)]
     rights = [
         table
         for table in tables
@@ -394,10 +394,11 @@ def check_uploads(conn: psycopg.Connection) -> list[Result]:
     ]
     results.append(
         Result(
-            "can't read or change upload keys or media versions",
+            "can't read or change upload keys, originals or qualities",
             not rights
             and refused(conn, "select count(*) from public.upload_keys")
-            and refused(conn, "select count(*) from public.media_versions")
+            and refused(conn, "select count(*) from public.media_originals")
+            and refused(conn, "select count(*) from public.media_renditions")
             and refused(conn, "update public.upload_keys set used_at = now()"),
             ", ".join(rights),
         )

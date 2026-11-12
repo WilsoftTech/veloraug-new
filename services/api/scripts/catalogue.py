@@ -470,7 +470,7 @@ def parser() -> argparse.ArgumentParser:
     )
     revoke = commands.add_parser("revoke-upload", help="stop an upload key working")
     revoke.add_argument("key_id", help="the key ID that uploads shows")
-    uploads = commands.add_parser("uploads", help="upload keys and their versions")
+    uploads = commands.add_parser("uploads", help="upload keys and their originals")
     uploads.add_argument("movie", nargs="?", help="only this movie")
     return main_parser
 

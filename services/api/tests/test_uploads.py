@@ -1,4 +1,4 @@
-"""Upload keys and media versions: migration 0003 and the owner's commands.
+"""Upload keys, originals and qualities: migration 0003 and the owner's commands.
 
 The database tests run on a real local Postgres, as the owner, the API's role
 and the media role. Skipped without one: see tests/db_support.py.
@@ -18,9 +18,9 @@ from scripts.create_app_role import scram_verifier
 from scripts.upload_keys import (
     KEY_PREFIX,
     MovieUploads,
+    Original,
     UploadKey,
     UploadKeyError,
-    Version,
     clean_label,
     describe_uploads,
     grant_upload,
@@ -91,19 +91,35 @@ def test_a_key_has_one_state():
     assert _key(used_at=NOW, revoked_at=NOW).state(NOW) == "revoked"
 
 
-def test_uploads_lists_each_key_with_its_version():
-    used = _key(id=uuid.UUID(int=3), used_at=NOW)
-    version = Version(
-        id=uuid.UUID(int=4),
-        upload_key_id=used.id,
-        state="refused",
-        size_bytes=1_500_000_000,
-        height=1080,
-        video_codec="h264",
-        audio_codec="ac3",
-        reason="Audio is AC-3. VeloraUG accepts AAC or MP3 audio.",
+def test_uploads_lists_each_key_with_its_original():
+    refused = _key(id=uuid.UUID(int=3), used_at=NOW)
+    ready = _key(id=uuid.UUID(int=5), used_at=NOW)
+    originals = [
+        Original(
+            id=uuid.UUID(int=4),
+            upload_key_id=refused.id,
+            state="refused",
+            size_bytes=900_000,
+            height=240,
+            video_codec="h264",
+            audio_codec=None,
+            reason="The video is 240 lines high. VeloraUG needs at least 360.",
+        ),
+        Original(
+            id=uuid.UUID(int=6),
+            upload_key_id=ready.id,
+            state="ready",
+            size_bytes=6_200_000_000,
+            height=720,
+            video_codec="hevc",
+            audio_codec="ac3",
+            reason=None,
+            qualities=(360, 480, 720),
+        ),
+    ]
+    movie = MovieUploads(
+        uuid.UUID(int=2), 550, "Fight Club", [_key(), refused, ready], originals
     )
-    movie = MovieUploads(uuid.UUID(int=2), 550, "Fight Club", [_key(), used], [version])
 
     lines = describe_uploads(movie, NOW)
 
@@ -111,8 +127,11 @@ def test_uploads_lists_each_key_with_its_version():
         "Fight Club  TMDB 550",
         f"  key for Kampala Films: expires 18 Nov 12:00 UTC  key id {uuid.UUID(int=1)}",
         f"  key for Kampala Films: used  key id {uuid.UUID(int=3)}",
-        f"    version {uuid.UUID(int=4)}: refused, 1.5 GB, 1080p H264/AC3. "
-        "Audio is AC-3. VeloraUG accepts AAC or MP3 audio.",
+        f"    original {uuid.UUID(int=4)}: refused, 900.0 KB, 240p H264. "
+        "The video is 240 lines high. VeloraUG needs at least 360.",
+        f"  key for Kampala Films: used  key id {uuid.UUID(int=5)}",
+        f"    original {uuid.UUID(int=6)}: ready, 6.2 GB, 720p HEVC/AC3. "
+        "Qualities: 360p, 480p, 720p",
     ]
 
 
@@ -169,17 +188,17 @@ def claim(conn, key):
     ).fetchone()
 
 
-def add_version(conn, key_id, movie_id):
-    version_id = uuid.uuid4()
+def add_original(conn, key_id, movie_id):
+    original_id = uuid.uuid4()
     conn.execute(
         """
-        insert into public.media_versions
+        insert into public.media_originals
           (id, movie_id, upload_key_id, size_bytes, filename)
         values (%s, %s, %s, %s, %s)
         """,
-        (version_id, movie_id, key_id, 1_000_000, "film.mp4"),
+        (original_id, movie_id, key_id, 1_000_000, "film.mp4"),
     )
-    return version_id
+    return original_id
 
 
 @needs_database
@@ -212,7 +231,7 @@ def test_a_key_lasts_one_to_30_days(owner_url, movie, days):
 
 
 @needs_database
-def test_the_media_role_uses_a_key_once_and_adds_its_version(
+def test_the_media_role_uses_a_key_once_and_adds_its_original(
     owner_url, media_url, movie
 ):
     key, text = grant(owner_url, movie)
@@ -220,19 +239,19 @@ def test_the_media_role_uses_a_key_once_and_adds_its_version(
     with psycopg.connect(media_url) as conn:
         claimed = claim(conn, text)
         assert claimed == (key.id, movie)
-        version_id = add_version(conn, key.id, movie)
+        original_id = add_original(conn, key.id, movie)
         conn.commit()
         assert claim(conn, text) is None
         conn.execute(
-            "update public.media_versions set state = 'received' where id = %s",
-            (version_id,),
+            "update public.media_originals set state = 'received' where id = %s",
+            (original_id,),
         )
         conn.commit()
 
     with psycopg.connect(owner_url) as conn:
         [uploads] = list_uploads(conn, movie)
     assert uploads.keys[0].used_at is not None
-    assert [(v.id, v.state) for v in uploads.versions] == [(version_id, "received")]
+    assert [(o.id, o.state) for o in uploads.originals] == [(original_id, "received")]
 
 
 @needs_database
@@ -254,7 +273,7 @@ def test_wrong_expired_and_revoked_keys_dont_work(owner_url, media_url, movie):
 
 
 @needs_database
-def test_a_version_needs_a_used_key_for_the_same_movie(owner_url, media_url, movie):
+def test_an_original_needs_a_used_key_for_the_same_movie(owner_url, media_url, movie):
     unused_key, _ = grant(owner_url, movie)
     used_key, used = grant(owner_url, movie)
     with psycopg.connect(owner_url) as conn:
@@ -271,7 +290,7 @@ def test_a_version_needs_a_used_key_for_the_same_movie(owner_url, media_url, mov
             psycopg.connect(media_url) as conn,
             pytest.raises(errors.InsufficientPrivilege),
         ):
-            add_version(conn, key_id, movie_id)
+            add_original(conn, key_id, movie_id)
 
 
 @needs_database
@@ -280,12 +299,13 @@ def test_a_version_needs_a_used_key_for_the_same_movie(owner_url, media_url, mov
     [
         "insert into public.upload_keys (movie_id, key_hash, label, expires_at) "
         "select id, sha256('x'), 'x', now() + interval '1 day' "
-        "from public.media_versions",
+        "from public.media_originals",
         "update public.upload_keys set revoked_at = null",
         "update public.upload_keys set label = 'x'",
         "delete from public.upload_keys",
-        "delete from public.media_versions",
-        "update public.media_versions set movie_id = id",
+        "delete from public.media_originals",
+        "update public.media_originals set movie_id = id",
+        "update public.media_renditions set width = 1",
         "select label from public.upload_keys",
         "select count(*) from public.movies",
         "update public.movies set published = true",
@@ -306,9 +326,10 @@ def test_the_media_role_can_do_nothing_else(media_url, statement):
     "statement",
     [
         "select count(*) from public.upload_keys",
-        "select count(*) from public.media_versions",
+        "select count(*) from public.media_originals",
+        "select count(*) from public.media_renditions",
         "update public.upload_keys set used_at = now()",
-        "insert into public.media_versions (id, movie_id, upload_key_id, size_bytes) "
+        "insert into public.media_originals (id, movie_id, upload_key_id, size_bytes) "
         "values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1)",
     ],
 )
@@ -322,8 +343,8 @@ def test_the_database_checks_cover_uploads(app_url):
     results = {result.name: result for result in run_checks(app_url)}
 
     for name in (
-        "RLS and forced RLS on upload_keys and media_versions",
-        "can't read or change upload keys or media versions",
+        "RLS and forced RLS on the upload tables",
+        "can't read or change upload keys, originals or qualities",
     ):
         assert results[name].passed, results[name]
     assert all(result.passed for result in results.values())
@@ -368,3 +389,86 @@ def test_the_owner_commands_end_to_end(owner_url, movie, monkeypatch, capsys):
     code, out = run("revoke-upload", "not-an-id")
     assert code == 1
     assert "isn't a key ID" in out.err
+
+
+def ready_original(owner_url, media_url, movie, heights=(360, 480)):
+    """An original taken all the way to 'ready', as the worker will."""
+    key, text = grant(owner_url, movie)
+    with psycopg.connect(media_url) as conn:
+        claim(conn, text)
+        original_id = add_original(conn, key.id, movie)
+        conn.execute(
+            "update public.media_originals set state = 'publishing' where id = %s",
+            (original_id,),
+        )
+        for height in heights:
+            add_quality(conn, original_id, height)
+        conn.execute(
+            "update public.media_originals set state = 'ready', ready_at = now() "
+            "where id = %s",
+            (original_id,),
+        )
+    return original_id
+
+
+def add_quality(conn, original_id, height):
+    conn.execute(
+        """
+        insert into public.media_renditions
+          (original_id, height, width, bandwidth, size_bytes)
+        values (%s, %s, %s, %s, %s)
+        """,
+        (original_id, height, height * 16 // 9, 1_000_000, 50_000_000),
+    )
+
+
+@needs_database
+def test_qualities_are_added_while_publishing_and_listed(owner_url, media_url, movie):
+    original_id = ready_original(owner_url, media_url, movie, (360, 480, 720, 1080))
+
+    with psycopg.connect(owner_url) as conn:
+        [uploads] = list_uploads(conn, movie)
+    assert uploads.originals[0].id == original_id
+    assert uploads.originals[0].qualities == (360, 480, 720, 1080)
+
+
+@needs_database
+def test_qualities_cant_be_added_outside_publishing_or_above_1080p(
+    owner_url, media_url, movie
+):
+    original_id = ready_original(owner_url, media_url, movie)
+
+    with psycopg.connect(media_url) as conn:
+        with pytest.raises(errors.InsufficientPrivilege):
+            add_quality(conn, original_id, 720)
+
+    with psycopg.connect(media_url) as conn:
+        conn.execute(
+            "update public.media_originals set state = 'publishing', ready_at = null "
+            "where id = %s",
+            (original_id,),
+        )
+        with pytest.raises(errors.CheckViolation):
+            add_quality(conn, original_id, 2160)
+
+
+@needs_database
+def test_qualities_are_deleted_only_while_removing(owner_url, media_url, movie):
+    original_id = ready_original(owner_url, media_url, movie)
+    delete = "delete from public.media_renditions where original_id = %s"
+
+    with psycopg.connect(media_url) as conn:
+        assert conn.execute(delete, (original_id,)).rowcount == 0
+        conn.execute(
+            "update public.media_originals set state = 'removing' where id = %s",
+            (original_id,),
+        )
+        assert conn.execute(delete, (original_id,)).rowcount == 2
+
+
+@needs_database
+def test_a_movie_has_one_ready_original(owner_url, media_url, movie):
+    ready_original(owner_url, media_url, movie)
+
+    with pytest.raises(errors.UniqueViolation):
+        ready_original(owner_url, media_url, movie)

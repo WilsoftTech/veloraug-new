@@ -158,7 +158,7 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe -m alembic current
 ```
 
-`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0003 (head)`: `0001` adds profiles, `0002` adds the catalogue, and `0003` adds upload keys, media versions and the `veloraug_media` role, without a login yet.
+`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0003 (head)`: `0001` adds profiles, `0002` adds the catalogue, and `0003` adds upload keys, originals, their qualities and the `veloraug_media` role, without a login yet.
 
 ### 4. Check it
 
@@ -166,7 +166,7 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe scripts\check_database.py
 ```
 
-This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. For the catalogue, it checks that hidden movies can't be seen, and that the API can't add, publish, hide or remove movies, or delete their details. For uploads, it checks that the API can't read or change upload keys or media versions. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
+This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. For the catalogue, it checks that hidden movies can't be seen, and that the API can't add, publish, hide or remove movies, or delete their details. For uploads, it checks that the API can't read or change upload keys, originals or qualities. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
 
 **Rules for migrations:**
 
@@ -211,7 +211,7 @@ The owner and trusted uploaders upload movie files with one-time **upload keys**
 | --- | --- |
 | `grant-upload` movie `--for` who `[--days 7]` | Makes a key for one upload to the movie, which needn't be published, and prints it once. Send it privately |
 | `revoke-upload` key ID | Stops a key working. A key already used stays used |
-| `uploads [movie]` | Every key, newest first, with who it was for, whether it is unused, used, expired or revoked, and its upload's state, size, quality, codecs and any reason it was refused. Never the key itself |
+| `uploads [movie]` | Every key, newest first, with who it was for, whether it is unused, used, expired or revoked, and its original's state, size, resolution, format, the qualities made from it and any reason it was refused. Never the key itself |
 
 **TMDB's terms forbid keeping its data for more than 6 months.** The API refreshes details older than 7 days itself, after answering, as long as `VELORAUG_TMDB_READ_ACCESS_TOKEN` is set. It never shows details older than 150 days. If the API isn't running for a long time, run `refresh` at least once a month.
 
