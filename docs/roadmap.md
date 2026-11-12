@@ -79,13 +79,13 @@ Planned in the [Neon plan](step-05a-neon-plan.md), which replaces the superseded
 
 ### Milestone 6: Movie catalogue
 
-Planned in the [catalogue plan](step-06a-catalogue-plan.md). The catalogue lists only VeloraUG's own movies, with details from TMDB. TMDB's free licence doesn't cover a paid app: see [the licence risk](step-06a-catalogue-plan.md#the-licence-risk).
+Planned in the [catalogue plan](step-06a-catalogue-plan.md). **Complete on 12 November 2026.** The catalogue lists only VeloraUG's own movies, with details from TMDB. TMDB's free licence doesn't cover a paid app: see [the licence risk](step-06a-catalogue-plan.md#the-licence-risk).
 
 - [x] 6A: Plan the catalogue
 - [x] 6B: Get a TMDB key, add the catalogue tables and the owner's catalogue script (migration, 25 database checks and four test movies on the development branch, partly user-reported: see the [Step 6B report](step-06b-report.md))
 - [x] 6C: Add the API's catalogue routes, with TMDB details kept and refreshed (automated, plus a container run with the real settings: see the [Step 6C report](step-06c-report.md))
 - [x] 6D: Add home, search and detail screens, and TMDB's credit (see the [Step 6D report](step-06d-report.md))
-- [ ] 6E: Check everything end to end
+- [x] 6E: Check everything end to end (web and Android, signed in and out, unpublish and without the token, user-reported: see the [Step 6E report](step-06e-report.md))
 
 ### Milestone 7: Uploads and processing
 - [ ] Design upload authorization: who may upload, and how tusd checks it
