@@ -1,6 +1,6 @@
 # Step 7B report: upload keys and media versions
 
-Date: 12 November 2026. Branch: `main`. This follows the [uploads plan](step-07a-uploads-plan.md#1-database).
+Date: 12 November 2026. Branch: `feature/step-07-uploads`, from `main`. This follows the [uploads plan](step-07a-uploads-plan.md#1-database).
 
 **Step 7B is written and passes every local check. It closes when the owner runs migration `0003` on the Neon development branch,** as in [run it on Neon](#run-it-on-neon). Nothing has changed on Neon yet.
 
