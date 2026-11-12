@@ -24,8 +24,10 @@ Every command here calls `.\.venv\Scripts\python.exe` directly, so you don't nee
 
 ```powershell
 cd C:\Users\Wilsoft\veloraug\services\api
-.\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --env-file .env
 ```
+
+`--env-file .env` passes your settings, such as the database address and the TMDB token, to the API. The API never reads `.env` itself. Without the option it still starts, but movies fail with "The database isn't set up on this server", and the app says "VeloraUG is busy right now".
 
 Leave that terminal open, then open these in a browser:
 
