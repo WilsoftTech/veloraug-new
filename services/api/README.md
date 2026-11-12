@@ -77,10 +77,12 @@ The password is for that container only, which only this computer can reach. Por
 | `app/catalogue.py` | Catalogue reads, the age rules for TMDB's details, and the background refresher |
 | `app/tmdb.py` | Fetches a movie's details from TMDB, with the read access token |
 | `app/config.py` | The typed settings |
+| `app/media_hooks.py` | A separate app: the upload hooks tusd calls, as `veloraug_media`. See [uploads](#uploads) |
+| `app/upload_keys.py` | How upload keys are made and hashed |
 | `migrations/` | Alembic and the hand-written SQL migrations. Not in the image |
 | `alembic.ini` | Alembic's settings. It holds no connection string |
-| `scripts/` | The owner's scripts: [create the API's role](#2-create-the-apis-role), [check the database](#4-check-it) and [manage the catalogue](#catalogue). Not in the image |
-| `tests/` | Tests for the endpoints, token checks, database rules, migrations, the catalogue, TMDB, CORS and settings. `tests/db_support.py` sets up the local test database |
+| `scripts/` | The owner's scripts: [create the API's role](#2-create-the-apis-role), [check the database](#4-check-it) [manage the catalogue](#catalogue) and [upload keys](#upload-keys), and check the media role. Not in the image |
+| `tests/` | Tests for the endpoints, token checks, database rules, migrations, the catalogue, TMDB, CORS, settings, upload keys, the upload hooks and the upload script. `tests/db_support.py` sets up the local test database |
 | `requirements.txt` | Exact versions of the packages needed to run the API |
 | `requirements-migrate.txt` | The above, plus the migration tools |
 | `requirements-dev.txt` | All of the above, plus the test and lint tools |
@@ -198,9 +200,13 @@ Type one command at a time. If several are pasted together, the hidden prompt ca
 | `refresh` | Fetches details older than 7 days again. Details that can't be fetched are deleted at 180 days |
 | `purge-tmdb` | Deletes every copy of TMDB's details and hides every movie, after you type `purge`. For when the TMDB licence ends |
 
+**TMDB's terms forbid keeping its data for more than 6 months.** The API refreshes details older than 7 days itself, after answering, as long as `VELORAUG_TMDB_READ_ACCESS_TOKEN` is set. It never shows details older than 150 days. If the API isn't running for a long time, run `refresh` at least once a month.
+
+## Uploads
+
 ### Upload keys
 
-The owner and trusted uploaders upload movie files with one-time **upload keys**. A key lets whoever holds it upload one file for one movie. It expires after 7 days unless `--days` says otherwise, from 1 to 30. Only its SHA-256 is stored, so it is shown once, when it is made. See the [uploads plan](../../docs/step-07a-uploads-plan.md). Uploading itself arrives in Step 7C.
+The owner and trusted uploaders upload movie files with one-time **upload keys**. A key lets whoever holds it upload one file for one movie. It expires after 7 days unless `--days` says otherwise, from 1 to 30. Only its SHA-256 is stored, so it is shown once, when it is made. See the [uploads plan](../../docs/step-07a-uploads-plan.md).
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\catalogue.py grant-upload 550 --for "Kampala Films"
@@ -213,72 +219,45 @@ The owner and trusted uploaders upload movie files with one-time **upload keys**
 | `revoke-upload` key ID | Stops a key working. A key already used stays used |
 | `uploads [movie]` | Every key, newest first, with who it was for, whether it is unused, used, expired or revoked, and its original's state, size, resolution, format, the qualities made from it and any reason it was refused. Never the key itself |
 
-**TMDB's terms forbid keeping its data for more than 6 months.** The API refreshes details older than 7 days itself, after answering, as long as `VELORAUG_TMDB_READ_ACCESS_TOKEN` is set. It never shows details older than 150 days. If the API isn't running for a long time, run `refresh` at least once a month.
+### Start the upload services
 
-## The concepts, using this service as the example
+Uploads go to **tusd**, which resumes an upload after a dropped connection. Before accepting one, tusd asks the **upload hooks**, a separate small app in this folder, [`app/media_hooks.py`](app/media_hooks.py), which checks the key as `veloraug_media`. Both run in Docker, from the [local Compose file](../../infra/compose.local.yaml), with the `uploads` profile.
 
-**Virtual environment.** The `.venv` folder is a private copy of Python's package space for this service only. Installing FastAPI there does not touch the rest of your computer or any other project. It is not in Git. If it ever breaks, delete the folder and repeat [Setup](#setup).
-
-**FastAPI** is the Python framework this service is written with. In `app/routes.py`, `@router.get("/health")` tells it which function answers that address. It also reads the function's type hints to check the response and to generate the `/docs` page.
-
-**Uvicorn** is the server program. FastAPI defines how to answer a request, but something has to listen on the network and pass requests in. That is Uvicorn, and in the start command, `app.main:create_app` tells it to call `create_app` in `app/main.py`.
-
-`--host 127.0.0.1` means only this computer can connect, and `--port 8000` is the door number on it. Together they make the address `127.0.0.1:8000`.
-
-**Endpoint.** An address plus an HTTP method that the service answers. This service's addresses all answer `GET`, which means "read this", and `/api/v1/me` also answers `PATCH`:
-
-- `GET /health` says that this server process is running and can answer. **It does not check the database or any other service.** An `ok` means only that the process responded.
-- `GET /api/v1` says which service this is and which API version it serves. Future endpoints will go under `/api/v1`, so a later `v2` can exist alongside them without breaking older apps.
-- `GET /api/v1/me` returns the signed-in user's ID, from a verified [access token](#the-concepts-using-this-service-as-the-example), and their display name. The profile is created on first use. `PATCH /api/v1/me` with `{"display_name": "…"}` changes the name, from 1 to 80 characters, and `null` clears it. These are the only endpoints that need a token.
-- `GET /api/v1/movies` lists published movies, newest first: `id`, `title`, `year` and `poster_url`. `?q=` searches titles, 2 to 80 characters, with titles that start with it first. `?limit=` is 1 to 50, 24 by default, and `next_offset` gives the next page's `?offset=`, or `null` on the last.
-- `GET /api/v1/movies/{id}` adds `overview`, `runtime_minutes`, `genres` and `backdrop_url`. A movie that doesn't exist and one that isn't published both answer `404`, with the same message. `503` with `Retry-After` means its details are being fetched.
-
-The IDs are VeloraUG's own. TMDB's IDs and token never leave the API, and the image addresses point straight at TMDB's image server.
-
-FastAPI adds `/docs` and `/openapi.json` by itself.
-
-**Access token.** After sign-in, Neon gives the app a short-lived token, valid for an hour, which the app sends as `Authorization: Bearer <token>`. The token is signed by Neon. The API checks the signature with Neon's public keys, which it fetches once and keeps for five minutes, so it makes no request to Neon per call. It also checks who issued the token, which API and which app it is for, and that it hasn't expired. Only then does it trust the user ID inside. Any failure gets the same `401`, and if the keys can't be fetched the answer is `503`. A token stays valid until it expires, even after sign-out: see the [revocation limits](../../docs/step-05a-neon-plan.md#revocation-limits). The full rules are in the [Neon plan](../../docs/step-05a-neon-plan.md#4-token-verification-in-fastapi).
-
-**JSON** is the text format the two endpoints reply in. `{"status":"ok"}` is an object with one field, `status`, whose value is the text `ok`. Python, Dart and most other languages can read it, which is how the Flutter app will understand these replies.
-
-**CORS (Cross-Origin Resource Sharing).** An origin is a scheme, host and port together. A web page at `http://localhost:8765` and this API at `http://127.0.0.1:8000` have different origins, so by default the browser won't let that page read the API's replies. The API can give permission with an `Access-Control-Allow-Origin` header:
-
-- For `http://localhost:8765`, the API sends that header, so the browser lets the page read the reply.
-- For `https://evil.example`, the API leaves the header out, so the browser hides the reply from that page.
-- Before some requests, the browser asks first with an `OPTIONS` request called a **preflight**. An allowed origin gets `200`, and any other gets `400`.
-
-Here, permission covers one exact origin, the methods `GET` and `PATCH`, and the headers `Authorization` and `Content-Type`. The wildcard `*` is refused because it would let every website read the replies. Credentials are off because the API uses no cookies: the app sends its token in the `Authorization` header.
-
-Three details are easy to trip over:
-
-- **CORS is not security for the API itself.** Browsers enforce it. A script or `curl` can still call the API from anywhere, and the server still answers a disallowed `GET`. The token check is what protects signed-in routes.
-- **`http://127.0.0.1:8765` is a different origin from `http://localhost:8765`,** even though they reach the same computer, so it is refused.
-- **Flutter picks a random web port by default.** Use the [command in the client README](../../apps/client/README.md#in-chrome-two-terminals), or the browser will block it. An Android app is not a browser, so CORS does not apply to it.
-
-## Change a dependency
-
-The pinned files list every package at an exact version, so each install gets the same code. To change them, start from a clean environment:
+Once, as the owner, give `veloraug_media` a login. Like the API's role script, it asks for the owner string and for `yes`, and saves the role's connection string in `services/api/.env.media`, never in `.env`, so the API's container never holds it:
 
 ```powershell
 cd C:\Users\Wilsoft\veloraug\services\api
-Remove-Item -Recurse -Force .venv
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install fastapi httpx2 "psycopg[binary,pool]" pydantic-settings "PyJWT[crypto]" uvicorn
-.\.venv\Scripts\python.exe -m pip freeze
+.\.venv\Scripts\python.exe scripts\create_app_role.py --role media
+.\.venv\Scripts\python.exe scripts\check_media_role.py
 ```
 
-Paste that output into `requirements.txt`, under the comments. Then install the migration tools and freeze again:
+`check_media_role.py` asks for nothing, changes nothing, and should print **14 PASS**: the role has no special rights, and can't make, revoke or read the label of keys, delete keys or originals, read movies, TMDB details or profiles, publish movies or change the schema.
+
+Then, with Docker Desktop running:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install alembic sqlalchemy
-.\.venv\Scripts\python.exe -m pip freeze
+cd C:\Users\Wilsoft\veloraug
+docker compose -f infra/compose.local.yaml --profile uploads up -d --build media-hooks tusd
+docker compose -f infra/compose.local.yaml --profile uploads ps
+docker compose -f infra/compose.local.yaml --profile uploads logs media-hooks
+docker compose -f infra/compose.local.yaml --profile uploads stop media-hooks tusd
 ```
 
-Put only the lines that are new into `requirements-migrate.txt`, under `-r requirements.txt`. Then install the test tools and freeze again:
+- tusd listens on `http://127.0.0.1:1080/files/`, this computer only. The hooks have no port at all.
+- Received files land in `services/worker/uploads/`, which Git ignores. Each is named by its original's ID, beside a `.info` file.
+- tusd refuses downloads and deletion. A file over 50 GB, without a declared size, or without a working key is refused before any data arrives.
+- The hooks log each upload accepted, received or refused, never a key.
+
+### Upload a file
+
+Anyone with a key, the owner included, uploads with [`tools/veloraug_upload.py`](../../tools/veloraug_upload.py). It needs only Python 3.10 or newer, with no packages, so a trusted uploader needs just that one file:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install pytest ruff
-.\.venv\Scripts\python.exe -m pip freeze
+python C:\Users\Wilsoft\veloraug\tools\veloraug_upload.py "C:\Movies\My Film.mp4"
 ```
 
-Put only the lines that are new into `requirements-dev.txt`, under `-r requirements-migrate.txt`. Copy and paste instead of using `>`, which can change the file's encoding in Windows PowerShell. Finally, delete `.venv`, repeat [Setup](#setup) and [run the checks](#run-the-checks).
+It asks for the key, hidden, then shows progress. If the connection drops, it tries again by itself. If it is stopped, or the computer restarts, **run the same command again**: it carries on from where it stopped, without asking for the key, using a small `.veloraug-upload` file beside the movie. That file is deleted at the end. Until then, keep it private: it holds the unfinished upload's address. `--server` points it at another upload address, such as the Oracle server's from Milestone 10.
+
+After the upload, `catalogue.py uploads` shows its original as `received`. Converting it comes in Step 7D.
+
+

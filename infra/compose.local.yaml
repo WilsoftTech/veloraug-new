@@ -25,3 +25,75 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # Uploads, Step 7C. Started only with --profile uploads.
+  #
+  # The upload hooks: the API's image running a separate app, as
+  # veloraug_media. No ports: only tusd, on the uploads network, can reach it.
+  media-hooks:
+    profiles: [uploads]
+    build:
+      context: ../services/api
+    image: veloraug-api:local
+    command:
+      - python
+      - -m
+      - uvicorn
+      - app.media_hooks:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      # Requests aren't logged: the hooks' log lines say what happened.
+      - --no-access-log
+    # Only the media role's connection string. The API's settings, and the
+    # API's container, never see it.
+    env_file:
+      - path: ../services/api/.env.media
+        required: true
+    networks: [uploads]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Receives uploads, resumably. Pinned to a release with ARM64 images.
+  tusd:
+    profiles: [uploads]
+    image: tusproject/tusd:v2.10.1
+    command:
+      - -host=0.0.0.0
+      - -port=8080
+      - -base-path=/files/
+      - -upload-dir=/srv/tusd-data
+      - -max-size=53687091200
+      # Nobody can read an upload back, or delete one, through tusd.
+      - -disable-download
+      - -disable-termination
+      - -hooks-http=http://media-hooks:8000/tusd
+      - -hooks-enabled-events=pre-create,post-finish
+      # A pre-create call is never repeated: a repeat could find its own key
+      # already used, and refuse the upload it had just accepted.
+      - -hooks-http-retry=0
+      # Nothing to show anyone but uploaders.
+      - -show-greeting=false
+      - -expose-metrics=false
+    volumes:
+      # Git ignores this folder. The media worker reads it from Step 7D.
+      - ../services/worker/uploads:/srv/tusd-data
+    ports:
+      - "127.0.0.1:1080:8080"
+    networks: [uploads]
+    depends_on:
+      media-hooks:
+        condition: service_healthy
+
+networks:
+  uploads: {}

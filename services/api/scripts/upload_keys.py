@@ -5,15 +5,16 @@ it upload one file for one movie. Only its SHA-256 is stored, so the text is
 shown once, when it is made. See docs/step-07a-uploads-plan.md.
 """
 
-import hashlib
-import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import psycopg
 
-KEY_PREFIX = "vu_"
+from app.upload_keys import KEY_PREFIX, key_hash, new_key
+
+__all__ = ["KEY_PREFIX", "key_hash", "new_key"]
+
 DEFAULT_DAYS = 7
 MAX_DAYS = 30
 MAX_LABEL = 100
@@ -21,16 +22,6 @@ MAX_LABEL = 100
 
 class UploadKeyError(Exception):
     """A mistake the owner can fix. The message is safe to show."""
-
-
-def new_key() -> str:
-    """32 random bytes, as 43 URL-safe characters, after a recognisable prefix."""
-    return KEY_PREFIX + secrets.token_urlsafe(32)
-
-
-def key_hash(key: str) -> bytes:
-    """What the database stores, and what the upload hooks look a key up by."""
-    return hashlib.sha256(key.strip().encode()).digest()
 
 
 @dataclass(frozen=True)

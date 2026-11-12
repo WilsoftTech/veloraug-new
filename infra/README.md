@@ -1,6 +1,6 @@
 # Infrastructure
 
-Docker configuration for running the services. Today it holds one thing: a **local development** setup for the API. Nothing has been deployed.
+Docker configuration for running the services. Today it holds a **local development** setup for the API, and, behind the `uploads` profile, tusd and the upload hooks from Step 7C. Plain `up` starts only the API. The upload services are described in the [API README](../services/api/README.md#start-the-upload-services). Nothing has been deployed.
 
 ## Run the API in Docker
 
