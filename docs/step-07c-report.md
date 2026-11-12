@@ -2,7 +2,7 @@
 
 Date: 12 November 2026. Branch: `feature/step-07-uploads`. This follows the [uploads plan](step-07a-uploads-plan.md#3-uploads).
 
-**Step 7C is written, and gate U1 passed on this PC against a throwaway database.** It closes after the owner's run against the Neon development branch, in [the owner's run](#the-owners-run): giving `veloraug_media` a login, checking it, and uploading one small file.
+**Step 7C is complete.** Gate U1 passed on this PC against a throwaway database, and on 12 November 2026 a file uploaded through tusd and the hooks against the Neon development branch. See [the owner's run](#the-owners-run).
 
 ## What changed
 
@@ -98,11 +98,27 @@ python C:\Users\Wilsoft\veloraug\tools\veloraug_upload.py "C:\path\to\a small fi
 - `uploads` should show the key as used, and its original as `received`, with the file's size and name.
 - To stop the services afterwards: `docker compose -f infra/compose.local.yaml --profile uploads stop media-hooks tusd`.
 
+### Results, 12 November 2026
+
+| Step | Result |
+| --- | --- |
+| `create_app_role.py --role media`, by the owner | `veloraug_media` got a login; its connection string was saved in `.env.media` |
+| `check_media_role.py`, by the owner | **14 passed, 0 failed** |
+| Compose `up` with the `uploads` profile, by the owner | `media-hooks` healthy, with no host port; `tusd` up on `127.0.0.1:1080` |
+| `grant-upload 550 --for Owner --days 1`, by the owner | A key for *Fight Club* |
+| The upload script, run by Claude with that key, on an 8 MB file of random bytes | Uploaded. tusd holds all 8,388,608 bytes |
+| Neon, read as the owner | The original `received`, 8,388,608 bytes, `VeloraUG 7C check.mp4`, its key used |
+| The hooks' log | Accepted, then received. No key in any log line |
+
+The owner's first try at the upload ran the instructions' placeholder path, so Claude ran it with a test file instead. The owner's paste included the key's text again. Using it for this upload used it up.
+
+The test file is random bytes, not a video. Step 7D's worker should refuse it, with "No video track found", which makes it a ready-made test of a refusal.
+
 ## Acceptance criteria
 
 | Criterion | State |
 | --- | --- |
-| tusd, the hooks and the database work together in Compose | **Met** locally. With Neon at the owner's run |
+| tusd, the hooks and the database work together in Compose | **Met**, locally and with Neon |
 | A good key uploads; a missing, wrong, used, expired or revoked key is refused before any data arrives; a second upload with the same key is refused | **Met**. Revoked keys are refused by the same rule as used and expired ones, tested in Step 7B |
 | tusd refuses downloads and deletion, and the hooks have no port outside Docker | **Met** |
 | Gate U1 passes, and no key appears in any log | **Met** |
