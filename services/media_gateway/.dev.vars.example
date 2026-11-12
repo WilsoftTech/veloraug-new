@@ -1,0 +1,10 @@
+# Example only. The value below is fake.
+#
+# Goes in: services/media_gateway/.dev.vars, a Git-ignored copy of this file,
+# read by `npm run dev`. On Cloudflare, the same value is a Worker secret:
+#   npx wrangler secret put PLAYBACK_SIGNING_KEY
+#
+# Purpose: checks the playback grants the API signs. Must be exactly the
+#          API's VELORAUG_PLAYBACK_SIGNING_KEY. At least 32 characters.
+# Source:  python -c "import secrets; print(secrets.token_urlsafe(32))"
+PLAYBACK_SIGNING_KEY=REPLACE_ME_WITH_THE_SAME_KEY_AS_THE_API_0000

@@ -1,0 +1,23 @@
+// The media gateway's Cloudflare settings. Nothing here is secret: the
+// signing key is a Worker secret, and locally in .dev.vars. See README.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "veloraug-media-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-27",
+  "workers_dev": true,
+  // No preview addresses: each would be another way in.
+  "preview_urls": false,
+  "r2_buckets": [
+    {
+      // Private. Only this binding reads it. `wrangler dev` uses a local copy
+      // in .wrangler/state, never the real bucket.
+      "binding": "MEDIA",
+      "bucket_name": "veloraug-dev"
+    }
+  ],
+  "vars": {
+    // The web app's origins, separated by commas. Android sends none.
+    "ALLOWED_ORIGINS": "http://localhost:8765"
+  }
+}

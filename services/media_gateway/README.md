@@ -1,5 +1,98 @@
-# Media gateway (placeholder)
+# Media gateway
 
-The future Cloudflare Worker, which delivers video to viewers. It sits in front of private R2 storage, checks that a viewer has access, and only then serves the video. Not to be confused with `services/worker/`, which processes movies in the background.
+The Cloudflare Worker that delivers video to viewers. It sits in front of the private R2 bucket, checks each request's playback grant, and only then serves the file. Not to be confused with the media worker in [`services/api/app/media_worker.py`](../api/app/media_worker.py), which converts movies in the background.
 
-No code or Node dependencies exist yet. How the Worker checks a viewer's access is an open design task: see [open design tasks](../../docs/architecture.md#open-design-tasks).
+Planned in the [playback plan](../../docs/step-08a-playback-plan.md).
+
+```text
+app --POST /api/v1/movies/{id}/playback--> API: checks the viewer, signs a grant
+app --GET /v1/<grant>/master.m3u8--> this Worker: checks the grant --> private R2
+player --GET /v1/<grant>/720p/seg_00042.m4s--> the same, for every chunk
+```
+
+## What it serves
+
+| Address | From R2 |
+| --- | --- |
+| `/v1/<grant>/master.m3u8` | `movies/<movie>/<original>/master.m3u8` |
+| `/v1/<grant>/<360p…1080p>/index.m3u8`, `init*.mp4`, `seg_<n>.m4s` | the same under `movies/<movie>/<original>/` |
+
+The movie and original come from the grant, never from the address, so a grant opens one movie and nothing else. Originals are never served. Any other address is `404`.
+
+| Answer | When |
+| --- | --- |
+| `200`, or `206` for a range | A good grant and an existing file |
+| `304` | The player already has this version |
+| `403 Not allowed.` | The grant is missing its signature, changed, signed with another key or expired, or the request came from a web origin not in `ALLOWED_ORIGINS`. The same words for all |
+| `404 Not found.` | Not an address above, or not in R2 |
+| `503` | No signing key, or one under 32 characters |
+
+The playlists name their files relative to themselves, so the grant in the path carries over to every playlist and chunk, in hls.js and ExoPlayer alike. Answers are `Cache-Control: private`, so a shared cache never keeps someone's grant. Nothing here logs an address. The local `wrangler dev` does print each one, grant included, to its own terminal.
+
+## Files
+
+| File | Job |
+| --- | --- |
+| `src/index.ts` | The Worker: matches addresses, checks grants, reads R2, CORS and ranges |
+| `src/grant.ts` | Checks a grant's signature and expiry, with Web Crypto |
+| `test/` | Tests, run by Node's own test runner. `grant-vector.json` is shared with the API's tests |
+| `wrangler.jsonc` | The Worker's name, R2 binding and allowed web origins. Nothing secret |
+| `.dev.vars.example` | The template for `.dev.vars`, the Git-ignored local secret |
+| `package.json`, `package-lock.json` | Wrangler, pinned, as the only dependency. Nothing runs in the Worker but this code |
+
+## Settings
+
+| Name | Where | Meaning |
+| --- | --- | --- |
+| `PLAYBACK_SIGNING_KEY` | **Secret.** `.dev.vars` locally, a Worker secret on Cloudflare | Exactly the API's `VELORAUG_PLAYBACK_SIGNING_KEY` |
+| `ALLOWED_ORIGINS` | `vars` in `wrangler.jsonc` | Web app origins allowed to read video, separated by commas. Requests with no `Origin`, as from ExoPlayer, are checked by grant only |
+| `MEDIA` | `r2_buckets` in `wrangler.jsonc` | The bucket, `veloraug-dev` |
+
+## Setup
+
+Needs Node 24 or later.
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\services\media_gateway
+npm ci
+npm test
+```
+
+npm 11 may say it skipped `workerd`'s install script. Wrangler still runs without it.
+
+## Run it locally
+
+```powershell
+Copy-Item .dev.vars.example .dev.vars
+# Put the same key as services/api/.env's VELORAUG_PLAYBACK_SIGNING_KEY in .dev.vars
+npm run dev
+```
+
+It answers on `http://127.0.0.1:8787` only. **Locally, R2 is a copy in `.wrangler/state`, which starts empty**, so the Worker never touches the real bucket. To put a converted film in it, for a movie and original that exist in your database:
+
+```powershell
+$prefix = "movies/<movie id>/<original id>"
+Get-ChildItem -Recurse -File <folder of converted HLS> | ForEach-Object {
+  $rel = $_.FullName.Substring((Resolve-Path <folder of converted HLS>).Path.Length + 1).Replace('\', '/')
+  $type = @{ '.m3u8' = 'application/vnd.apple.mpegurl'; '.m4s' = 'video/iso.segment'; '.mp4' = 'video/mp4' }[$_.Extension]
+  npx wrangler r2 object put "veloraug-dev/$prefix/$rel" --file $_.FullName --content-type $type --local
+}
+```
+
+**Stopping it:** press `Ctrl+C` in its terminal. Stopping it any other way can leave `workerd.exe` running and still answering on port 8787, with old settings. Close those in Task Manager.
+
+## Deploy it (Step 8E)
+
+Only the owner does this, with the Cloudflare account that owns `veloraug-dev`:
+
+```powershell
+npx wrangler login
+npx wrangler secret put PLAYBACK_SIGNING_KEY
+npm run deploy
+```
+
+`wrangler secret put` asks for the value: paste the same key as the API's. The deploy prints the Worker's `workers.dev` address. Put it in the API's `VELORAUG_MEDIA_GATEWAY_URL` and the app's `MEDIA_BASE_URL`, and add the web app's real origin to `ALLOWED_ORIGINS` when it has one.
+
+## Cost
+
+About 1,200 requests per two-hour viewing, one per chunk. Workers Free allows 100,000 a day, about 80 viewings. See [cost](../../docs/step-08a-playback-plan.md#cost).
