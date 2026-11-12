@@ -252,8 +252,13 @@ def tmdb_client() -> TmdbClient:
     return TmdbClient(token)
 
 
+# The connection string in use, so failure messages can mask its password.
+_url = ""
+
+
 def connect() -> psycopg.Connection:
     """The owner's connection, after checking it is the right database."""
+    global _url
     url = os.environ.get("VELORAUG_MIGRATION_DATABASE_URL", "").strip()
     if not url:
         url = getpass.getpass(
@@ -266,6 +271,7 @@ def connect() -> psycopg.Connection:
         raise CatalogueError(f"Refused: {error}") from None
     try:
         conn = psycopg.connect(url, connect_timeout=15)
+        _url = url
     except psycopg.Error as error:
         raise CatalogueError(
             f"Couldn't connect ({type(error).__name__}): {safe_message(error, url)}"
@@ -289,6 +295,17 @@ def safe_message(error: Exception, url: str) -> str:
     for secret in {password, unquote(password or "")} - {None, ""}:
         message = message.replace(secret, "<hidden>")
     return message[:300]
+
+
+def failure_message(error: psycopg.Error, url: str) -> str:
+    """What went wrong after connecting: the error's type, its SQLSTATE code
+    and Postgres's whole message on one line, with the password masked."""
+    code = f" {error.sqlstate}" if error.sqlstate else ""
+    message = " ".join(line.strip() for line in str(error).splitlines() if line.strip())
+    password = urlsplit(url).password
+    for secret in {password, unquote(password or "")} - {None, ""}:
+        message = message.replace(secret, "<hidden>")
+    return f"{type(error).__name__}{code}: {message[:300]}"
 
 
 def run(args: argparse.Namespace) -> int:
@@ -398,8 +415,7 @@ def main() -> int:
         print(str(error), file=sys.stderr)
         return 1
     except psycopg.Error as error:
-        # Postgres and Neon messages don't repeat connection strings.
-        print(f"Failed, nothing saved: {type(error).__name__}", file=sys.stderr)
+        print(f"Failed, nothing saved. {failure_message(error, _url)}", file=sys.stderr)
         return 1
 
 

@@ -123,6 +123,32 @@ def test_connection_errors_never_show_the_password():
     assert message == "near <hidden> and <hidden>"
 
 
+def test_a_failure_after_connecting_is_explained_without_its_password(
+    monkeypatch, capsys
+):
+    url = "postgresql://owner:S3cret%2Fpw@ep-x.neon.tech/neondb"
+    monkeypatch.setattr(catalogue, "_url", url)
+
+    def fails(args):
+        raise psycopg.OperationalError(
+            "server closed the connection unexpectedly\n"
+            "\tThis probably means the server terminated abnormally S3cret/pw"
+        )
+
+    monkeypatch.setattr(catalogue, "run", fails)
+    monkeypatch.setattr(sys, "argv", ["catalogue.py", "unpublish", "550"])
+
+    assert catalogue.main() == 1
+
+    err = capsys.readouterr().err
+    assert "S3cret" not in err
+    assert err.strip() == (
+        "Failed, nothing saved. OperationalError: server closed the connection "
+        "unexpectedly This probably means the server terminated abnormally "
+        "<hidden>"
+    )
+
+
 def test_a_malformed_string_is_explained_without_its_password(monkeypatch, capsys):
     monkeypatch.setenv(
         "VELORAUG_MIGRATION_DATABASE_URL",
