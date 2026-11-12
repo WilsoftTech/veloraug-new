@@ -79,6 +79,7 @@ The password is for that container only, which only this computer can reach. Por
 | `app/config.py` | The typed settings |
 | `app/media_hooks.py` | A separate app: the upload hooks tusd calls, as `veloraug_media`. See [uploads](#uploads) |
 | `app/upload_keys.py` | How upload keys are made and hashed |
+| `app/media_worker.py` | A separate program: checks uploads and converts them to HLS. See [convert uploads](#convert-uploads) |
 | `migrations/` | Alembic and the hand-written SQL migrations. Not in the image |
 | `alembic.ini` | Alembic's settings. It holds no connection string |
 | `scripts/` | The owner's scripts: [create the API's role](#2-create-the-apis-role), [check the database](#4-check-it) [manage the catalogue](#catalogue) and [upload keys](#upload-keys), and check the media role. Not in the image |
@@ -88,6 +89,7 @@ The password is for that container only, which only this computer can reach. Por
 | `requirements-dev.txt` | All of the above, plus the test and lint tools |
 | `pyproject.toml` | Settings for pytest and Ruff |
 | `Dockerfile`, `.dockerignore` | How to build the container image, and which files it may contain |
+| `Dockerfile.worker` | The media worker's image: the same code, plus FFmpeg |
 
 An **application factory** is a function that builds the app when called. It lets each test build an app with its own settings. That is why the start command has `--factory`.
 
@@ -258,6 +260,29 @@ python C:\Users\Wilsoft\veloraug\tools\veloraug_upload.py "C:\Movies\My Film.mp4
 
 It asks for the key, hidden, then shows progress. If the connection drops, it tries again by itself. If it is stopped, or the computer restarts, **run the same command again**: it carries on from where it stopped, without asking for the key, using a small `.veloraug-upload` file beside the movie. That file is deleted at the end. Until then, keep it private: it holds the unfinished upload's address. `--server` points it at another upload address, such as the Oracle server's from Milestone 10.
 
-After the upload, `catalogue.py uploads` shows its original as `received`. Converting it comes in Step 7D.
+After the upload, `catalogue.py uploads` shows its original as `received`, then as the worker below takes it.
+
+### Convert uploads
+
+The **media worker**, [`app/media_worker.py`](app/media_worker.py), takes one `received` original at a time:
+
+1. **Checks it with FFprobe.** A file without a video track, one FFprobe can't read, or one smaller than 360 lines and 640 pixels across is `refused`, with a plain reason, and deleted.
+2. **Converts it with FFmpeg,** in one run, to every quality from 360p to 1080p that the original can fill, never larger: H.264 video, stereo AAC sound, 6-second chunks, and a keyframe every 2 seconds in every quality, so a player can switch cleanly. A wide film, 1920×800, gets all four. A failed conversion is tried 3 times, then marked `failed` with FFmpeg's last line.
+3. **Waits in `publishing`,** with its HLS files in `services/worker/transcoding/<original ID>/`, until Step 7E publishes them to R2.
+
+If the worker is stopped mid-way, it puts the original back in the queue when it starts again. It also receives any finished upload whose `post-finish` hook was missed.
+
+It runs in its own image, `veloraug-media-worker:local`, which is this folder's code plus FFmpeg from Debian, built from [`Dockerfile.worker`](Dockerfile.worker). It uses the same `.env.media` as the hooks, and has no ports. **Build it from the `infra` folder:** run from the repository root, Docker Compose 5.6 asks for an extra permission to read a Dockerfile with another name.
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\infra
+docker compose -f compose.local.yaml --profile uploads build media-worker
+docker compose -f compose.local.yaml --profile uploads up -d media-hooks tusd media-worker
+docker compose -f compose.local.yaml --profile uploads logs -f media-worker
+```
+
+The worker logs each original it refuses or converts, the qualities made, and how long converting took per second of film.
+
+To check conversion itself with the real FFmpeg, on clips FFmpeg makes, run [`scripts/check_conversion.py`](scripts/check_conversion.py) in the worker's image. Its first lines show how. It should end with `GATE U2: PASSED`.
 
 
