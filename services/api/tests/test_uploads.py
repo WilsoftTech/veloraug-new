@@ -14,7 +14,6 @@ from psycopg import errors
 
 from scripts import catalogue
 from scripts.check_database import run_checks
-from scripts.create_app_role import scram_verifier
 from scripts.upload_keys import (
     KEY_PREFIX,
     MovieUploads,
@@ -30,9 +29,8 @@ from scripts.upload_keys import (
     revoke_upload,
     size_text,
 )
-from tests.db_support import needs_database, url_for
+from tests.db_support import needs_database
 
-MEDIA_PASSWORD = "local-test-media-password"
 NOW = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
 
 # --- Needs no database -------------------------------------------------------
@@ -148,15 +146,6 @@ def test_grant_upload_needs_to_know_who_for():
 
 
 # --- On a real Postgres ------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def media_url(owner_url, app_url):
-    """The media role, given a login as Step 7C's script will."""
-    with psycopg.connect(owner_url) as conn:
-        verifier = scram_verifier(MEDIA_PASSWORD)
-        conn.execute(f"alter role veloraug_media login password '{verifier}'")
-    return url_for("veloraug_media", MEDIA_PASSWORD)
 
 
 @pytest.fixture
@@ -326,9 +315,12 @@ def test_the_media_role_can_do_nothing_else(media_url, statement):
     "statement",
     [
         "select count(*) from public.upload_keys",
-        "select count(*) from public.media_originals",
+        "select filename from public.media_originals",
+        "select size_bytes, reason from public.media_originals",
         "select count(*) from public.media_renditions",
         "update public.upload_keys set used_at = now()",
+        "update public.media_originals set state = 'ready'",
+        "delete from public.media_originals",
         "insert into public.media_originals (id, movie_id, upload_key_id, size_bytes) "
         "values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1)",
     ],
@@ -344,7 +336,9 @@ def test_the_database_checks_cover_uploads(app_url):
 
     for name in (
         "RLS and forced RLS on the upload tables",
-        "can't read or change upload keys, originals or qualities",
+        "can't read or change upload keys or qualities",
+        "reads only the ID, movie and state of originals, and changes none",
+        "sees ready originals of published movies only",
     ):
         assert results[name].passed, results[name]
     assert all(result.passed for result in results.values())

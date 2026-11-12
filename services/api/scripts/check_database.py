@@ -7,8 +7,9 @@ Run from services/api after the migration:
 It reads VELORAUG_DATABASE_URL from the environment, or from
 services/api/.env, and prints only the host. Every test that writes runs in a
 transaction that is rolled back, with random user IDs, so it leaves nothing
-behind. The checks follow the Step 5F criteria in docs/step-05a-neon-plan.md
-and the Step 6B criteria in docs/step-06a-catalogue-plan.md.
+behind. The checks follow the Step 5F criteria in docs/step-05a-neon-plan.md,
+the Step 6B criteria in docs/step-06a-catalogue-plan.md, and the Step 8B
+criteria in docs/step-08a-playback-plan.md.
 """
 
 import sys
@@ -367,9 +368,11 @@ def check_catalogue(conn: psycopg.Connection) -> list[Result]:
 
 
 def check_uploads(conn: psycopg.Connection) -> list[Result]:
-    """The API can't see or change upload keys, originals or qualities.
+    """The API can't see or change upload keys or qualities, and sees only
+    which published movies have a ready original.
 
-    These follow the Step 7B criteria in docs/step-07a-uploads-plan.md.
+    These follow the Step 7B criteria in docs/step-07a-uploads-plan.md and
+    the Step 8B criteria in docs/step-08a-playback-plan.md.
     """
     tables = ("public.upload_keys", "public.media_originals", "public.media_renditions")
     flags = conn.execute(
@@ -382,7 +385,7 @@ def check_uploads(conn: psycopg.Connection) -> list[Result]:
     results = [Result("RLS and forced RLS on the upload tables", flags)]
     rights = [
         table
-        for table in tables
+        for table in ("public.upload_keys", "public.media_renditions")
         if conn.execute(
             "select has_table_privilege(%s, 'SELECT, INSERT, UPDATE, DELETE')",
             (table,),
@@ -394,13 +397,54 @@ def check_uploads(conn: psycopg.Connection) -> list[Result]:
     ]
     results.append(
         Result(
-            "can't read or change upload keys, originals or qualities",
+            "can't read or change upload keys or qualities",
             not rights
             and refused(conn, "select count(*) from public.upload_keys")
-            and refused(conn, "select count(*) from public.media_originals")
             and refused(conn, "select count(*) from public.media_renditions")
             and refused(conn, "update public.upload_keys set used_at = now()"),
             ", ".join(rights),
+        )
+    )
+    readable = {
+        column
+        for (column,) in conn.execute(
+            """
+            select attname from pg_attribute
+            where attrelid = 'public.media_originals'::regclass and attnum > 0
+              and not attisdropped
+              and has_column_privilege(attrelid, attnum, 'SELECT')
+            """
+        ).fetchall()
+    }
+    changes = (
+        conn.execute(
+            "select has_table_privilege('public.media_originals', "
+            "'INSERT, UPDATE, DELETE, TRUNCATE')"
+        ).fetchone()[0]
+        or conn.execute(
+            "select has_any_column_privilege("
+            "'public.media_originals', 'INSERT, UPDATE')"
+        ).fetchone()[0]
+    )
+    results.append(
+        Result(
+            "reads only the ID, movie and state of originals, and changes none",
+            readable == {"id", "movie_id", "state"} and not changes,
+            ", ".join(sorted(readable)),
+        )
+    )
+    hidden = conn.execute(
+        """
+        select count(*) from public.media_originals o
+        where o.state <> 'ready'
+           or not exists (select from public.movies m where m.id = o.movie_id)
+        """
+    ).fetchone()[0]
+    results.append(
+        Result(
+            "sees ready originals of published movies only",
+            hidden == 0,
+            f"{hidden} others seen",
         )
     )
     return results

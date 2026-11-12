@@ -61,7 +61,8 @@ def test_get_from_another_origin_gets_no_cors_permission(client):
     assert "access-control-allow-origin" not in response.headers
 
 
-@pytest.mark.parametrize("method", ["POST", "PUT", "DELETE"])
+# POST is allowed from Step 8B, for granting playback.
+@pytest.mark.parametrize("method", ["PUT", "DELETE"])
 def test_preflight_for_other_methods_is_refused(client, method):
     response = preflight(client, FLUTTER_WEB_ORIGIN, method=method)
 

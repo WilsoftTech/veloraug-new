@@ -269,6 +269,7 @@ def test_the_detail_has_every_field(api, owner):
         "genres": ["Drama", "Comedy"],
         "poster_url": "https://image.tmdb.org/t/p/w342/poster.jpg",
         "backdrop_url": "https://image.tmdb.org/t/p/w780/backdrop.jpg",
+        "playable": False,
     }
     # VeloraUG's ID only: the TMDB ID never leaves the API.
     assert str(tmdb_id) not in response.text

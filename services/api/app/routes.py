@@ -1,3 +1,5 @@
+import logging
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -14,16 +16,18 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, StringConstraints
 from starlette.background import BackgroundTask
 
-from app import catalogue, profiles
+from app import catalogue, playback, profiles
 from app.auth import VerifiedUser, current_user
 from app.catalogue import DetailsUnavailable, MovieRow, Refresher
 from app.db import Database
+from app.playback import Granter
 from app.tmdb import DEFAULT_IMAGES, ImageConfig
 
 SERVICE_NAME = "veloraug-api"
 API_VERSION = "v1"
 
 router = APIRouter()
+playback_logger = logging.getLogger("veloraug.playback")
 
 
 class HealthResponse(BaseModel):
@@ -90,12 +94,23 @@ class MovieDetail(BaseModel):
     genres: list[str]
     poster_url: str | None
     backdrop_url: str | None
+    # True when there is something to watch: a ready original.
+    playable: bool
+
+
+class PlaybackResponse(BaseModel):
+    # The Worker's address for the master playlist, with the grant in its
+    # path. It works for anyone holding it until expires_at.
+    playlist_url: str
+    expires_at: datetime
 
 
 SearchText = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=2, max_length=80)
 ]
 NOT_AVAILABLE = "This movie isn't available."
+NOT_READY = "This movie can't be watched yet."
+PLAYBACK_OFF = "Playback isn't set up on this server."
 DETAILS_PENDING = "This movie's details aren't available right now."
 
 
@@ -201,6 +216,7 @@ def get_movie(
     try:
         with db.anonymous() as conn:
             row = catalogue.get_movie(conn, movie_id)
+            original = playback.ready_original(conn, movie_id) if row else None
     except DetailsUnavailable as missing:
         # Returned, not raised: FastAPI runs background tasks only for a
         # response the route returns, and this one must fetch the details.
@@ -228,6 +244,56 @@ def get_movie(
         genres=list(row.genres),
         poster_url=images.poster_url(row.poster_path),
         backdrop_url=images.backdrop_url(row.backdrop_path),
+        playable=original is not None,
+    )
+
+
+def granter(request: Request) -> Granter:
+    granter: Granter | None = request.app.state.granter
+    if granter is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=PLAYBACK_OFF
+        )
+    return granter
+
+
+@router.post(
+    "/api/v1/movies/{movie_id}/playback",
+    responses={
+        401: {"description": "Not signed in."},
+        404: {"description": NOT_AVAILABLE},
+        409: {"description": NOT_READY},
+        503: {"description": "Busy, or playback isn't set up."},
+    },
+)
+def grant_playback(
+    movie_id: UUID,
+    user: SignedInUser,
+    db: AppDatabase,
+    granter: Annotated[Granter, Depends(granter)],
+) -> PlaybackResponse:
+    """A playback address for one published, ready movie, for 6 hours.
+
+    Any signed-in viewer may watch, until payments arrive in Milestone 9.
+    Answers 404 for a movie that doesn't exist or isn't published, and 409
+    for one with nothing ready to watch.
+    """
+    with db.as_user(user.user_id) as conn:
+        published = conn.execute(
+            "select from public.movies where id = %s", (movie_id,)
+        ).fetchone()
+        original = (
+            playback.ready_original(conn, movie_id) if published is not None else None
+        )
+    if published is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_AVAILABLE)
+    if original is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=NOT_READY)
+    grant = granter.grant(movie_id, original)
+    # The movie only: never the user, the grant or the address.
+    playback_logger.info("Playback granted for movie %s", movie_id)
+    return PlaybackResponse(
+        playlist_url=grant.playlist_url, expires_at=grant.expires_at
     )
 
 

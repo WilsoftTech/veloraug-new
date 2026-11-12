@@ -29,6 +29,8 @@ def test_service_info_reports_the_configured_environment():
         api_resource="https://api.example.invalid",
         neon_auth_client_ids=["client-1"],
         database_url="postgresql://veloraug_app:pw@127.0.0.1:1/test",
+        playback_signing_key="k" * 43,
+        media_gateway_url="https://media.example",
     )
     client = TestClient(create_app(settings))
 

@@ -28,6 +28,7 @@ DATABASE = "veloraug_test"
 OWNER = "veloraug_test_owner"
 OWNER_PASSWORD = "local-test-owner-password"
 APP_PASSWORD = "local-test-app-password"
+MEDIA_PASSWORD = "local-test-media-password"
 
 
 def url_for(user: str, password: str, database: str = DATABASE) -> str:

@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # it, the catalogue serves the details it already has.
     tmdb_read_access_token: SecretStr | None = None
 
+    # Playback, Step 8B. Both or neither. The key is secret, and shared with
+    # the Worker in services/media_gateway/. The gateway's address isn't.
+    playback_signing_key: SecretStr | None = None
+    media_gateway_url: str | None = None
+
     @field_validator("allowed_origins")
     @classmethod
     def require_exact_origins(cls, origins: list[str]) -> list[str]:
@@ -113,6 +118,45 @@ class Settings(BaseSettings):
             raise ValueError("tmdb_read_access_token can't be blank")
         return token
 
+    @field_validator("playback_signing_key")
+    @classmethod
+    def require_long_key(cls, key: SecretStr | None) -> SecretStr | None:
+        # The message never quotes the value.
+        if key is not None and len(key.get_secret_value().strip()) < 32:
+            raise ValueError(
+                "playback_signing_key must be at least 32 characters. Make one "
+                'with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+        return key
+
+    @field_validator("media_gateway_url")
+    @classmethod
+    def require_gateway_origin(cls, url: str | None) -> str | None:
+        if url is None:
+            return None
+        parts = urlsplit(url)
+        loopback = parts.hostname in ("127.0.0.1", "localhost")
+        if (
+            not parts.hostname
+            or parts.scheme not in ("http", "https")
+            or (parts.scheme == "http" and not loopback)
+            or parts.path not in ("", "/")
+            or parts.query
+            or parts.fragment
+            or parts.username
+        ):
+            raise ValueError(
+                "media_gateway_url must look like https://host, with no path. "
+                "Plain http is allowed for 127.0.0.1 and localhost only"
+            )
+        return url.rstrip("/")
+
+    @property
+    def playback_configured(self) -> bool:
+        return (
+            self.playback_signing_key is not None and self.media_gateway_url is not None
+        )
+
     @property
     def sign_in_configured(self) -> bool:
         return bool(
@@ -135,4 +179,14 @@ class Settings(BaseSettings):
             raise ValueError("Production needs the sign-in settings")
         if self.environment == "production" and self.database_url is None:
             raise ValueError("Production needs VELORAUG_DATABASE_URL")
+        if (self.playback_signing_key is None) != (self.media_gateway_url is None):
+            raise ValueError(
+                "Set VELORAUG_PLAYBACK_SIGNING_KEY and VELORAUG_MEDIA_GATEWAY_URL "
+                "together, or neither"
+            )
+        if self.environment == "production" and not self.playback_configured:
+            raise ValueError(
+                "Production needs VELORAUG_PLAYBACK_SIGNING_KEY and "
+                "VELORAUG_MEDIA_GATEWAY_URL"
+            )
         return self

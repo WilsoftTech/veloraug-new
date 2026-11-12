@@ -49,7 +49,7 @@ def test_there_is_one_head():
     result = alembic("heads")
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.split() == ["0003", "(head)"]
+    assert result.stdout.split() == ["0004", "(head)"]
 
 
 def test_a_pooled_address_is_refused_before_connecting(monkeypatch, tmp_path):

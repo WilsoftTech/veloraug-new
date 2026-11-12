@@ -9,6 +9,7 @@ from app.auth import TokenVerifier
 from app.catalogue import Refresher
 from app.config import Settings
 from app.db import Database, DatabaseUnavailable
+from app.playback import Granter
 from app.routes import router
 from app.tmdb import TmdbClient
 
@@ -21,10 +22,16 @@ def create_app(
     token_verifier: TokenVerifier | None = None,
     database: Database | None = None,
     refresher: Refresher | None = None,
+    granter: Granter | None = None,
 ) -> FastAPI:
     """Build the application. Tests pass their own settings, verifier,
-    database and TMDB refresher."""
+    database, TMDB refresher and playback granter."""
     settings = settings or Settings()
+    if granter is None and settings.playback_configured:
+        granter = Granter(
+            key=settings.playback_signing_key.get_secret_value().encode(),
+            gateway_url=settings.media_gateway_url,
+        )
     if token_verifier is None and settings.sign_in_configured:
         token_verifier = TokenVerifier(
             issuer=settings.neon_auth_url,
@@ -66,12 +73,14 @@ def create_app(
     # None without a database or a TMDB token. The catalogue still works,
     # without refreshing.
     app.state.refresher = refresher
+    # None without the playback settings. Granting a viewing answers 503.
+    app.state.granter = granter
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
         # No cookies are used: the app sends its token in a header.
         allow_credentials=False,
-        allow_methods=["GET", "PATCH"],
+        allow_methods=["GET", "PATCH", "POST"],
         allow_headers=["Authorization", "Content-Type"],
     )
 

@@ -13,6 +13,8 @@ VELORAUG_SETTINGS = [
     "VELORAUG_NEON_AUTH_CLIENT_IDS",
     "VELORAUG_DATABASE_URL",
     "VELORAUG_TMDB_READ_ACCESS_TOKEN",
+    "VELORAUG_PLAYBACK_SIGNING_KEY",
+    "VELORAUG_MEDIA_GATEWAY_URL",
 ]
 
 
@@ -51,3 +53,15 @@ def app_url(owner_url):
         assert role_problems(conn) == []
     migrate(owner_url)
     return url_for("veloraug_app", APP_PASSWORD)
+
+
+@pytest.fixture(scope="session")
+def media_url(owner_url, app_url):
+    """The media role, given a login as Step 7C's script will."""
+    from scripts.create_app_role import scram_verifier
+    from tests.db_support import MEDIA_PASSWORD, url_for
+
+    with psycopg.connect(owner_url) as conn:
+        verifier = scram_verifier(MEDIA_PASSWORD)
+        conn.execute(f"alter role veloraug_media login password '{verifier}'")
+    return url_for("veloraug_media", MEDIA_PASSWORD)

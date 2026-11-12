@@ -81,10 +81,11 @@ The password is for that container only, which only this computer can reach. Por
 | `app/upload_keys.py` | How upload keys are made and hashed |
 | `app/media_worker.py` | A separate program: checks uploads and converts them to HLS. See [convert uploads](#convert-uploads) |
 | `app/media_publisher.py` | Publishes converted originals to R2, and removes them. See [publish to R2](#publish-to-r2) |
+| `app/playback.py` | Signs playback grants for the media gateway. See [playback](#playback) |
 | `migrations/` | Alembic and the hand-written SQL migrations. Not in the image |
 | `alembic.ini` | Alembic's settings. It holds no connection string |
 | `scripts/` | The owner's scripts: [create the API's role](#2-create-the-apis-role), [check the database](#4-check-it) [manage the catalogue](#catalogue) and [upload keys](#upload-keys), and check the media role. Not in the image |
-| `tests/` | Tests for the endpoints, token checks, database rules, migrations, the catalogue, TMDB, CORS, settings, upload keys, the upload hooks and the upload script. `tests/db_support.py` sets up the local test database |
+| `tests/` | Tests for the endpoints, token checks, database rules, migrations, the catalogue, TMDB, CORS, settings, upload keys, the upload hooks, the upload script and playback grants. `tests/db_support.py` sets up the local test database |
 | `requirements.txt` | Exact versions of the packages needed to run the API |
 | `requirements-migrate.txt` | The above, plus the migration tools |
 | `requirements-worker.txt` | `requirements.txt` plus boto3, for the media worker's image only |
@@ -97,19 +98,21 @@ An **application factory** is a function that builds the app when called. It let
 
 ## Settings
 
-Only `VELORAUG_DATABASE_URL` and `VELORAUG_TMDB_READ_ACCESS_TOKEN` are secret. The defaults suit local development, without sign-in or a database.
+Only `VELORAUG_DATABASE_URL`, `VELORAUG_TMDB_READ_ACCESS_TOKEN` and `VELORAUG_PLAYBACK_SIGNING_KEY` are secret. The defaults suit local development, without sign-in or a database.
 
 | Environment variable | Default | Meaning |
 | --- | --- | --- |
-| `VELORAUG_ENVIRONMENT` | `development` | `development` or `production`. Production refuses to start without the sign-in settings and the database |
+| `VELORAUG_ENVIRONMENT` | `development` | `development` or `production`. Production refuses to start without the sign-in settings, the database and playback |
 | `VELORAUG_ALLOWED_ORIGINS` | `["http://localhost:8765"]` | Browser origins allowed to read responses, written as a JSON list |
 | `VELORAUG_NEON_AUTH_URL` | None | The exact Auth URL of the Neon branch. Tokens must name it as issuer, and the public keys are fetched from it |
 | `VELORAUG_API_RESOURCE` | None | The audience a token must contain, such as `https://api-dev.veloraug.invalid` |
 | `VELORAUG_NEON_AUTH_CLIENT_IDS` | None | The web and Android client IDs allowed to call the API, as a JSON list |
 | `VELORAUG_DATABASE_URL` | None | **Secret.** The pooled connection as `veloraug_app`. [The role script](#2-create-the-apis-role) writes it. Any other role is refused |
 | `VELORAUG_TMDB_READ_ACCESS_TOKEN` | None | **Secret.** TMDB's API Read Access Token. Used from Step 6B by [the catalogue script](#catalogue), and by the API from Step 6C |
+| `VELORAUG_PLAYBACK_SIGNING_KEY` | None | **Secret.** Signs playback grants. The media gateway's `PLAYBACK_SIGNING_KEY` must be the same. At least 32 characters. See [playback](#playback) |
+| `VELORAUG_MEDIA_GATEWAY_URL` | None | The media gateway's address, such as `http://127.0.0.1:8787` locally. `https`, except for `127.0.0.1` and `localhost` |
 
-The three sign-in settings go together: set all three or none. Without them, or without the database, `/api/v1/me` answers `503`. Their values for the development branch are in your Git-ignored `services/api/.env`, which Docker Compose passes to the container.
+The three sign-in settings go together: set all three or none. Without them, or without the database, `/api/v1/me` answers `503`. The two playback settings go together too, and without them granting playback answers `503`. Their values for the development branch are in your Git-ignored `services/api/.env`, which Docker Compose passes to the container.
 
 To change one, set it in the terminal before starting the server. It lasts until you close that terminal:
 
@@ -120,7 +123,7 @@ $env:VELORAUG_ALLOWED_ORIGINS = '["http://localhost:8765","http://localhost:9000
 To run directly with Python, with sign-in and the database, load the settings from `.env` into that terminal first. This prints nothing:
 
 ```powershell
-Get-Content .env | Where-Object { $_ -match '^VELORAUG_(NEON_AUTH_URL|API_RESOURCE|NEON_AUTH_CLIENT_IDS|DATABASE_URL)=' } | ForEach-Object { $name, $value = $_ -split '=', 2; Set-Item "env:$name" $value.Trim('"') }
+Get-Content .env | Where-Object { $_ -match '^VELORAUG_(NEON_AUTH_URL|API_RESOURCE|NEON_AUTH_CLIENT_IDS|DATABASE_URL|PLAYBACK_SIGNING_KEY|MEDIA_GATEWAY_URL)=' } | ForEach-Object { $name, $value = $_ -split '=', 2; Set-Item "env:$name" $value.Trim('"') }
 ```
 
 The app refuses to start if a setting is invalid, such as an unknown environment, the wildcard `*`, an origin with a trailing slash, or a database URL for another role. Its error messages never quote a value.
@@ -164,7 +167,7 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe -m alembic current
 ```
 
-`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0003 (head)`: `0001` adds profiles, `0002` adds the catalogue, and `0003` adds upload keys, originals, their qualities and the `veloraug_media` role, without a login yet.
+`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0004 (head)`: `0001` adds profiles, `0002` adds the catalogue, `0003` adds upload keys, originals, their qualities and the `veloraug_media` role, without a login yet, and `0004` lets the API see which published movies have a ready original.
 
 ### 4. Check it
 
@@ -172,7 +175,7 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe scripts\check_database.py
 ```
 
-This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. For the catalogue, it checks that hidden movies can't be seen, and that the API can't add, publish, hide or remove movies, or delete their details. For uploads, it checks that the API can't read or change upload keys, originals or qualities. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
+This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. For the catalogue, it checks that hidden movies can't be seen, and that the API can't add, publish, hide or remove movies, or delete their details. For uploads, it checks that the API can't read or change upload keys or qualities, and that of originals it reads only the ID, movie and state of ready ones of published movies, and changes none. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
 
 **Rules for migrations:**
 
@@ -337,6 +340,36 @@ Only the worker's container gets `.env.r2`. The API's and the hooks' never do.
 ```
 
 It asks you to type `remove`, then marks the original `removing`. The worker deletes its files and marks it `removed`. Infrequent Access still bills an original for 30 days after it was uploaded.
+
+## Playback
+
+Planned in the [playback plan](../../docs/step-08a-playback-plan.md). A signed-in viewer asks for a viewing of one movie:
+
+```text
+POST /api/v1/movies/{id}/playback      Authorization: Bearer <access token>
+
+200 {"playlist_url": "<gateway>/v1/<grant>/master.m3u8", "expires_at": "..."}
+401 not signed in   404 not published   409 nothing ready   503 busy, or not set up
+```
+
+`GET /api/v1/movies/{id}` says `"playable": true` when there is something to watch. Any signed-in viewer may watch, until payments in Milestone 9.
+
+The **grant** names the movie, its ready original and an expiry, 6 hours on, signed with HMAC-SHA256 and `VELORAUG_PLAYBACK_SIGNING_KEY`. It is in the address's path, so every playlist and chunk the player fetches carries it. The media gateway, in [`services/media_gateway/`](../media_gateway/README.md), checks it and serves from private R2. Grants aren't stored, and the log names only the movie: never the viewer, the grant or the address. Anyone holding an address can watch until it expires.
+
+**To set it up locally,** make a key, then put the same key in `.env` here and in `services/media_gateway/.dev.vars`:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+```text
+VELORAUG_PLAYBACK_SIGNING_KEY=<the key>
+VELORAUG_MEDIA_GATEWAY_URL=http://127.0.0.1:8787
+```
+
+**Changing the key** ends every grant at once. The app then asks for new ones by itself. Do this if the key may have leaked, in both places together.
+
+`services/media_gateway/test/grant-vector.json` is one grant, with a test-only key, that both this service's tests and the gateway's check, so the two can't drift apart.
 
 ## The concepts, using this service as the example
 

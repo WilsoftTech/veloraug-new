@@ -29,6 +29,8 @@ def test_settings_are_read_from_environment_variables(monkeypatch):
     monkeypatch.setenv("VELORAUG_API_RESOURCE", "https://api.example.invalid")
     monkeypatch.setenv("VELORAUG_NEON_AUTH_CLIENT_IDS", '["web","android"]')
     monkeypatch.setenv("VELORAUG_DATABASE_URL", APP_DATABASE_URL)
+    monkeypatch.setenv("VELORAUG_PLAYBACK_SIGNING_KEY", "k" * 43)
+    monkeypatch.setenv("VELORAUG_MEDIA_GATEWAY_URL", "https://media.example/")
 
     settings = Settings()
 
@@ -37,6 +39,8 @@ def test_settings_are_read_from_environment_variables(monkeypatch):
     assert settings.neon_auth_url == ISSUER
     assert settings.neon_auth_client_ids == ["web", "android"]
     assert settings.sign_in_configured
+    assert settings.media_gateway_url == "https://media.example"
+    assert settings.playback_configured
 
 
 def test_production_refuses_to_start_without_the_database():
