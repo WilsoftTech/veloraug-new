@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../api/catalogue_api.dart';
+import '../api/playback_api.dart';
+import '../auth/auth_controller.dart';
 import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/movie_poster.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
+import 'player_screen.dart';
 
 /// "2 h 49 min", "45 min" or "2 h".
 String formatRuntime(int minutes) {
@@ -19,8 +22,7 @@ String formatRuntime(int minutes) {
 
 enum _Phase { loading, ready, failed }
 
-/// One movie: its artwork, details and description. Watching comes in a
-/// later milestone, so the button is shown disabled.
+/// One movie: its artwork, details and description, and Watch.
 class MovieDetailScreen extends StatefulWidget {
   const MovieDetailScreen({
     super.key,
@@ -196,7 +198,7 @@ class _Details extends StatelessWidget {
             ],
           ),
         const SizedBox(height: VeloraSpacing.xs),
-        const _WatchButton(),
+        _WatchButton(movie: movie),
         if (overview != null) ...[
           const SizedBox(height: VeloraSpacing.xs),
           Text(overview, style: theme.textTheme.bodyLarge),
@@ -254,20 +256,53 @@ class _Details extends StatelessWidget {
   }
 }
 
-/// Watching needs protected playback, from Milestone 8.
+/// Watch, when there is something to watch. Signed out, it starts sign-in
+/// first. Any signed-in viewer may watch, until payments in Milestone 9.
 class _WatchButton extends StatelessWidget {
-  const _WatchButton();
+  const _WatchButton({required this.movie});
+
+  final MovieDetail movie;
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
-      spacing: VeloraSpacing.sm,
-      runSpacing: VeloraSpacing.xs,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        VeloraButton(label: 'Watch', icon: Icons.play_arrow, onPressed: null),
-        StatusBadge(label: 'Coming soon', tone: StatusTone.info),
-      ],
+    final auth = AuthScope.of(context);
+    final playback = PlaybackScope.of(context);
+
+    if (!movie.playable || auth == null || playback == null) {
+      return Wrap(
+        spacing: VeloraSpacing.sm,
+        runSpacing: VeloraSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const VeloraButton(
+            label: 'Watch',
+            icon: Icons.play_arrow,
+            onPressed: null,
+          ),
+          StatusBadge(
+            label: movie.playable ? 'Not available here' : 'Coming soon',
+            tone: StatusTone.info,
+          ),
+        ],
+      );
+    }
+
+    if (auth.status != AuthStatus.signedIn) {
+      return VeloraButton(
+        label: 'Sign in to watch',
+        icon: Icons.login,
+        onPressed: auth.isBusy ? null : auth.signIn,
+      );
+    }
+
+    return VeloraButton(
+      label: 'Watch',
+      icon: Icons.play_arrow,
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PlayerScreen(movieId: movie.id, title: movie.title),
+        ),
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'api/api_config.dart';
 import 'api/catalogue_api.dart';
+import 'api/playback_api.dart';
 import 'auth/auth_controller.dart';
 import 'auth/browser_step.dart';
 import 'auth/oauth_client.dart';
@@ -13,7 +14,12 @@ import 'shell/app_shell.dart';
 import 'theme/velora_theme.dart';
 
 class VeloraApp extends StatefulWidget {
-  const VeloraApp({super.key, this.authController, this.catalogueApi});
+  const VeloraApp({
+    super.key,
+    this.authController,
+    this.catalogueApi,
+    this.playbackApi,
+  });
 
   /// Replaces the controller built from this build's settings. The app
   /// restores it but doesn't dispose of it.
@@ -21,6 +27,10 @@ class VeloraApp extends StatefulWidget {
 
   /// Replaces the catalogue built from this build's API address, in tests.
   final CatalogueApi? catalogueApi;
+
+  /// Replaces the playback client built from this build's settings, in
+  /// tests.
+  final PlaybackApi? playbackApi;
 
   @override
   State<VeloraApp> createState() => _VeloraAppState();
@@ -31,6 +41,10 @@ class _VeloraAppState extends State<VeloraApp> {
   AuthController? _ownController;
   http.Client? _catalogueHttpClient;
   CatalogueApi? _ownCatalogue;
+  http.Client? _playbackHttpClient;
+  PlaybackApi? _ownPlayback;
+
+  PlaybackApi? get _playback => widget.playbackApi ?? _ownPlayback;
 
   CatalogueApi? get _catalogue => widget.catalogueApi ?? _ownCatalogue;
 
@@ -41,6 +55,7 @@ class _VeloraAppState extends State<VeloraApp> {
     super.initState();
     if (widget.authController == null) _ownController = _fromSettings();
     if (widget.catalogueApi == null) _ownCatalogue = _catalogueFromSettings();
+    if (widget.playbackApi == null) _ownPlayback = _playbackFromSettings();
     _auth?.restore();
   }
 
@@ -78,11 +93,33 @@ class _VeloraAppState extends State<VeloraApp> {
     );
   }
 
+  /// Needs the API's address, the media gateway's, and sign-in.
+  PlaybackApi? _playbackFromSettings() {
+    final auth = _auth;
+    if (auth == null) return null;
+    final Uri baseUrl;
+    final Uri mediaBaseUrl;
+    try {
+      baseUrl = parseApiBaseUrl(apiBaseUrlSetting);
+      mediaBaseUrl = parseMediaBaseUrl(mediaBaseUrlSetting);
+    } on FormatException catch (error) {
+      if (kDebugMode) debugPrint('playback settings: ${error.message}');
+      return null;
+    }
+    return PlaybackApi(
+      baseUrl: baseUrl,
+      mediaBaseUrl: mediaBaseUrl,
+      httpClient: _playbackHttpClient = http.Client(),
+      accessToken: auth.accessToken,
+    );
+  }
+
   @override
   void dispose() {
     _ownController?.dispose();
     _httpClient?.close();
     _catalogueHttpClient?.close();
+    _playbackHttpClient?.close();
     super.dispose();
   }
 
@@ -94,11 +131,14 @@ class _VeloraAppState extends State<VeloraApp> {
       // the catalogue too.
       child: CatalogueScope(
         api: _catalogue,
-        child: MaterialApp(
-          title: 'VeloraUG',
-          debugShowCheckedModeBanner: false,
-          theme: buildVeloraTheme(),
-          home: const AppShell(),
+        child: PlaybackScope(
+          api: _playback,
+          child: MaterialApp(
+            title: 'VeloraUG',
+            debugShowCheckedModeBanner: false,
+            theme: buildVeloraTheme(),
+            home: const AppShell(),
+          ),
         ),
       ),
     );

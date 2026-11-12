@@ -38,6 +38,7 @@ class MovieDetail {
     this.genres = const [],
     this.posterUrl,
     this.backdropUrl,
+    this.playable = false,
   });
 
   final String id;
@@ -48,6 +49,9 @@ class MovieDetail {
   final List<String> genres;
   final String? posterUrl;
   final String? backdropUrl;
+
+  /// True when there is something to watch.
+  final bool playable;
 }
 
 enum CatalogueFailure {
@@ -131,7 +135,10 @@ class CatalogueApi {
     final overview = json['overview'];
     final runtime = json['runtime_minutes'];
     final genres = json['genres'];
+    // Missing from an older API: nothing to watch.
+    final playable = json['playable'] ?? false;
     if ((overview != null && overview is! String) ||
+        playable is! bool ||
         (runtime != null && runtime is! int) ||
         genres is! List ||
         genres.any((genre) => genre is! String)) {
@@ -146,6 +153,7 @@ class CatalogueApi {
       genres: genres.cast<String>(),
       posterUrl: summary.posterUrl,
       backdropUrl: _imageUrl(json['backdrop_url']),
+      playable: playable,
     );
   }
 

@@ -1,5 +1,6 @@
 {
   "API_BASE_URL": "http://127.0.0.1:8000",
+  "MEDIA_BASE_URL": "http://127.0.0.1:8787",
   "NEON_AUTH_URL": "https://ep-example.neonauth.eu-central-1.aws.neon.tech/neondb/auth",
   "NEON_AUTH_WEB_CLIENT_ID": "REPLACE_ME_WEB_CLIENT_ID",
   "NEON_AUTH_ANDROID_CLIENT_ID": "REPLACE_ME_ANDROID_CLIENT_ID",

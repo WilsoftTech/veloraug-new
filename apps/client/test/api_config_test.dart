@@ -35,4 +35,26 @@ void main() {
       expect(() => parseApiBaseUrl(value), throwsFormatException);
     });
   }
+
+  test('the default media gateway is the local Worker', () {
+    expect(mediaBaseUrlSetting, 'http://127.0.0.1:8787');
+    expect(parseMediaBaseUrl(mediaBaseUrlSetting).port, 8787);
+  });
+
+  test('the media gateway follows the same rules, and names itself', () {
+    expect(
+      () => parseMediaBaseUrl('http://media.example.com'),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          startsWith('MEDIA_BASE_URL must use https'),
+        ),
+      ),
+    );
+    expect(
+      parseMediaBaseUrl('https://veloraug-media-dev.example.workers.dev').host,
+      'veloraug-media-dev.example.workers.dev',
+    );
+  });
 }
