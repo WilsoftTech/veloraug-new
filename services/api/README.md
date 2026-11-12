@@ -80,12 +80,14 @@ The password is for that container only, which only this computer can reach. Por
 | `app/media_hooks.py` | A separate app: the upload hooks tusd calls, as `veloraug_media`. See [uploads](#uploads) |
 | `app/upload_keys.py` | How upload keys are made and hashed |
 | `app/media_worker.py` | A separate program: checks uploads and converts them to HLS. See [convert uploads](#convert-uploads) |
+| `app/media_publisher.py` | Publishes converted originals to R2, and removes them. See [publish to R2](#publish-to-r2) |
 | `migrations/` | Alembic and the hand-written SQL migrations. Not in the image |
 | `alembic.ini` | Alembic's settings. It holds no connection string |
 | `scripts/` | The owner's scripts: [create the API's role](#2-create-the-apis-role), [check the database](#4-check-it) [manage the catalogue](#catalogue) and [upload keys](#upload-keys), and check the media role. Not in the image |
 | `tests/` | Tests for the endpoints, token checks, database rules, migrations, the catalogue, TMDB, CORS, settings, upload keys, the upload hooks and the upload script. `tests/db_support.py` sets up the local test database |
 | `requirements.txt` | Exact versions of the packages needed to run the API |
 | `requirements-migrate.txt` | The above, plus the migration tools |
+| `requirements-worker.txt` | `requirements.txt` plus boto3, for the media worker's image only |
 | `requirements-dev.txt` | All of the above, plus the test and lint tools |
 | `pyproject.toml` | Settings for pytest and Ruff |
 | `Dockerfile`, `.dockerignore` | How to build the container image, and which files it may contain |
@@ -219,6 +221,7 @@ The owner and trusted uploaders upload movie files with one-time **upload keys**
 | --- | --- |
 | `grant-upload` movie `--for` who `[--days 7]` | Makes a key for one upload to the movie, which needn't be published, and prints it once. Send it privately |
 | `revoke-upload` key ID | Stops a key working. A key already used stays used |
+| `remove-original` original ID | Deletes an original and its qualities from R2, after you type `remove`. See [publish to R2](#publish-to-r2) |
 | `uploads [movie]` | Every key, newest first, with who it was for, whether it is unused, used, expired or revoked, and its original's state, size, resolution, format, the qualities made from it and any reason it was refused. Never the key itself |
 
 ### Start the upload services
@@ -284,6 +287,56 @@ docker compose -f compose.local.yaml --profile uploads logs -f media-worker
 The worker logs each original it refuses or converts, the qualities made, and how long converting took per second of film.
 
 To check conversion itself with the real FFmpeg, on clips FFmpeg makes, run [`scripts/check_conversion.py`](scripts/check_conversion.py) in the worker's image. Its first lines show how. It should end with `GATE U2: PASSED`.
+
+### Publish to R2
+
+With R2 set up, the worker publishes each converted original to a private Cloudflare R2 bucket, [`app/media_publisher.py`](app/media_publisher.py):
+
+1. Uploads every chunk, then each quality's playlist, then the master playlist, so no playlist names a file that isn't there yet. All have a one-year cache time: a path includes the original's ID, so it never changes.
+2. Uploads the original to **Infrequent Access**, in 64 MB parts.
+3. Checks every object's size in R2.
+4. Records the qualities, and marks the original `ready`. If the film already had a ready original, that one is marked `removing` in the same step, and the worker then deletes its files.
+5. Deletes the local copies.
+
+A publish that fails is tried again after 1, then 2 minutes, then marked `failed`, with its local files kept. Paths in R2 hold VeloraUG's IDs only: `movies/<movie ID>/<original ID>/…` and `originals/<original ID>`.
+
+**Set up R2, once,** in the Cloudflare dashboard:
+
+1. Sign in, or create an account, at <https://dash.cloudflare.com>. Open **R2 object storage**. Cloudflare asks for an R2 subscription first, through a checkout page. The free allowance still applies.
+2. **Create bucket**: name `veloraug-dev`, location hint **Eastern Europe (EEUR)**, default storage class **Standard**. Leave public access off, and don't connect a custom domain or turn on the `r2.dev` address.
+3. Back on R2's **Overview**, next to **API Tokens**, choose **Manage**, then **Create Account API token**. Name it `veloraug-dev worker`. Permission **Object Read & Write**, applied to **specific buckets only**, `veloraug-dev`. No expiry needed for development.
+4. The next page shows an **Access Key ID** and a **Secret Access Key**, the secret only this once, and the **S3 endpoint**, `https://<account ID>.r2.cloudflarestorage.com`. Copy them straight into a new file, `services/api/.env.r2`, which Git ignores. Never into a message or a commit:
+
+   ```text
+   VELORAUG_R2_ENDPOINT=https://<account ID>.r2.cloudflarestorage.com
+   VELORAUG_R2_BUCKET=veloraug-dev
+   VELORAUG_R2_ACCESS_KEY_ID=<Access Key ID>
+   VELORAUG_R2_SECRET_ACCESS_KEY=<Secret Access Key>
+   ```
+
+   The endpoint is the account's, without `/veloraug-dev` on the end.
+
+Then check it, and restart the worker so it reads the file:
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\services\api
+.\.venv\Scripts\python.exe scripts\check_r2.py
+cd C:\Users\Wilsoft\veloraug\infra
+docker compose -f compose.local.yaml --profile uploads up -d --force-recreate media-worker
+docker compose -f compose.local.yaml --profile uploads logs media-worker
+```
+
+[`check_r2.py`](scripts/check_r2.py) asks for nothing and prints no key. It should print **6 PASS**: a small upload, its size, a 65 MB upload in parts, that it landed in Infrequent Access, that R2 refuses a request without keys, and deleting both. The worker's log should then say it is publishing to `veloraug-dev`.
+
+Only the worker's container gets `.env.r2`. The API's and the hooks' never do.
+
+**To remove an original,** and every quality made from it, from R2:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\catalogue.py remove-original <original ID from uploads>
+```
+
+It asks you to type `remove`, then marks the original `removing`. The worker deletes its files and marks it `removed`. Infrequent Access still bills an original for 30 days after it was uploaded.
 
 ## The concepts, using this service as the example
 
@@ -351,4 +404,4 @@ Put only the lines that are new into `requirements-migrate.txt`, under `-r requi
 .\.venv\Scripts\python.exe -m pip freeze
 ```
 
-Put only the lines that are new into `requirements-dev.txt`, under `-r requirements-migrate.txt`. Copy and paste instead of using `>`, which can change the file's encoding in Windows PowerShell. Finally, delete `.venv`, repeat [Setup](#setup) and [run the checks](#run-the-checks).
+Put only the lines that are new into `requirements-dev.txt`, under `-r requirements-migrate.txt` and `-r requirements-worker.txt`. Before that, install `boto3` and freeze in the same way, and put its new lines into `requirements-worker.txt`. Copy and paste instead of using `>`, which can change the file's encoding in Windows PowerShell. Finally, delete `.venv`, repeat [Setup](#setup) and [run the checks](#run-the-checks).

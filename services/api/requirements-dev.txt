@@ -1,7 +1,9 @@
-# Everything in requirements-migrate.txt, plus the tools for testing and linting.
+# Everything in requirements-migrate.txt and requirements-worker.txt, plus the
+# tools for testing and linting.
 # Direct dependencies: pytest, ruff. Starlette's test client uses httpx2, which
 # requirements.txt already pins.
 -r requirements-migrate.txt
+-r requirements-worker.txt
 colorama==0.4.6
 iniconfig==2.3.1
 packaging==26.3

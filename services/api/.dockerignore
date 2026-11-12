@@ -5,4 +5,5 @@
 *
 
 !requirements.txt
+!requirements-worker.txt
 !app/**/*.py

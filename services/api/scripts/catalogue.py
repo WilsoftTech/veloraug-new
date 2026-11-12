@@ -11,6 +11,7 @@ Run by the project owner, from services/api:
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py grant-upload 550 --for Owner
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py revoke-upload <key id>
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py uploads [550]
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py remove-original <original id>
 
 A movie is named by its TMDB ID, the number in its themoviedb.org address, or
 by VeloraUG's own ID from `list`.
@@ -60,6 +61,7 @@ from scripts.upload_keys import (  # noqa: E402
     describe_uploads,
     grant_upload,
     list_uploads,
+    request_removal,
     revoke_upload,
 )
 
@@ -429,6 +431,23 @@ def run(args: argparse.Namespace) -> int:
             print("\n".join(describe_uploads(movie)))
         return 0
 
+    if args.command == "remove-original":
+        with connect() as conn:
+            if not typed(
+                "Remove this original and every quality made from it? Viewers "
+                "lose it if it is the one being shown.",
+                "remove",
+            ):
+                print("Nothing changed.")
+                return 1
+            was = request_removal(conn, args.original_id)
+            conn.commit()
+        print(
+            f"The original, {was} until now, is marked for removal. The media "
+            "worker deletes its files from R2 and marks it removed."
+        )
+        return 0
+
     if args.command == "purge-tmdb":
         with connect() as conn:
             if not typed("Delete every TMDB copy and hide every movie?", "purge"):
@@ -472,6 +491,10 @@ def parser() -> argparse.ArgumentParser:
     revoke.add_argument("key_id", help="the key ID that uploads shows")
     uploads = commands.add_parser("uploads", help="upload keys and their originals")
     uploads.add_argument("movie", nargs="?", help="only this movie")
+    remove = commands.add_parser(
+        "remove-original", help="delete an original and its qualities from R2"
+    )
+    remove.add_argument("original_id", help="the original ID that uploads shows")
     return main_parser
 
 

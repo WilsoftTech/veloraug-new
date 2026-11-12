@@ -204,3 +204,36 @@ def describe_uploads(movie: MovieUploads, now: datetime | None = None) -> list[s
             text += f". {original.reason}"
         lines.append(text)
     return lines
+
+
+# Originals the owner can remove: anything not already on its way out.
+REMOVABLE = ("ready", "publishing", "failed", "refused")
+
+
+def request_removal(conn: psycopg.Connection, original_id: str) -> str:
+    """Marks an original 'removing'. The media worker deletes its files from R2
+    and this computer, then marks it 'removed'. Returns its previous state."""
+    try:
+        parsed = uuid.UUID(original_id)
+    except ValueError:
+        raise UploadKeyError(
+            f"{original_id!r} isn't an original's ID. See `uploads`"
+        ) from None
+    row = conn.execute(
+        "select state from public.media_originals where id = %s for update", (parsed,)
+    ).fetchone()
+    if row is None:
+        raise UploadKeyError(f"No original {original_id}")
+    if row[0] not in REMOVABLE:
+        raise UploadKeyError(
+            f"That original is {row[0]}. Only one that is "
+            f"{', '.join(REMOVABLE[:-1])} or {REMOVABLE[-1]} can be removed"
+        )
+    conn.execute(
+        """
+        update public.media_originals set state = 'removing', updated_at = now()
+        where id = %s
+        """,
+        (parsed,),
+    )
+    return row[0]

@@ -106,6 +106,10 @@ services:
     env_file:
       - path: ../services/api/.env.media
         required: true
+      # R2's keys, Step 7E. Only this container gets them. Without the file,
+      # converted originals wait in 'publishing'.
+      - path: ../services/api/.env.r2
+        required: false
     volumes:
       # Read and write: a refused upload is deleted.
       - ../services/worker/uploads:/srv/uploads

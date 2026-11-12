@@ -7,9 +7,11 @@ qualities are H.264 video and stereo AAC sound, in 6-second fMP4 chunks, with
 a keyframe every 2 seconds in every quality, so a player can switch between
 them cleanly. See "Conversion" in docs/step-07a-uploads-plan.md.
 
-States: received -> checking -> converting -> publishing, or refused or
-failed. Publishing to R2 comes in Step 7E; until then a converted original
-waits in 'publishing', with its HLS files in the output folder.
+States: received -> checking -> converting -> publishing -> ready, or
+refused or failed. With R2 set up, it publishes each converted original, see
+app/media_publisher.py, and removes originals marked 'removing'. Without R2, a
+converted original waits in 'publishing', with its HLS files in the output
+folder, until R2 is set up.
 
 Run with:
 
@@ -28,6 +30,7 @@ from pathlib import Path
 
 from app.db import Database, DatabaseUnavailable
 from app.media_hooks import MediaSettings
+from app.media_publisher import Publisher, R2Settings, R2Store
 
 logger = logging.getLogger("veloraug.media_worker")
 
@@ -55,6 +58,8 @@ ATTEMPTS = 3
 # An upload left in 'uploading' this long, with a complete file, missed its
 # post-finish hook.
 STALE_UPLOAD_SECONDS = 120
+# After a failed publish or removal, wait this long times the failures so far.
+RETRY_SECONDS = 60
 
 
 class Refused(Exception):
@@ -234,12 +239,16 @@ class Worker:
         output_dir: Path,
         run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
         clock: Callable[[], float] = time.monotonic,
+        publisher: Publisher | None = None,
     ) -> None:
         self.database = database
         self.upload_dir = upload_dir
         self.output_dir = output_dir
         self.run = run
         self.clock = clock
+        self.publisher = publisher
+        # Failed publishes and removals: original ID -> (failures, next try).
+        self.retries: dict[uuid.UUID, tuple[int, float]] = {}
 
     # --- The queue, in Neon -------------------------------------------------
 
@@ -416,7 +425,6 @@ class Worker:
             logger.error("original %s failed: %s", original_id, failure)
             return "failed"
         elapsed = self.clock() - started
-        # Waits here for Step 7E to publish it to R2.
         self._set(original_id, "publishing")
         logger.info(
             "original %s converted in %.0f s, %.2f s per second of film",
@@ -424,16 +432,78 @@ class Worker:
             elapsed,
             elapsed / probe.duration_seconds,
         )
-        return "publishing"
+        if self.publisher is None:
+            return "publishing"
+        return "ready" if self.try_publish(original_id) else "publishing"
+
+    # --- Publishing and removing, from Step 7E -----------------------------
+
+    def _due(self, state: str) -> uuid.UUID | None:
+        """The oldest original in this state that isn't waiting to retry."""
+        with self.database.anonymous() as conn:
+            ids = [
+                row[0]
+                for row in conn.execute(
+                    """
+                    select id from public.media_originals
+                    where state = %s order by updated_at limit 50
+                    """,
+                    (state,),
+                )
+            ]
+        now = self.clock()
+        return next((i for i in ids if self.retries.get(i, (0, 0))[1] <= now), None)
+
+    def _attempt(self, original_id: uuid.UUID, action, what: str) -> bool:
+        """Runs a publish or removal. A failure is tried again later, after
+        a growing wait. Publishing that fails 3 times is marked 'failed'."""
+        try:
+            action(original_id)
+        except DatabaseUnavailable:
+            raise
+        except Exception as error:  # boto3, the network or the files
+            failures = self.retries.get(original_id, (0, 0))[0] + 1
+            message = f"{type(error).__name__}: {str(error)[:200]}"
+            logger.warning(
+                "%s %s failed (%s): %s", what, original_id, failures, message
+            )
+            if what == "publishing" and failures >= ATTEMPTS:
+                self.retries.pop(original_id, None)
+                self._set(
+                    original_id,
+                    "failed",
+                    reason=f"Publishing to R2 failed {ATTEMPTS} times: {message}",
+                )
+                return False
+            self.retries[original_id] = (
+                failures,
+                self.clock() + RETRY_SECONDS * failures,
+            )
+            return False
+        self.retries.pop(original_id, None)
+        return True
+
+    def try_publish(self, original_id: uuid.UUID) -> bool:
+        return self._attempt(original_id, self.publisher.publish, "publishing")
 
     def run_once(self) -> bool:
         """Does one piece of work. False when there was nothing to do."""
         self.sweep_finished_uploads()
         original_id = self.claim()
-        if original_id is None:
+        if original_id is not None:
+            self.process(original_id)
+            return True
+        if self.publisher is None:
             return False
-        self.process(original_id)
-        return True
+        original_id = self._due("publishing")
+        if original_id is not None:
+            self.try_publish(original_id)
+            return True
+        original_id = self._due("removing")
+        if original_id is not None:
+            self._attempt(original_id, self.publisher.remove, "removing")
+            return True
+        return False
 
     def run_forever(self, poll_seconds: float = 10) -> None:
         recovered = self.recover()
@@ -463,13 +533,23 @@ def main() -> None:
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     settings = WorkerSettings()
+    r2 = R2Settings()
     database = Database(settings.database_url.get_secret_value(), max_size=2)
     database.open()
-    logger.info("media worker started")
-    try:
-        Worker(database, settings.upload_dir, settings.output_dir).run_forever(
-            settings.poll_seconds
+    publisher = None
+    if r2.configured:
+        store = R2Store(r2)
+        publisher = Publisher(database, store, settings.upload_dir, settings.output_dir)
+        logger.info("media worker started, publishing to R2 bucket %s", r2.bucket)
+    else:
+        logger.info(
+            "media worker started. R2 isn't set up, so converted originals wait "
+            "in 'publishing'"
         )
+    try:
+        Worker(
+            database, settings.upload_dir, settings.output_dir, publisher=publisher
+        ).run_forever(settings.poll_seconds)
     finally:
         database.close()
 
