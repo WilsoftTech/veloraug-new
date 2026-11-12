@@ -19,7 +19,7 @@ This is the approved plan. **Only the Flutter app shell and a minimal FastAPI se
 | Video delivery | Cloudflare Worker, in `services/media_gateway/` | Checks access, then serves video from R2 |
 | Backend hosting | Docker Compose on Oracle ARM64 | Runs the API, media worker and tusd |
 | Payments | Pesapal | Initial payment provider |
-| Source archive | Telegram | Optional archive of original files |
+| Movie source, later | Telegram | A private channel the original files can be fetched from, in a later milestone |
 
 **HLS** splits a movie into many small chunks plus a playlist, so a player can start quickly and pick a quality that suits the connection.
 
@@ -36,8 +36,8 @@ Watching
   Flutter app --> Cloudflare Worker: checks the access --> private R2
 
 Publishing
-  Upload --> tusd --> media worker (FFprobe, FFmpeg) --> private R2
-                                                     --> Telegram (optional)
+  Upload key from the owner --> upload script --> tusd --> media worker (FFprobe, FFmpeg -c copy) --> private R2
+  Later: private Telegram channel --> media worker
 
 Paying
   Flutter app --> FastAPI --> Pesapal
@@ -56,7 +56,7 @@ Accounts and database are planned in the [Neon plan](step-05a-neon-plan.md), and
 
 These are undecided, and neither feature exists yet:
 
-- **Upload authorization:** who may upload a movie, and how tusd checks that before accepting a file. To settle before Milestone 7.
+- **Upload authorization:** settled in the [uploads plan](step-07a-uploads-plan.md): one-time upload keys from the owner, checked by tusd's pre-create hook.
 - **Playback authorization:** what FastAPI gives the app when it grants access, how the Worker checks it on every video chunk, and when it expires. To settle before Milestone 8.
 
 ## Where configuration and secrets will live

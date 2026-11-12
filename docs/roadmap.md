@@ -88,10 +88,15 @@ Planned in the [catalogue plan](step-06a-catalogue-plan.md). **Complete on 12 No
 - [x] 6E: Check everything end to end (web and Android, signed in and out, unpublish and without the token, user-reported: see the [Step 6E report](step-06e-report.md))
 
 ### Milestone 7: Uploads and processing
-- [ ] Design upload authorization: who may upload, and how tusd checks it
-- [ ] Add resumable uploads with tusd
-- [ ] Inspect files with FFprobe and convert them to HLS with FFmpeg
-- [ ] Publish to private R2, with optional Telegram archive
+
+Planned in the [uploads plan](step-07a-uploads-plan.md). The owner and trusted uploaders upload with one-time keys, movies keep their original quality with no re-encoding, and finished movies go to private R2. Telegram becomes a source of movies in a later milestone, not an archive.
+
+- [x] 7A: Plan uploads and processing, including upload authorization
+- [ ] 7B: Migration `0003`, the media role, and the owner's upload-key commands
+- [ ] 7C: Resumable uploads with tusd, the upload hooks and the upload script (gate U1)
+- [ ] 7D: Check files with FFprobe and package them as HLS without re-encoding (gate U2)
+- [ ] 7E: Publish to a private R2 bucket
+- [ ] 7F: Check everything end to end
 
 ### Milestone 8: Protected playback
 - [ ] Design playback authorization: what the API grants, and how the Worker checks it
@@ -113,4 +118,5 @@ Planned in the [catalogue plan](step-06a-catalogue-plan.md). **Complete on 12 No
 
 - Rights to distribute each movie
 - TMDB's attribution and commercial-use terms: a signed TMDB agreement, or the [fallback](step-06a-catalogue-plan.md#the-licence-risk), before anyone is charged
-- Telegram's terms, if the optional archive is used
+- Telegram's terms, if movies are fetched from a Telegram channel
+- Which browsers and phones play HEVC and 4K, for movies uploaded without an H.264 version
