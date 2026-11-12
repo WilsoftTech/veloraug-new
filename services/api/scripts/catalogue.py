@@ -8,6 +8,9 @@ Run by the project owner, from services/api:
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py list
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py refresh
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py purge-tmdb
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py grant-upload 550 --for Owner
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py revoke-upload <key id>
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py uploads [550]
 
 A movie is named by its TMDB ID, the number in its themoviedb.org address, or
 by VeloraUG's own ID from `list`.
@@ -50,6 +53,14 @@ from migrations.connection import (  # noqa: E402
     clean,
     describe,
     require_sign_in_branch,
+)
+from scripts.upload_keys import (  # noqa: E402
+    DEFAULT_DAYS,
+    UploadKeyError,
+    describe_uploads,
+    grant_upload,
+    list_uploads,
+    revoke_upload,
 )
 
 TOKEN_NAME = "VELORAUG_TMDB_READ_ACCESS_TOKEN"
@@ -375,6 +386,49 @@ def run(args: argparse.Namespace) -> int:
             print(f"Failed: {failure}")
         return 1 if result.failed else 0
 
+    if args.command == "grant-upload":
+        with connect() as conn:
+            movie = find_movie(conn, args.movie)
+            key, text = grant_upload(conn, movie.id, args.label, args.days)
+            conn.commit()
+        title = movie.title or f"TMDB {movie.tmdb_id}"
+        year = f" ({movie.year})" if movie.year else ""
+        print(
+            f"Upload key for {key.label}: one file for {title}{year}, "
+            f"until {key.expires_at:%d %B %Y %H:%M} UTC."
+        )
+        print("It is shown only this once:")
+        print(f"\n    {text}\n")
+        print(
+            "Send it privately. Anyone who has it can upload one file for this "
+            "movie. To stop it:"
+        )
+        print(f"    scripts\\catalogue.py revoke-upload {key.id}")
+        return 0
+
+    if args.command == "revoke-upload":
+        with connect() as conn:
+            key = revoke_upload(conn, args.key_id)
+            conn.commit()
+        if key.used_at:
+            print(
+                f"Key for {key.label} revoked, but it was already used. "
+                "Its upload isn't stopped."
+            )
+        else:
+            print(f"Key for {key.label} revoked. It can't be used now.")
+        return 0
+
+    if args.command == "uploads":
+        with connect() as conn:
+            movie_id = find_movie(conn, args.movie).id if args.movie else None
+            movies = list_uploads(conn, movie_id)
+        if not movies:
+            print("No upload keys yet. Make one with grant-upload.")
+        for movie in movies:
+            print("\n".join(describe_uploads(movie)))
+        return 0
+
     if args.command == "purge-tmdb":
         with connect() as conn:
             if not typed("Delete every TMDB copy and hide every movie?", "purge"):
@@ -404,6 +458,20 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("list", help="every movie, published or not")
     commands.add_parser("refresh", help="fetch TMDB copies older than 7 days")
     commands.add_parser("purge-tmdb", help="delete every TMDB copy")
+    grant = commands.add_parser(
+        "grant-upload", help="make a one-time key to upload one file for a movie"
+    )
+    grant.add_argument("movie", help="TMDB ID or VeloraUG movie ID")
+    grant.add_argument(
+        "--for", dest="label", required=True, help="who the key is for, e.g. Owner"
+    )
+    grant.add_argument(
+        "--days", type=int, default=DEFAULT_DAYS, help="days until it expires"
+    )
+    revoke = commands.add_parser("revoke-upload", help="stop an upload key working")
+    revoke.add_argument("key_id", help="the key ID that uploads shows")
+    uploads = commands.add_parser("uploads", help="upload keys and their versions")
+    uploads.add_argument("movie", nargs="?", help="only this movie")
     return main_parser
 
 
@@ -411,7 +479,7 @@ def main() -> int:
     args = parser().parse_args()
     try:
         return run(args)
-    except (CatalogueError, TmdbError, ValueError) as error:
+    except (CatalogueError, UploadKeyError, TmdbError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 1
     except psycopg.Error as error:

@@ -366,6 +366,45 @@ def check_catalogue(conn: psycopg.Connection) -> list[Result]:
     return results
 
 
+def check_uploads(conn: psycopg.Connection) -> list[Result]:
+    """The API can't see or change upload keys or media versions.
+
+    These follow the Step 7B criteria in docs/step-07a-uploads-plan.md.
+    """
+    tables = ("public.upload_keys", "public.media_versions")
+    flags = conn.execute(
+        """
+        select count(*) = 2 and bool_and(relrowsecurity and relforcerowsecurity)
+        from pg_class where oid = any(%s::regclass[])
+        """,
+        (list(tables),),
+    ).fetchone()[0]
+    results = [Result("RLS and forced RLS on upload_keys and media_versions", flags)]
+    rights = [
+        table
+        for table in tables
+        if conn.execute(
+            "select has_table_privilege(%s, 'SELECT, INSERT, UPDATE, DELETE')",
+            (table,),
+        ).fetchone()[0]
+        or conn.execute(
+            "select has_any_column_privilege(%s, 'SELECT, INSERT, UPDATE')",
+            (table,),
+        ).fetchone()[0]
+    ]
+    results.append(
+        Result(
+            "can't read or change upload keys or media versions",
+            not rights
+            and refused(conn, "select count(*) from public.upload_keys")
+            and refused(conn, "select count(*) from public.media_versions")
+            and refused(conn, "update public.upload_keys set used_at = now()"),
+            ", ".join(rights),
+        )
+    )
+    return results
+
+
 def check_no_leak(url: str, connect: Callable[[str], psycopg.Connection]) -> Result:
     """A user set in one transaction is gone in the next, including through
     the pooler and with two users at once."""
@@ -441,6 +480,7 @@ def run_checks(url: str, connect=None) -> list[Result]:
         results += check_table(conn)
         results += check_isolation(conn)
         results += check_catalogue(conn)
+        results += check_uploads(conn)
         results.append(check_prepared(conn))
     results.append(check_no_leak(url, connect))
     return results

@@ -92,7 +92,7 @@ Planned in the [catalogue plan](step-06a-catalogue-plan.md). **Complete on 12 No
 Planned in the [uploads plan](step-07a-uploads-plan.md). The owner and trusted uploaders upload with one-time keys, movies keep their original quality with no re-encoding, and finished movies go to private R2. Telegram becomes a source of movies in a later milestone, not an archive.
 
 - [x] 7A: Plan uploads and processing, including upload authorization
-- [ ] 7B: Migration `0003`, the media role, and the owner's upload-key commands
+- [ ] 7B: Migration `0003`, the media role, and the owner's upload-key commands (written and tested locally; waiting for the owner to run `0003` on Neon: see the [Step 7B report](step-07b-report.md#run-it-on-neon))
 - [ ] 7C: Resumable uploads with tusd, the upload hooks and the upload script (gate U1)
 - [ ] 7D: Check files with FFprobe and package them as HLS without re-encoding (gate U2)
 - [ ] 7E: Publish to a private R2 bucket

@@ -50,6 +50,7 @@ def create_test_database() -> str:
     with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
         admin.execute(f"drop database if exists {DATABASE} with (force)")
         admin.execute("drop role if exists veloraug_app")
+        admin.execute("drop role if exists veloraug_media")
         admin.execute(f"drop role if exists {OWNER}")
         admin.execute(
             """
