@@ -285,4 +285,70 @@ The worker logs each original it refuses or converts, the qualities made, and ho
 
 To check conversion itself with the real FFmpeg, on clips FFmpeg makes, run [`scripts/check_conversion.py`](scripts/check_conversion.py) in the worker's image. Its first lines show how. It should end with `GATE U2: PASSED`.
 
+## The concepts, using this service as the example
 
+**Virtual environment.** The `.venv` folder is a private copy of Python's package space for this service only. Installing FastAPI there does not touch the rest of your computer or any other project. It is not in Git. If it ever breaks, delete the folder and repeat [Setup](#setup).
+
+**FastAPI** is the Python framework this service is written with. In `app/routes.py`, `@router.get("/health")` tells it which function answers that address. It also reads the function's type hints to check the response and to generate the `/docs` page.
+
+**Uvicorn** is the server program. FastAPI defines how to answer a request, but something has to listen on the network and pass requests in. That is Uvicorn, and in the start command, `app.main:create_app` tells it to call `create_app` in `app/main.py`.
+
+`--host 127.0.0.1` means only this computer can connect, and `--port 8000` is the door number on it. Together they make the address `127.0.0.1:8000`.
+
+**Endpoint.** An address plus an HTTP method that the service answers. This service's addresses all answer `GET`, which means "read this", and `/api/v1/me` also answers `PATCH`:
+
+- `GET /health` says that this server process is running and can answer. **It does not check the database or any other service.** An `ok` means only that the process responded.
+- `GET /api/v1` says which service this is and which API version it serves. Future endpoints will go under `/api/v1`, so a later `v2` can exist alongside them without breaking older apps.
+- `GET /api/v1/me` returns the signed-in user's ID, from a verified [access token](#the-concepts-using-this-service-as-the-example), and their display name. The profile is created on first use. `PATCH /api/v1/me` with `{"display_name": "…"}` changes the name, from 1 to 80 characters, and `null` clears it. These are the only endpoints that need a token.
+- `GET /api/v1/movies` lists published movies, newest first: `id`, `title`, `year` and `poster_url`. `?q=` searches titles, 2 to 80 characters, with titles that start with it first. `?limit=` is 1 to 50, 24 by default, and `next_offset` gives the next page's `?offset=`, or `null` on the last.
+- `GET /api/v1/movies/{id}` adds `overview`, `runtime_minutes`, `genres` and `backdrop_url`. A movie that doesn't exist and one that isn't published both answer `404`, with the same message. `503` with `Retry-After` means its details are being fetched.
+
+The IDs are VeloraUG's own. TMDB's IDs and token never leave the API, and the image addresses point straight at TMDB's image server.
+
+FastAPI adds `/docs` and `/openapi.json` by itself.
+
+**Access token.** After sign-in, Neon gives the app a short-lived token, valid for an hour, which the app sends as `Authorization: Bearer <token>`. The token is signed by Neon. The API checks the signature with Neon's public keys, which it fetches once and keeps for five minutes, so it makes no request to Neon per call. It also checks who issued the token, which API and which app it is for, and that it hasn't expired. Only then does it trust the user ID inside. Any failure gets the same `401`, and if the keys can't be fetched the answer is `503`. A token stays valid until it expires, even after sign-out: see the [revocation limits](../../docs/step-05a-neon-plan.md#revocation-limits). The full rules are in the [Neon plan](../../docs/step-05a-neon-plan.md#4-token-verification-in-fastapi).
+
+**JSON** is the text format the two endpoints reply in. `{"status":"ok"}` is an object with one field, `status`, whose value is the text `ok`. Python, Dart and most other languages can read it, which is how the Flutter app will understand these replies.
+
+**CORS (Cross-Origin Resource Sharing).** An origin is a scheme, host and port together. A web page at `http://localhost:8765` and this API at `http://127.0.0.1:8000` have different origins, so by default the browser won't let that page read the API's replies. The API can give permission with an `Access-Control-Allow-Origin` header:
+
+- For `http://localhost:8765`, the API sends that header, so the browser lets the page read the reply.
+- For `https://evil.example`, the API leaves the header out, so the browser hides the reply from that page.
+- Before some requests, the browser asks first with an `OPTIONS` request called a **preflight**. An allowed origin gets `200`, and any other gets `400`.
+
+Here, permission covers one exact origin, the methods `GET` and `PATCH`, and the headers `Authorization` and `Content-Type`. The wildcard `*` is refused because it would let every website read the replies. Credentials are off because the API uses no cookies: the app sends its token in the `Authorization` header.
+
+Three details are easy to trip over:
+
+- **CORS is not security for the API itself.** Browsers enforce it. A script or `curl` can still call the API from anywhere, and the server still answers a disallowed `GET`. The token check is what protects signed-in routes.
+- **`http://127.0.0.1:8765` is a different origin from `http://localhost:8765`,** even though they reach the same computer, so it is refused.
+- **Flutter picks a random web port by default.** Use the [command in the client README](../../apps/client/README.md#in-chrome-two-terminals), or the browser will block it. An Android app is not a browser, so CORS does not apply to it.
+
+## Change a dependency
+
+The pinned files list every package at an exact version, so each install gets the same code. To change them, start from a clean environment:
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\services\api
+Remove-Item -Recurse -Force .venv
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install fastapi httpx2 "psycopg[binary,pool]" pydantic-settings "PyJWT[crypto]" uvicorn
+.\.venv\Scripts\python.exe -m pip freeze
+```
+
+Paste that output into `requirements.txt`, under the comments. Then install the migration tools and freeze again:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install alembic sqlalchemy
+.\.venv\Scripts\python.exe -m pip freeze
+```
+
+Put only the lines that are new into `requirements-migrate.txt`, under `-r requirements.txt`. Then install the test tools and freeze again:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install pytest ruff
+.\.venv\Scripts\python.exe -m pip freeze
+```
+
+Put only the lines that are new into `requirements-dev.txt`, under `-r requirements-migrate.txt`. Copy and paste instead of using `>`, which can change the file's encoding in Windows PowerShell. Finally, delete `.venv`, repeat [Setup](#setup) and [run the checks](#run-the-checks).
