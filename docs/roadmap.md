@@ -92,7 +92,7 @@ Planned in the [catalogue plan](step-06a-catalogue-plan.md). **Complete on 12 No
 Planned in the [uploads plan](step-07a-uploads-plan.md). The owner and trusted uploaders upload with one-time keys. Each movie is converted to 360p, 480p, 720p and 1080p, never above its original, and the original is kept in R2. Telegram may become a source of movies in a later milestone.
 
 - [x] 7A: Plan uploads and processing, including upload authorization
-- [ ] 7B: Migration `0003`, the media role, and the owner's upload-key commands (written and tested locally; waiting for the owner to run `0003` on Neon: see the [Step 7B report](step-07b-report.md#run-it-on-neon))
+- [x] 7B: Migration `0003`, the media role, and the owner's upload-key commands (on Neon, 27 database checks pass: see the [Step 7B report](step-07b-report.md))
 - [ ] 7C: Resumable uploads with tusd, the upload hooks and the upload script (gate U1)
 - [ ] 7D: Check files with FFprobe and convert them to the four qualities as HLS (gate U2)
 - [ ] 7E: Publish to a private R2 bucket, keeping the original

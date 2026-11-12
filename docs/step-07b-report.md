@@ -2,7 +2,7 @@
 
 Date: 12 November 2026. Branch: `feature/step-07-uploads`, from `main`. This follows the [uploads plan](step-07a-uploads-plan.md#1-database).
 
-**Step 7B is written and passes every local check. It closes when the owner runs migration `0003` on the Neon development branch,** as in [run it on Neon](#run-it-on-neon). Nothing has changed on Neon yet.
+**Step 7B is complete.** On 12 November 2026 the owner ran migration `0003` on the Neon development branch, and every database check passed. See [the owner's run](#the-owners-run).
 
 The migration was first written for keeping each upload's quality without conversion. The same day, the owner chose to convert every movie to 360p, 480p, 720p and 1080p and keep the original. Because `0003` hadn't run anywhere but a throwaway test database, it was rewritten rather than followed by a fix.
 
@@ -57,11 +57,25 @@ cd C:\Users\Wilsoft\veloraug\services\api
 - `grant-upload` prints a key once. Nothing can use it until Step 7C, and it expires in a day. Don't paste it anywhere.
 - `uploads` should show the key for Owner as unused, without the key itself.
 
+## The owner's run
+
+On 12 November 2026, on the development branch, `ep-floral-salad-b98b3l94`:
+
+| Command | Result |
+| --- | --- |
+| `alembic upgrade head` | `0002 -> 0003` ran |
+| `alembic current` | `0003 (head)` |
+| `check_database.py` | **27 passed, 0 failed**, including both new upload checks |
+| `grant-upload 550 --for Owner --days 1` | A key for *Fight Club*, until 13 November 12:33 UTC |
+| `uploads` | The key for Owner, unused, without the key's text |
+
+The owner's pasted output included the key's text, so it was seen in the chat. It can't be used before Step 7C exists, and it expires after a day. The owner was asked to revoke it, and to leave the key line out of pasted output from now on.
+
 ## Acceptance criteria
 
 | Criterion | State |
 | --- | --- |
 | `0003` runs on a local Postgres set up as Neon is | **Met** |
-| `0003` runs on the Neon development branch | Waiting for the owner |
+| `0003` runs on the Neon development branch | **Met**, owner's run |
 | Database checks: the API can't read keys, originals or qualities; the media role can't make keys, publish movies or read other tables; a used, expired or revoked key can't be used again | **Met** locally. The API's checks run on Neon with `check_database.py`. The media role's run on Neon in Step 7C, once it can log in |
 | `grant-upload`, `revoke-upload` and `uploads` work against a local database, and no key is stored or printed except once, at creation | **Met** |
