@@ -352,6 +352,14 @@ void main() {
 
     expect(find.text('About'), findsOneWidget);
     expect(find.text(tmdbNotice), findsOneWidget);
+    final logo = tester.widget<Image>(
+      find.byWidgetPredicate(
+        (widget) => widget is Image && widget.semanticLabel == 'TMDB logo',
+      ),
+    );
+    expect((logo.image as AssetImage).assetName, tmdbLogoAsset);
+    expect(logo.height, 16);
+    expect(find.bySemanticsLabel('TMDB logo'), findsOneWidget);
     expect(
       tmdbNotice,
       'This product uses the TMDB API but is not endorsed or certified by '

@@ -179,6 +179,10 @@ class _DevToolsHeading extends StatelessWidget {
 const String tmdbNotice =
     'This product uses the TMDB API but is not endorsed or certified by TMDB.';
 
+/// TMDB's approved short logo, from themoviedb.org/about/logos-attribution,
+/// drawn from its SVG to a PNG at 820 × 107 so no SVG package is needed.
+const String tmdbLogoAsset = 'assets/brand/tmdb_logo.png';
+
 /// Credits. TMDB's terms ask for its notice in an "About" or "Credits"
 /// section, less prominent than VeloraUG's own brand, in every build.
 class AboutSection extends StatelessWidget {
@@ -202,6 +206,8 @@ class AboutSection extends StatelessWidget {
             'The Movie Database.',
             style: theme.textTheme.bodyMedium,
           ),
+          // Small, so it stays less prominent than VeloraUG's own brand.
+          Image.asset(tmdbLogoAsset, height: 16, semanticLabel: 'TMDB logo'),
           Text(
             tmdbNotice,
             style: theme.textTheme.bodySmall?.copyWith(

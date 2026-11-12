@@ -246,7 +246,7 @@ Browsing needs no sign-in, and the app sends no token for it. It calls `GET /api
 | No answer, or the browser blocked it | "Couldn't reach VeloraUG", with **Try again** |
 | A poster can't load | The plain poster placeholder |
 
-**About**, on the Account screen, credits TMDB with the notice its terms require. It shows in every build.
+**About**, on the Account screen, credits TMDB with its logo and the notice its terms require. Both show in every build. The logo is TMDB's approved short logo, in [`assets/brand/tmdb_logo.png`](assets/brand/tmdb_logo.png), drawn from TMDB's SVG to a PNG so the app needs no SVG package. It shows 16 pixels tall, smaller than VeloraUG's own brand.
 
 **Restart your API after updating,** or the catalogue routes won't exist and Home answers "Something went wrong".
 

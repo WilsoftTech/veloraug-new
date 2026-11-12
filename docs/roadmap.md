@@ -84,7 +84,7 @@ Planned in the [catalogue plan](step-06a-catalogue-plan.md). The catalogue lists
 - [x] 6A: Plan the catalogue
 - [x] 6B: Get a TMDB key, add the catalogue tables and the owner's catalogue script (migration, 25 database checks and four test movies on the development branch, partly user-reported: see the [Step 6B report](step-06b-report.md))
 - [x] 6C: Add the API's catalogue routes, with TMDB details kept and refreshed (automated, plus a container run with the real settings: see the [Step 6C report](step-06c-report.md))
-- [ ] 6D: Add home, search and detail screens, and TMDB's credit (screens, notice and gate T2 done; TMDB's logo waits for the owner's permission to download it: see the [Step 6D report](step-06d-report.md))
+- [x] 6D: Add home, search and detail screens, and TMDB's credit (see the [Step 6D report](step-06d-report.md))
 - [ ] 6E: Check everything end to end
 
 ### Milestone 7: Uploads and processing
