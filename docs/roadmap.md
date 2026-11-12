@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 7 November 2026.
+Last updated: 12 November 2026.
 
 Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is complete: see the [Step 3 report](step-03-report.md). Milestone 4 is complete, through Step 4, the local Docker run in Step 4B and the Flutter connection in Step 4C: see the [Step 4](step-04-report.md), [Step 4B](step-04b-report.md) and [Step 4C](step-04c-report.md) reports. Milestones 5 onward are a proposed order and may change.
 
@@ -100,12 +100,13 @@ Planned in the [uploads plan](step-07a-uploads-plan.md). **Complete on 12 Novemb
 
 ### Milestone 8: Protected playback
 
-From Milestone 7: test seeking in hls.js and ExoPlayer, and watch a real film to check the bitrates. See the [Step 7F report](step-07f-report.md#what-milestone-7-leaves-for-later).
+Planned in the [playback plan](step-08a-playback-plan.md). Any signed-in viewer may watch a published, ready film, until payments in Milestone 9. 8B to 8D are built and checked on this PC: see the [Step 8B–8D report](step-08-report.md). 8E needs the owner.
 
-- [ ] Design playback authorization: what the API grants, and how the Worker checks it
-- [ ] Deliver video through the Cloudflare Worker in `services/media_gateway/`
-- [ ] Test playback on web and Android
-- [ ] Confirm that direct access without permission fails
+- [x] 8A: Design playback authorization: the API signs a 6-hour grant, and the Worker checks it in every address's path
+- [x] 8B: Migration `0004`, the grant route and `playable` (automated, on a local Postgres set up as Neon is)
+- [x] 8C: The Worker in `services/media_gateway/` (automated, plus a local `wrangler dev` run: every file served byte-identical, and every way in without a grant refused)
+- [x] 8D: The player: hls.js on the web, ExoPlayer on Android (automated, both builds, and seeking checked in hls.js in Chrome against the local Worker)
+- [ ] 8E: On Neon and Cloudflare: the migration, the deployed Worker, playback and seeking on web and one phone, a real film's bitrates, and direct access without permission refused
 
 ### Milestone 9: Payments
 - [ ] Integrate Pesapal in its test environment

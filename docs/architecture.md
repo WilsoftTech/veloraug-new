@@ -1,6 +1,6 @@
 # Architecture
 
-This is the approved plan. **Built so far, locally:** the Flutter app with sign-in, profiles and the catalogue; the FastAPI service with Neon and TMDB; and uploads, from tusd through FFmpeg to private R2. **Still planned:** playback through the Cloudflare Worker, payments, and deployment. See the [roadmap](roadmap.md).
+This is the approved plan. **Built so far, locally:** the Flutter app with sign-in, profiles and the catalogue; the FastAPI service with Neon and TMDB; uploads, from tusd through FFmpeg to private R2; and playback, with grants from the API checked by the Cloudflare Worker. **Still planned:** the Worker on Cloudflare itself, payments, and deployment. See the [roadmap](roadmap.md).
 
 ## The parts
 
@@ -32,8 +32,10 @@ Signing in
 
 Watching
   Flutter app --> FastAPI, with the access token: "may I watch this?"
-  FastAPI verifies the token, checks their payment in Neon PostgreSQL, then grants access
-  Flutter app --> Cloudflare Worker: checks the access --> private R2
+  FastAPI verifies the token, checks the movie is ready (and, from Milestone 9, their payment),
+    then signs a 6-hour grant into a playback address
+  Flutter app --> Cloudflare Worker, grant in the path of every playlist and chunk:
+    checks the signature and expiry --> private R2
 
 Publishing
   Upload key from the owner --> upload script --> tusd --> media worker (FFprobe, FFmpeg: 360p to 1080p) --> private R2, original kept
@@ -54,10 +56,10 @@ Accounts and database are planned in the [Neon plan](step-05a-neon-plan.md), and
 
 ## Open design tasks
 
-These are undecided, and neither feature exists yet:
+Both are now settled:
 
 - **Upload authorization:** settled in the [uploads plan](step-07a-uploads-plan.md): one-time upload keys from the owner, checked by tusd's pre-create hook.
-- **Playback authorization:** what FastAPI gives the app when it grants access, how the Worker checks it on every video chunk, and when it expires. To settle before Milestone 8.
+- **Playback authorization:** settled in the [playback plan](step-08a-playback-plan.md): FastAPI signs a grant naming the movie, its ready original and an expiry 6 hours on, with HMAC-SHA256 and a key it shares with the Worker. The grant is in the playback address's path, so the Worker checks it on every playlist and chunk, with no database.
 
 ## Where configuration and secrets will live
 
@@ -74,10 +76,10 @@ Nothing here exists yet, and no values are needed now. The API has two optional 
 
 | Value | Later location |
 | --- | --- |
-| API database connection string, TMDB key, Pesapal credentials, R2 keys, Telegram token | Local: an ignored `.env` file beside the service that uses it. Production: an `.env` file on the Oracle server, outside Git, readable only by the deployment account |
+| API database connection string, TMDB key, playback signing key, Pesapal credentials, R2 keys, Telegram token | Local: an ignored `.env` file beside the service that uses it. Production: an `.env` file on the Oracle server, outside Git, readable only by the deployment account |
 | Migration connection string (database owner) | The owner's terminal, for the length of a migration only. Never in the API's environment |
 | Email provider (SMTP) credentials, later | Neon Console only |
-| Cloudflare Worker secrets | Cloudflare's encrypted Worker secrets. Local: an ignored `.dev.vars` file |
+| Cloudflare Worker secrets: the playback signing key, the same as the API's | Cloudflare's encrypted Worker secrets. Local: an ignored `.dev.vars` file |
 | Android signing key | Outside the repository, with a backup. `key.properties` and key files are ignored |
 
 Each service can commit a `.env.example` file containing variable names and fake values, so others can see what is needed. Create these only when the variables first exist.
