@@ -2,7 +2,7 @@
 
 Date: 12 November 2026. Branch: `feature/step-07-uploads`. This follows the [uploads plan](step-07a-uploads-plan.md#4-conversion).
 
-**Step 7D is written, and gate U2 passed with the real FFmpeg.** The worker also ran against the Neon development branch, where it correctly refused the 8 MB test file from Step 7C. It closes after the owner's run, in [the owner's run](#the-owners-run): uploading a real video and seeing it converted.
+**Step 7D is complete.** Gate U2 passed with the real FFmpeg. Against the Neon development branch, the worker refused the 8 MB test file from Step 7C, and on 12 November 2026 converted the owner's upload of the 1080p test clip to all four qualities, in 52 seconds, before publishing it. That run was done as part of Step 7E: see the [Step 7E report](step-07e-report.md#results-12-november-2026).
 
 ## What changed
 

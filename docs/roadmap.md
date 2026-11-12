@@ -94,8 +94,8 @@ Planned in the [uploads plan](step-07a-uploads-plan.md). The owner and trusted u
 - [x] 7A: Plan uploads and processing, including upload authorization
 - [x] 7B: Migration `0003`, the media role, and the owner's upload-key commands (on Neon, 27 database checks pass: see the [Step 7B report](step-07b-report.md))
 - [x] 7C: Resumable uploads with tusd, the upload hooks and the upload script (gate U1 passed; a file uploaded against Neon: see the [Step 7C report](step-07c-report.md))
-- [ ] 7D: Check files with FFprobe and convert them to the four qualities as HLS (gate U2) (written, gate U2 passed; waiting for the owner's run on Neon: see the [Step 7D report](step-07d-report.md#the-owners-run), now folded into Step 7E's)
-- [ ] 7E: Publish to a private R2 bucket, keeping the original (written and tested with a stand-in bucket; waiting for the owner's bucket: see the [Step 7E report](step-07e-report.md#the-owners-run))
+- [x] 7D: Check files with FFprobe and convert them to the four qualities as HLS (gate U2 passed; see the [Step 7D report](step-07d-report.md))
+- [x] 7E: Publish to a private R2 bucket, keeping the original (a test clip published to `veloraug-dev`: see the [Step 7E report](step-07e-report.md))
 - [ ] 7F: Check everything end to end
 
 ### Milestone 8: Protected playback

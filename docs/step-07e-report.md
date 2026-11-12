@@ -2,7 +2,7 @@
 
 Date: 12 November 2026. Branch: `feature/step-07-uploads`. This follows the [uploads plan](step-07a-uploads-plan.md#5-r2).
 
-**Step 7E is written and tested with an in-memory stand-in for the bucket.** It closes after [the owner's run](#the-owners-run): creating the `veloraug-dev` bucket and its token, checking them, and publishing the 1080p test clip. That run also closes Step 7D.
+**Step 7E is complete, and so is Step 7D.** On 12 November 2026 the owner created the `veloraug-dev` bucket and its token, and a 1080p test clip went from upload to `ready` in R2, with four qualities and the original in Infrequent Access. See [the results](#results-12-november-2026).
 
 ## What changed
 
@@ -77,11 +77,28 @@ Paste the key only into the upload script.
 
 It should show the original as `ready`, 1920×1080 H264/AAC, with qualities 360p, 480p, 720p and 1080p. In the Cloudflare dashboard, `veloraug-dev` should hold `movies/…` and `originals/…`. `services\worker\transcoding\` should be empty again.
 
+### Results, 12 November 2026
+
+| Step | Result |
+| --- | --- |
+| `.env.r2`, by the owner | The endpoint had `/veloraug-dev` on the end, as the dashboard shows it, so the settings refused it and the worker restarted over and over. Claude removed that part of the endpoint line only. The settings now accept the bucket's own name on the end and drop it, and `check_r2.py` explains a bad setting in one sentence |
+| `check_r2.py` | **6 passed, 0 failed**: an upload, its size, 65 MB in parts, in Infrequent Access (`STANDARD_IA`), refused without keys (HTTP 400), test files deleted |
+| The worker, restarted | "publishing to R2 bucket veloraug-dev" |
+| `grant-upload 603` and the upload script, by the owner | The 97.9 MB 1080p test clip uploaded to *The Matrix* |
+| The worker | "1920×1080 h264/aac, 60 s, making 360p, 480p, 720p, 1080p", converted in 52 s, 0.86 s per second of film, then "published: 50 objects" |
+| The bucket, listed by Claude | 50 objects for this original, 175.8 MB: 12 per quality (10 chunks, the init file, the playlist), the master playlist, and the original. Chunks `video/iso.segment`, playlists `application/vnd.apple.mpegurl`, both with a one-year cache, in Standard. The original 97,856,860 bytes in `STANDARD_IA` |
+| A real chunk, asked for without keys | Refused, HTTP 400 |
+| The master playlist in R2 | 360p 640×360, 480p 854×480, 720p 1280×720, 1080p 1920×1080, with FFmpeg's bandwidths and codecs |
+| Neon, read as the owner | The original `ready`, 1920×1080 h264/aac, 60 s, with four qualities: 6.7, 11.2, 21.7 and 38.3 MB |
+| This PC | `services/worker/uploads/` and `services/worker/transcoding/` empty again |
+
+The owner's paste included the key's text. It had already been used by then. The unused 7D key expires on 13 November at 15:08 UTC.
+
 ## Acceptance criteria
 
 | Criterion | State |
 | --- | --- |
-| An original's qualities, playlists and the original itself reach R2, sizes match, it is `ready`, and its local files are gone | **Met** with the stand-in bucket. The real bucket at the owner's run |
-| The original is in Infrequent Access, and the qualities in Standard | **Met** with the stand-in bucket. `check_r2.py` checks a real Infrequent Access upload in parts |
-| The bucket isn't readable without credentials | `check_r2.py` checks it at the owner's run |
-| `remove-original` deletes an original's objects. A replacement takes over only once all its qualities are ready | **Met** with the stand-in bucket |
+| An original's qualities, playlists and the original itself reach R2, sizes match, it is `ready`, and its local files are gone | **Met**, with the real bucket |
+| The original is in Infrequent Access, and the qualities in Standard | **Met**, with the real bucket |
+| The bucket isn't readable without credentials | **Met**: HTTP 400 |
+| `remove-original` deletes an original's objects. A replacement takes over only once all its qualities are ready | **Met** with the stand-in bucket. With the real bucket at Step 7F |
