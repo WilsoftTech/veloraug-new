@@ -286,7 +286,7 @@ It needs the API running with its Neon settings, as in [Connect to the local API
 | The API or its database is unavailable | "VeloraUG is busy right now." |
 | No answer, or the browser blocked it | "Couldn't reach VeloraUG." |
 
-**Release builds** still call `http://127.0.0.1:8000`, so their API calls fail until an HTTPS API exists, in Milestone 10. Sign-in itself works in a release build.
+**Release builds** still call `http://127.0.0.1:8000`, so their API calls fail until an HTTPS API exists, in Milestone 11. Sign-in itself works in a release build.
 
 ### Token checks, debug builds only
 

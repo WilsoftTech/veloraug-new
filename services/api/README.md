@@ -264,7 +264,7 @@ Anyone with a key, the owner included, uploads with [`tools/veloraug_upload.py`]
 python C:\Users\Wilsoft\veloraug\tools\veloraug_upload.py "C:\Movies\My Film.mp4"
 ```
 
-It asks for the key, hidden, then shows progress. If the connection drops, it tries again by itself. If it is stopped, or the computer restarts, **run the same command again**: it carries on from where it stopped, without asking for the key, using a small `.veloraug-upload` file beside the movie. That file is deleted at the end. Until then, keep it private: it holds the unfinished upload's address. `--server` points it at another upload address, such as the Oracle server's from Milestone 10.
+It asks for the key, hidden, then shows progress. If the connection drops, it tries again by itself. If it is stopped, or the computer restarts, **run the same command again**: it carries on from where it stopped, without asking for the key, using a small `.veloraug-upload` file beside the movie. That file is deleted at the end. Until then, keep it private: it holds the unfinished upload's address. `--server` points it at another upload address, such as the Oracle server's from Milestone 11.
 
 After the upload, `catalogue.py uploads` shows its original as `received`, then as the worker below takes it.
 
@@ -352,7 +352,7 @@ POST /api/v1/movies/{id}/playback      Authorization: Bearer <access token>
 401 not signed in   404 not published   409 nothing ready   503 busy, or not set up
 ```
 
-`GET /api/v1/movies/{id}` says `"playable": true` when there is something to watch. Any signed-in viewer may watch, until payments in Milestone 9.
+`GET /api/v1/movies/{id}` says `"playable": true` when there is something to watch. Any signed-in viewer may watch, until payments in Milestone 10.
 
 The **grant** names the movie, its ready original and an expiry, 6 hours on, signed with HMAC-SHA256 and `VELORAUG_PLAYBACK_SIGNING_KEY`. It is in the address's path, so every playlist and chunk the player fetches carries it. The media gateway, in [`services/media_gateway/`](../media_gateway/README.md), checks it and serves from private R2. Grants aren't stored, and the log names only the movie: never the viewer, the grant or the address. Anyone holding an address can watch until it expires.
 

@@ -32,7 +32,7 @@ Signing in
 
 Watching
   Flutter app --> FastAPI, with the access token: "may I watch this?"
-  FastAPI verifies the token, checks the movie is ready (and, from Milestone 9, their payment),
+  FastAPI verifies the token, checks the movie is ready (and, from Milestone 10, their pass),
     then signs a 6-hour grant into a playback address
   Flutter app --> Cloudflare Worker, grant in the path of every playlist and chunk:
     checks the signature and expiry --> private R2

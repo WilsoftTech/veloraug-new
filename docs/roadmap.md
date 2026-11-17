@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 12 November 2026.
+Last updated: 17 November 2026.
 
 Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is complete: see the [Step 3 report](step-03-report.md). Milestone 4 is complete, through Step 4, the local Docker run in Step 4B and the Flutter connection in Step 4C: see the [Step 4](step-04-report.md), [Step 4B](step-04b-report.md) and [Step 4C](step-04c-report.md) reports. Milestones 5 onward are a proposed order and may change.
 
@@ -55,7 +55,7 @@ These have **not** been shown to work on this machine:
 | Failure and retry on a phone | Not completed. The check showed a failure once on a phone, but no retry was run. The full cycle has passed in a browser only | Not scheduled |
 | Other Android devices | Not tested. No second device has been reported | Not scheduled |
 | Real screen reader | Not tested. Automated tests check the labels only | Not scheduled |
-| ARM64 image | The base image and pinned packages are available for ARM64, but no ARM64 image has been built or run. The local container is Linux AMD64 | Milestone 10 |
+| ARM64 image | The base image and pinned packages are available for ARM64, but no ARM64 image has been built or run. The local container is Linux AMD64 | Milestone 11 |
 
 ## Open issues
 
@@ -100,19 +100,39 @@ Planned in the [uploads plan](step-07a-uploads-plan.md). **Complete on 12 Novemb
 
 ### Milestone 8: Protected playback
 
-Planned in the [playback plan](step-08a-playback-plan.md). Any signed-in viewer may watch a published, ready film, until payments in Milestone 9. 8B to 8D are built and checked on this PC: see the [Step 8B–8D report](step-08-report.md). 8E needs the owner.
+Planned in the [playback plan](step-08a-playback-plan.md). Any signed-in viewer may watch a published, ready film, until payments in Milestone 10. 8B to 8D are built and checked on this PC: see the [Step 8B–8D report](step-08-report.md). 8E is mostly done on Neon and Cloudflare; only the bitrate test with a real film is left.
 
 - [x] 8A: Design playback authorization: the API signs a 6-hour grant, and the Worker checks it in every address's path
 - [x] 8B: Migration `0004`, the grant route and `playable` (automated, on a local Postgres set up as Neon is)
 - [x] 8C: The Worker in `services/media_gateway/` (automated, plus a local `wrangler dev` run: every file served byte-identical, and every way in without a grant refused)
 - [x] 8D: The player: hls.js on the web, ExoPlayer on Android (automated, both builds, and seeking checked in hls.js in Chrome against the local Worker)
 - [ ] 8E: On Neon and Cloudflare: the migration, the deployed Worker, playback and seeking on web and one phone, a real film's bitrates, and direct access without permission refused
+  - [x] Migration `0004` on the Neon development branch (`0004 (head)`, 17 November 2026, user-run)
+  - [x] The Worker deployed as `veloraug-media-dev` on `workers.dev`, bound to `veloraug-dev`, with its signing key
+  - [x] *The Matrix*'s test clip plays, and seeking works, in Chrome and other browsers and on one Android phone (Galaxy S20, user-reported)
+  - [x] Direct access refused: the bucket without credentials and its `r2.dev` address off; a changed, expired or wrongly signed grant `403`; one film's grant for another film, the original file and `../` refused (11 of 11 checks)
+  - [ ] A real film's bitrates, using an authorized **translated** film: each quality watched, and the bitrates kept or changed
 
-### Milestone 9: Payments
-- [ ] Integrate Pesapal in its test environment
-- [ ] Unlock access only after the backend confirms payment
+### Milestone 9: The VJ catalogue and admin publishing
 
-### Milestone 10: Pilot deployment
+VeloraUG streams **Luganda-translated movies and series by Ugandan VJs**, browsed by VJ. The catalogue from Milestone 6 is keyed by TMDB film and has no VJs or series, so it is replaced. The upload and playback pipeline is kept, and existing links keep working. Planned in the [VJ catalogue plan](step-09a-vj-catalogue-plan.md), approved on 17 November 2026.
+
+- [x] 9A: Plan VJs, source titles, editions and episodes, upload drafts, TMDB matching, VJ credit and admin publishing
+- [ ] 9B: Migration `0005`, the editor role, today's films moved across with their IDs, and credit hints from FFprobe
+- [ ] 9C: The API's admin routes: drafts and keys, previews, TMDB, VJ credit, publishing
+- [ ] 9D: The API's viewer routes: VJs, editions, episodes, search, playback by item
+- [ ] 9E: The app: localization set-up, viewer screens with Next Episode, and admin screens on the web
+- [ ] 9F: On Neon and Cloudflare: a real translated movie and a two-episode series published through the admin screens and watched on web and one phone
+
+### Milestone 10: Payments
+
+Prepaid **daily, weekly and monthly catalogue passes**, through Pesapal. Prices are still open. Pay per title and automatic renewal come later. A playback grant will expire no later than the viewer's pass: see [the plan's look ahead](step-09a-vj-catalogue-plan.md#7-looking-ahead-to-milestone-10-passes).
+
+- [ ] Plan passes, payment confirmation and expiry
+- [ ] One pass in Pesapal's sandbox: payment confirmed by the backend, playback allowed, then refused when the pass expires
+- [ ] Grants capped at the pass's end, and the player showing "Your pass has ended"
+
+### Milestone 11: Pilot deployment
 - [ ] Build and run ARM64 images on Oracle with Docker Compose, using a separate Compose file from the local one
 - [ ] Publish the web app on Cloudflare Pages
 - [ ] Set up production Neon Auth, sign-in pages, custom email and the production Android link
@@ -121,6 +141,7 @@ Planned in the [playback plan](step-08a-playback-plan.md). Any signed-in viewer 
 ## Check before launch
 
 - Rights to distribute each movie
+- For each VJ edition, both the rights to the source film and the VJ's permission
 - TMDB's attribution and commercial-use terms: a signed TMDB agreement, or the [fallback](step-06a-catalogue-plan.md#the-licence-risk), before anyone is charged
 - Telegram's terms, if movies are fetched from a Telegram channel
 - R2 storage against the pilot budget: about $20 a month at 100 films. See the [uploads plan](step-07a-uploads-plan.md#cost)
