@@ -20,6 +20,7 @@ from app import catalogue, playback, profiles
 from app.auth import VerifiedUser, current_user
 from app.catalogue import DetailsUnavailable, MovieRow, Refresher
 from app.db import Database
+from app.images import ImageUrls
 from app.playback import Granter
 from app.tmdb import DEFAULT_IMAGES, ImageConfig
 
@@ -130,7 +131,7 @@ def _summary(row: MovieRow, images: ImageConfig) -> MovieSummary:
         id=row.id,
         title=row.title,
         year=row.year,
-        poster_url=images.poster_url(row.poster_path),
+        poster_url=ImageUrls(images).poster(row.poster_path),
     )
 
 
@@ -243,8 +244,8 @@ def get_movie(
         overview=row.overview,
         runtime_minutes=row.runtime_minutes,
         genres=list(row.genres),
-        poster_url=images.poster_url(row.poster_path),
-        backdrop_url=images.backdrop_url(row.backdrop_path),
+        poster_url=ImageUrls(images).poster(row.poster_path),
+        backdrop_url=ImageUrls(images).backdrop(row.backdrop_path),
         playable=original is not None,
     )
 

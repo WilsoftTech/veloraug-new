@@ -47,7 +47,7 @@ def test_the_migration_is_at_head(owner_url, app_url):
 
 def test_the_neon_auth_query_sees_the_schema_from_any_role(owner_url, app_url):
     for url in (owner_url, app_url):
-        assert owner_query(url, NEON_AUTH_TABLES) == [(1,)]
+        assert owner_query(url, NEON_AUTH_TABLES) == [(2,)]
     # A database without Neon Auth, like Neon's default branch.
     assert owner_query(ADMIN_URL, NEON_AUTH_TABLES) == [(0,)]
 

@@ -9,7 +9,16 @@ function toBase64Url(bytes: Uint8Array): string {
 }
 
 // The same as services/api/app/playback.py's sign_grant, with any claims.
-export async function signGrant(secret: string, claims: unknown): Promise<string> {
+export function signGrant(secret: string, claims: unknown): Promise<string> {
+  return sign(secret, claims, "veloraug-playback-v1.");
+}
+
+// The same as services/api/app/playback.py's sign_upload, with any claims.
+export function signUploadGrant(secret: string, claims: unknown): Promise<string> {
+  return sign(secret, claims, "veloraug-image-v1.");
+}
+
+async function sign(secret: string, claims: unknown, context: string): Promise<string> {
   const encoder = new TextEncoder();
   // Python's json.dumps with separators=(",", ":") matches JSON.stringify.
   const payload = toBase64Url(encoder.encode(JSON.stringify(claims)));
@@ -23,7 +32,7 @@ export async function signGrant(secret: string, claims: unknown): Promise<string
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
-    encoder.encode("veloraug-playback-v1." + payload),
+    encoder.encode(context + payload),
   );
   return `${payload}.${toBase64Url(new Uint8Array(signature))}`;
 }
@@ -38,10 +47,27 @@ export class FakeBucket implements R2Bucket {
   objects = new Map<string, Stored>();
   requested: string[] = [];
 
-  put(key: string, data: string | Uint8Array, contentType = "video/mp4"): void {
-    const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+  // As tests fill it, put(key, text, type), or as the Worker writes,
+  // put(key, bytes, { httpMetadata }).
+  put(
+    key: string,
+    data: string | Uint8Array | ArrayBuffer,
+    type: string | { httpMetadata?: { contentType?: string } } = "video/mp4",
+  ): Promise<void> {
+    const bytes =
+      typeof data === "string"
+        ? new TextEncoder().encode(data)
+        : data instanceof ArrayBuffer
+          ? new Uint8Array(data)
+          : data;
+    const contentType =
+      typeof type === "string" ? type : (type.httpMetadata?.contentType ?? "");
     this.objects.set(key, { data: bytes, contentType });
+    this.written.push(key);
+    return Promise.resolve();
   }
+
+  written: string[] = [];
 
   async head(key: string): Promise<R2Object | null> {
     this.requested.push(key);

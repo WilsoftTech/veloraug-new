@@ -3,6 +3,10 @@
 //   GET /v1/<grant>/master.m3u8
 //   GET /v1/<grant>/<quality>/index.m3u8 | init*.mp4 | seg_<n>.m4s
 //
+//   PUT /i/<upload grant>, GET /i/posters/..., GET /i/vjs/...
+//
+// The last are admins' uploaded images, from Step 9C: see src/images.ts.
+//
 // The grant is in the path, so the relative entries in each playlist carry
 // it to every file. The R2 path is built from the grant, never from the
 // address, so a grant opens one movie's published qualities and nothing
@@ -12,6 +16,14 @@
 // Nothing here logs an address: it contains the grant.
 
 import { GRANT_PATTERN, importSigningKey, verifyGrant } from "./grant.ts";
+import {
+  IMAGE_PATH,
+  MAX_IMAGE_BYTES,
+  UPLOAD_GRANT_PATTERN,
+  looksLike,
+  typeFor,
+  verifyUploadGrant,
+} from "./images.ts";
 
 // Only the parts of the R2 binding used here.
 export interface R2Range {
@@ -32,6 +44,11 @@ export interface R2Bucket {
     options?: { range?: Headers; onlyIf?: Headers },
   ): Promise<R2Object | null>;
   head(key: string): Promise<R2Object | null>;
+  put(
+    key: string,
+    value: ArrayBuffer,
+    options?: { httpMetadata?: { contentType?: string; cacheControl?: string } },
+  ): Promise<unknown>;
 }
 
 export interface Env {
@@ -47,6 +64,8 @@ const ROUTE = new RegExp(
     `(?:index\\.m3u8|init(?:_\\d{1,2})?\\.mp4|seg_\\d{1,6}\\.m4s))$`,
 );
 const MIN_KEY_LENGTH = 32;
+const UPLOAD_ROUTE = new RegExp(`^/i/(${UPLOAD_GRANT_PATTERN})$`);
+const IMAGE_ROUTE = /^\/i\/(.+)$/;
 
 let cachedKey: { secret: string; key: Promise<CryptoKey> } | undefined;
 
@@ -97,25 +116,31 @@ export async function handle(
   }
   const cors = corsHeaders(origin);
 
+  const pathname = new URL(request.url).pathname;
+  const isImage = pathname.startsWith("/i/");
+
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
       headers: {
         ...cors,
-        "Access-Control-Allow-Methods": "GET, HEAD",
-        "Access-Control-Allow-Headers": "Range",
+        "Access-Control-Allow-Methods": isImage ? "GET, HEAD, PUT" : "GET, HEAD",
+        "Access-Control-Allow-Headers": isImage ? "Content-Type" : "Range",
         "Access-Control-Max-Age": "86400",
       },
     });
   }
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return plain(405, "Method not allowed.", { ...cors, Allow: "GET, HEAD" });
+  const methods = isImage ? ["GET", "HEAD", "PUT"] : ["GET", "HEAD"];
+  if (!methods.includes(request.method)) {
+    return plain(405, "Method not allowed.", { ...cors, Allow: methods.join(", ") });
   }
 
-  const match = ROUTE.exec(new URL(request.url).pathname);
+  const secret = env.PLAYBACK_SIGNING_KEY ?? "";
+  if (isImage) return images(request, env, pathname, secret, cors, nowSeconds);
+
+  const match = ROUTE.exec(pathname);
   if (match === null) return plain(404, "Not found.", cors);
 
-  const secret = env.PLAYBACK_SIGNING_KEY ?? "";
   if (secret.length < MIN_KEY_LENGTH) {
     return plain(503, "Playback isn't set up.", cors);
   }
@@ -164,6 +189,73 @@ export async function handle(
     return new Response(object.body, { status: 206, headers });
   }
   headers.set("Content-Length", String(object.size));
+  return new Response(object.body, { status: 200, headers });
+}
+
+async function images(
+  request: Request,
+  env: Env,
+  pathname: string,
+  secret: string,
+  cors: Record<string, string>,
+  nowSeconds: number,
+): Promise<Response> {
+  if (request.method === "PUT") {
+    const match = UPLOAD_ROUTE.exec(pathname);
+    if (match === null) return plain(404, "Not found.", cors);
+    if (secret.length < MIN_KEY_LENGTH) {
+      return plain(503, "Uploads aren't set up.", cors);
+    }
+    const grant = await verifyUploadGrant(
+      await signingKey(secret),
+      match[1],
+      nowSeconds,
+    );
+    if (grant === null) return plain(403, "Not allowed.", cors);
+    if (request.headers.get("Content-Type") !== grant.type) {
+      return plain(415, "That isn't the image type this upload was for.", cors);
+    }
+    const declared = Number(request.headers.get("Content-Length") ?? "0");
+    if (declared > MAX_IMAGE_BYTES) {
+      return plain(413, "Images can be at most 2 MB.", cors);
+    }
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    if (bytes.length > MAX_IMAGE_BYTES) {
+      return plain(413, "Images can be at most 2 MB.", cors);
+    }
+    if (!looksLike(grant.type, bytes)) {
+      return plain(415, "That file isn't the image it says it is.", cors);
+    }
+    await env.MEDIA.put(grant.path, bytes.buffer, {
+      httpMetadata: {
+        contentType: grant.type,
+        // The path has a random part, so it never changes.
+        cacheControl: "public, max-age=31536000, immutable",
+      },
+    });
+    const headers = { ...cors, "Content-Type": "application/json" };
+    return new Response(JSON.stringify({ path: grant.path }), {
+      status: 201,
+      headers,
+    });
+  }
+
+  const match = IMAGE_ROUTE.exec(pathname);
+  const path = match?.[1] ?? "";
+  if (!IMAGE_PATH.test(path)) return plain(404, "Not found.", cors);
+  const object =
+    request.method === "HEAD"
+      ? await env.MEDIA.head(path)
+      : await env.MEDIA.get(path, { onlyIf: request.headers });
+  if (object === null) return plain(404, "Not found.", cors);
+  const headers = new Headers(cors);
+  headers.set("Content-Type", typeFor(path) ?? "application/octet-stream");
+  headers.set("ETag", object.httpEtag);
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Content-Length", String(object.size));
+  if (request.method === "HEAD") return new Response(null, { status: 200, headers });
+  if (object.body === undefined) return new Response(null, { status: 304, headers });
   return new Response(object.body, { status: 200, headers });
 }
 

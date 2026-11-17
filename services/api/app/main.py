@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.admin import router as admin_router
 from app.auth import TokenVerifier
 from app.catalogue import Refresher
 from app.config import Settings
@@ -23,10 +24,20 @@ def create_app(
     database: Database | None = None,
     refresher: Refresher | None = None,
     granter: Granter | None = None,
+    editor_database: Database | None = None,
+    tmdb: TmdbClient | None = None,
 ) -> FastAPI:
     """Build the application. Tests pass their own settings, verifier,
-    database, TMDB refresher and playback granter."""
+    databases, TMDB refresher and client, and playback granter."""
     settings = settings or Settings()
+    if editor_database is None and settings.editor_database_url is not None:
+        editor_database = Database(
+            settings.editor_database_url.get_secret_value(), max_size=2
+        )
+    if tmdb is None and settings.tmdb_read_access_token is not None:
+        # The admin routes' own client, for searches, separate from the
+        # refresher's.
+        tmdb = TmdbClient(settings.tmdb_read_access_token.get_secret_value())
     if granter is None and settings.playback_configured:
         granter = Granter(
             key=settings.playback_signing_key.get_secret_value().encode(),
@@ -53,6 +64,8 @@ def create_app(
     async def lifespan(app: FastAPI):
         if database is not None:
             database.open()
+        if editor_database is not None:
+            editor_database.open()
         if database is not None and refresher is None:
             catalogue_logger.warning(
                 "VELORAUG_TMDB_READ_ACCESS_TOKEN isn't set: the catalogue serves "
@@ -61,8 +74,12 @@ def create_app(
         yield
         if refresher is not None:
             refresher.close()
+        if tmdb is not None:
+            tmdb.close()
         if database is not None:
             database.close()
+        if editor_database is not None:
+            editor_database.close()
 
     app = FastAPI(title="VeloraUG API", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
@@ -75,12 +92,16 @@ def create_app(
     app.state.refresher = refresher
     # None without the playback settings. Granting a viewing answers 503.
     app.state.granter = granter
+    # None without the editor's settings. The admin routes answer 503.
+    app.state.editor_database = editor_database
+    # None without a TMDB token. TMDB searches answer 503.
+    app.state.tmdb = tmdb
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
         # No cookies are used: the app sends its token in a header.
         allow_credentials=False,
-        allow_methods=["GET", "PATCH", "POST"],
+        allow_methods=["GET", "PATCH", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
     )
 
@@ -93,4 +114,5 @@ def create_app(
         )
 
     app.include_router(router)
+    app.include_router(admin_router)
     return app

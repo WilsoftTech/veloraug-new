@@ -27,6 +27,15 @@ The movie and original come from the grant, never from the address, so a grant o
 | `404 Not found.` | Not an address above, or not in R2 |
 | `503` | No signing key, or one under 32 characters |
 
+From Step 9C a "movie" here is a playable item, a movie edition or an episode, and R2 still keeps it under `movies/`, so nothing published before moved.
+
+**Uploaded images, Step 9C.** Admins' posters and VJ photos:
+
+| Address | Does |
+| --- | --- |
+| `PUT /i/<upload grant>` | Stores one image, from an admin's browser. The API signs the upload grant for one path and type, for 10 minutes, with the same key but its own purpose, so it can never pass for a playback grant. JPEG, PNG or WebP, at most 2 MB, and its first bytes must match its type. `201` with its path; `403`, `413` or `415` otherwise |
+| `GET /i/posters/<edition>/<name>`, `GET /i/vjs/<VJ>/<name>` | The image, to anyone, cached for a year: each upload gets a new random name. Nothing else under `/i/` is served |
+
 The playlists name their files relative to themselves, so the grant in the path carries over to every playlist and chunk, in hls.js and ExoPlayer alike. Answers are `Cache-Control: private`, so a shared cache never keeps someone's grant. Nothing here logs an address. The local `wrangler dev` does print each one, grant included, to its own terminal.
 
 ## Files
@@ -35,6 +44,7 @@ The playlists name their files relative to themselves, so the grant in the path 
 | --- | --- |
 | `src/index.ts` | The Worker: matches addresses, checks grants, reads R2, CORS and ranges |
 | `src/grant.ts` | Checks a grant's signature and expiry, with Web Crypto |
+| `src/images.ts` | Checks upload grants, and that an uploaded file is the image it claims to be |
 | `test/` | Tests, run by Node's own test runner. `grant-vector.json` is shared with the API's tests |
 | `wrangler.jsonc` | The Worker's name, R2 binding and allowed web origins. Nothing secret |
 | `.dev.vars.example` | The template for `.dev.vars`, the Git-ignored local secret |

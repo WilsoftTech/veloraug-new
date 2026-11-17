@@ -20,6 +20,7 @@ import base64
 import hashlib
 import hmac
 import json
+import secrets
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -69,6 +70,54 @@ class Granter:
             playlist_url=f"{self._gateway}/v1/{token}/{PLAYLIST}",
             expires_at=datetime.fromtimestamp(expires, UTC),
         )
+
+    def upload(self, path: str, content_type: str) -> Playback:
+        """Where an admin's browser sends one image, for UPLOAD_SECONDS."""
+        expires = int(self._clock()) + UPLOAD_SECONDS
+        token = sign_upload(
+            self._key, path=path, content_type=content_type, expires=expires
+        )
+        return Playback(
+            playlist_url=f"{self._gateway}/i/{token}",
+            expires_at=datetime.fromtimestamp(expires, UTC),
+        )
+
+    @property
+    def gateway(self) -> str:
+        return self._gateway
+
+    def image_url(self, path: str) -> str:
+        """The public address of an uploaded poster or VJ photo."""
+        return f"{self._gateway}/i/{path}"
+
+
+# Admins' uploaded images, Step 9C. The Worker checks these with its own
+# context, so an upload grant is never a playback grant, nor the reverse.
+UPLOAD_CONTEXT = b"veloraug-image-v1."
+UPLOAD_SECONDS = 10 * 60
+IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+def sign_upload(key: bytes, *, path: str, content_type: str, expires: int) -> str:
+    """An upload grant for one image at one R2 path."""
+    payload = _b64(
+        json.dumps(
+            {"p": path, "t": content_type, "e": expires}, separators=(",", ":")
+        ).encode()
+    )
+    signature = hmac.new(key, UPLOAD_CONTEXT + payload.encode(), hashlib.sha256)
+    return f"{payload}.{_b64(signature.digest())}"
+
+
+def image_path(folder: str, owner_id: UUID, content_type: str) -> str:
+    """A new, unguessable R2 path for an image: posters/<edition>/<random>.jpg
+    or vjs/<VJ>/<random>.png. New for every upload, so it can be cached
+    forever."""
+    if folder not in ("posters", "vjs") or content_type not in IMAGE_TYPES:
+        raise ValueError("Not an image VeloraUG keeps")
+    return (
+        f"{folder}/{owner_id}/{secrets.token_urlsafe(16)}.{IMAGE_TYPES[content_type]}"
+    )
 
 
 def ready_original(conn: psycopg.Connection, item_id: UUID) -> UUID | None:

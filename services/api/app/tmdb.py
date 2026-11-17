@@ -8,6 +8,7 @@ See docs/step-06a-catalogue-plan.md. TMDB's terms limit how long its data may
 be kept, which the callers enforce.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from types import TracebackType
@@ -104,6 +105,121 @@ def parse_movie(data: Any, tmdb_id: int) -> MovieDetails:
         poster_path=_image_path(data.get("poster_path")),
         backdrop_path=_image_path(data.get("backdrop_path")),
     )
+
+
+def parse_series(data: Any, tmdb_id: int) -> MovieDetails:
+    """A series' details from TMDB's /tv/{id} answer, in the same shape as a
+    movie's: its name as the title, and its first air date as the date."""
+    if not isinstance(data, dict) or data.get("id") != tmdb_id:
+        raise TmdbUnavailable("TMDB sent an answer for a different series")
+    title = _text(data.get("name"))
+    if title is None:
+        raise TmdbUnavailable("TMDB sent a series with no name")
+    runtimes = data.get("episode_run_time")
+    runtime = runtimes[0] if isinstance(runtimes, list) and runtimes else None
+    genres = data.get("genres")
+    return MovieDetails(
+        tmdb_id=tmdb_id,
+        title=title,
+        original_title=_text(data.get("original_name")),
+        overview=_text(data.get("overview")),
+        release_date=_date(data.get("first_air_date")),
+        runtime_minutes=runtime if isinstance(runtime, int) and runtime > 0 else None,
+        genres=tuple(
+            name
+            for genre in (genres if isinstance(genres, list) else [])
+            if isinstance(genre, dict) and (name := _text(genre.get("name")))
+        ),
+        poster_path=_image_path(data.get("poster_path")),
+        backdrop_path=_image_path(data.get("backdrop_path")),
+    )
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    """One title TMDB found for a search, movie or series alike."""
+
+    tmdb_id: int
+    title: str
+    original_title: str | None
+    year: int | None
+    overview: str | None
+    poster_path: str | None
+
+
+MAX_RESULTS = 20
+
+
+def parse_search(data: Any, kind: str) -> list[SearchResult]:
+    """TMDB's /search/movie or /search/tv answer, first page, in TMDB's
+    order. Results without an ID or title are left out."""
+    results = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        raise TmdbUnavailable("TMDB sent a search answer without results")
+    title_key, original_key, date_key = (
+        ("title", "original_title", "release_date")
+        if kind == "movie"
+        else ("name", "original_name", "first_air_date")
+    )
+    found = []
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        tmdb_id = item.get("id")
+        title = _text(item.get(title_key))
+        if not isinstance(tmdb_id, int) or tmdb_id <= 0 or title is None:
+            continue
+        when = _date(item.get(date_key))
+        found.append(
+            SearchResult(
+                tmdb_id=tmdb_id,
+                title=title[:500],
+                original_title=(_text(item.get(original_key)) or "")[:500] or None,
+                year=when.year if when else None,
+                overview=(_text(item.get("overview")) or "")[:5000] or None,
+                poster_path=_image_path(item.get("poster_path")),
+            )
+        )
+        if len(found) == MAX_RESULTS:
+            break
+    return found
+
+
+def parse_posters(data: Any) -> list[str]:
+    """Poster paths from TMDB's /images answer that are eligible: in English
+    or with no text. In TMDB's order, best first, at most MAX_RESULTS."""
+    posters = data.get("posters") if isinstance(data, dict) else None
+    paths: list[str] = []
+    for poster in posters if isinstance(posters, list) else []:
+        if not isinstance(poster, dict) or poster.get("iso_639_1") not in ("en", None):
+            continue
+        path = _image_path(poster.get("file_path"))
+        if path and path not in paths:
+            paths.append(path)
+        if len(paths) == MAX_RESULTS:
+            break
+    return paths
+
+
+_TRAILER_KEY = re.compile(r"^[A-Za-z0-9_-]{1,20}$")
+
+
+def parse_trailer(data: Any) -> str | None:
+    """The YouTube key of the newest official trailer in TMDB's /videos
+    answer, or None."""
+    results = data.get("results") if isinstance(data, dict) else None
+    trailers = [
+        video
+        for video in (results if isinstance(results, list) else [])
+        if isinstance(video, dict)
+        and video.get("site") == "YouTube"
+        and video.get("type") == "Trailer"
+        and video.get("official") is True
+        and isinstance(video.get("key"), str)
+        and _TRAILER_KEY.match(video["key"])
+    ]
+    trailers.sort(key=lambda video: str(video.get("published_at") or ""), reverse=True)
+    return trailers[0]["key"] if trailers else None
 
 
 @dataclass(frozen=True)
@@ -207,10 +323,50 @@ class TmdbClient:
         data = self._get_json(f"/movie/{tmdb_id}", {"language": LANGUAGE}, tmdb_id)
         return parse_movie(data, tmdb_id)
 
+    def series(self, tmdb_id: int) -> MovieDetails:
+        if tmdb_id <= 0:
+            raise ValueError("A TMDB ID is a positive number")
+        data = self._get_json(f"/tv/{tmdb_id}", {"language": LANGUAGE}, tmdb_id, "tv")
+        return parse_series(data, tmdb_id)
+
+    def details(self, kind: str, tmdb_id: int) -> MovieDetails:
+        """A movie's or a series' details."""
+        return self.movie(tmdb_id) if kind == "movie" else self.series(tmdb_id)
+
+    def search(
+        self, kind: str, query: str, year: int | None = None
+    ) -> list[SearchResult]:
+        """TMDB's first page of results for a title. `kind` is movie or
+        series. The year, if given, narrows the search."""
+        path = "/search/movie" if kind == "movie" else "/search/tv"
+        params: dict = {"query": query, "language": LANGUAGE, "include_adult": "false"}
+        if year is not None:
+            params["year" if kind == "movie" else "first_air_date_year"] = year
+        return parse_search(self._get_json(path, params, None), kind)
+
+    def posters(self, kind: str, tmdb_id: int) -> list[str]:
+        prefix = "/movie" if kind == "movie" else "/tv"
+        data = self._get_json(
+            f"{prefix}/{tmdb_id}/images",
+            {"include_image_language": "en,null"},
+            tmdb_id,
+            prefix[1:],
+        )
+        return parse_posters(data)
+
+    def trailer(self, kind: str, tmdb_id: int) -> str | None:
+        prefix = "/movie" if kind == "movie" else "/tv"
+        data = self._get_json(
+            f"{prefix}/{tmdb_id}/videos", {"language": LANGUAGE}, tmdb_id, prefix[1:]
+        )
+        return parse_trailer(data)
+
     def image_config(self) -> ImageConfig:
         return parse_image_config(self._get_json("/configuration", {}, None))
 
-    def _get_json(self, path: str, params: dict, tmdb_id: int | None) -> Any:
+    def _get_json(
+        self, path: str, params: dict, tmdb_id: int | None, what: str = "movie"
+    ) -> Any:
         try:
             response = self._client.get(path, params=params)
         except httpx2.TimeoutException:
@@ -230,7 +386,8 @@ class TmdbClient:
         if status == 404:
             if tmdb_id is None:
                 raise TmdbUnavailable("TMDB answered 404")
-            raise TmdbNotFound(f"TMDB has no movie {tmdb_id}")
+            name = "series" if what == "tv" else "movie"
+            raise TmdbNotFound(f"TMDB has no {name} {tmdb_id}")
         if status == 401:
             raise TmdbRefused(
                 "TMDB refused the token. Copy the API Read Access Token again"

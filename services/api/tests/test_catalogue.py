@@ -36,6 +36,7 @@ from scripts.check_database import check_catalogue
 from tests.db_support import (
     API_DIR,
     add_movie,
+    clear_admins,
     delete_editions,
     migrate,
     needs_database,
@@ -591,20 +592,7 @@ def test_vjs_show_only_with_a_published_edition(owner, app_url):
 # --- The editor role ---------------------------------------------------------
 
 
-@pytest.fixture
-def editor_url(owner_url, app_url):
-    """The editor role, given a login as create_app_role.py --role editor
-    will."""
-    from scripts.create_app_role import role_problems, scram_verifier
-    from tests.db_support import url_for
-
-    password = "local-test-editor-password"
-    with psycopg.connect(owner_url) as conn:
-        conn.execute(
-            f"alter role veloraug_editor login password '{scram_verifier(password)}'"
-        )
-        assert role_problems(conn, "veloraug_editor") == []
-    return url_for("veloraug_editor", password)
+# editor_url is in conftest.py.
 
 
 @needs_database
@@ -654,7 +642,7 @@ def test_the_editor_can_do_nothing_else(editor_url, statement):
 
 @needs_database
 def test_admins_are_added_listed_and_removed_but_never_the_last(owner):
-    owner.execute("delete from public.admins")
+    clear_admins(owner)
     first, second = str(uuid.uuid4()), str(uuid.uuid4())
 
     add_admin(owner, first, "owner@example.test")
@@ -676,7 +664,7 @@ def test_admins_are_added_listed_and_removed_but_never_the_last(owner):
 
 @needs_database
 def test_deleting_every_admin_at_once_is_refused(owner):
-    owner.execute("delete from public.admins")
+    clear_admins(owner)
     add_admin(owner, str(uuid.uuid4()))
     add_admin(owner, str(uuid.uuid4()))
 

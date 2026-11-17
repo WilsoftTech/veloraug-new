@@ -204,6 +204,26 @@ UPGRADE = [
       referencing old table as removed
       for each statement execute function public.keep_one_admin()
     """,
+    # Adding an admin by email: the ID of the one Neon Auth user with this
+    # verified address, or null. Runs as the migration's owner, so the
+    # editor role gets this answer and nothing else of neon_auth. Written
+    # in plpgsql so it is checked only when called.
+    """
+    create function public.verified_user_id(address text)
+    returns uuid language plpgsql stable security definer
+    set search_path = '' as $$
+    declare
+      found uuid;
+    begin
+      select u.id into found from neon_auth."user" u
+      where lower(u.email) = lower(trim(address)) and u."emailVerified"
+        and not coalesce(u.banned, false);
+      return found;
+    end;
+    $$
+    """,
+    "revoke all on function public.verified_user_id(text) from public",
+    f"grant execute on function public.verified_user_id(text) to {EDITOR_ROLE}",
     # --- Today's films, moved across with their IDs ------------------------
     """
     create temporary table moved on commit drop as
@@ -445,6 +465,7 @@ DOWNGRADE = [
     """,
     *(f"drop table public.{table} cascade" for table in reversed(NEW_TABLES)),
     "drop function public.keep_one_admin()",
+    "drop function public.verified_user_id(text)",
     # As 0002 and 0004 left them.
     "alter table public.movies enable row level security",
     "alter table public.movies force row level security",

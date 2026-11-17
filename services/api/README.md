@@ -75,7 +75,11 @@ The password is for that container only, which only this computer can reach. Por
 | `app/db.py` | The database connection pool. Each request runs in one transaction that acts for one user |
 | `app/profiles.py` | Profile reads and writes |
 | `app/catalogue.py` | Catalogue reads, the age rules for TMDB's details, and the background refresher |
-| `app/editions.py` | Drafts, publishing, episode approval and deleting the test films, shared by the owner's script and, from Step 9C, the admin routes |
+| `app/editions.py` | Drafts, publishing, episode approval and deleting the test films, shared by the owner's script and the admin routes |
+| `app/admin.py` | The admin routes, `/api/v1/admin/...`. See [admin](#admin) |
+| `app/admin_catalogue.py` | What the admin routes read and write, as `veloraug_editor` |
+| `app/matching.py` | Cleaning submitted titles, deciding when TMDB's answer is clear, and suggesting VJ credits |
+| `app/images.py` | Image addresses: TMDB's, or the media gateway's for uploaded posters and VJ photos |
 | `app/tmdb.py` | Fetches a movie's details from TMDB, with the read access token |
 | `app/config.py` | The typed settings |
 | `app/media_hooks.py` | A separate app: the upload hooks tusd calls, as `veloraug_media`. See [uploads](#uploads) |
@@ -99,7 +103,7 @@ An **application factory** is a function that builds the app when called. It let
 
 ## Settings
 
-Only `VELORAUG_DATABASE_URL`, `VELORAUG_TMDB_READ_ACCESS_TOKEN` and `VELORAUG_PLAYBACK_SIGNING_KEY` are secret. The defaults suit local development, without sign-in or a database.
+Only `VELORAUG_DATABASE_URL`, `VELORAUG_EDITOR_DATABASE_URL`, `VELORAUG_TMDB_READ_ACCESS_TOKEN` and `VELORAUG_PLAYBACK_SIGNING_KEY` are secret. The defaults suit local development, without sign-in or a database.
 
 | Environment variable | Default | Meaning |
 | --- | --- | --- |
@@ -109,7 +113,8 @@ Only `VELORAUG_DATABASE_URL`, `VELORAUG_TMDB_READ_ACCESS_TOKEN` and `VELORAUG_PL
 | `VELORAUG_API_RESOURCE` | None | The audience a token must contain, such as `https://api-dev.veloraug.invalid` |
 | `VELORAUG_NEON_AUTH_CLIENT_IDS` | None | The web and Android client IDs allowed to call the API, as a JSON list |
 | `VELORAUG_DATABASE_URL` | None | **Secret.** The pooled connection as `veloraug_app`. [The role script](#2-create-the-apis-role) writes it. Any other role is refused |
-| `VELORAUG_TMDB_READ_ACCESS_TOKEN` | None | **Secret.** TMDB's API Read Access Token. Used from Step 6B by [the catalogue script](#catalogue), and by the API from Step 6C |
+| `VELORAUG_EDITOR_DATABASE_URL` | None | **Secret.** The pooled connection as `veloraug_editor`, for the [admin routes](#admin). `create_app_role.py --role editor` writes it. Without it, the admin routes answer `503` |
+| `VELORAUG_TMDB_READ_ACCESS_TOKEN` | None | **Secret.** TMDB's API Read Access Token. Used from Step 6B by [the catalogue script](#catalogue), by the API from Step 6C, and by the admin routes' TMDB searches from Step 9C |
 | `VELORAUG_PLAYBACK_SIGNING_KEY` | None | **Secret.** Signs playback grants. The media gateway's `PLAYBACK_SIGNING_KEY` must be the same. At least 32 characters. See [playback](#playback) |
 | `VELORAUG_MEDIA_GATEWAY_URL` | None | The media gateway's address, such as `http://127.0.0.1:8787` locally. `https`, except for `127.0.0.1` and `localhost` |
 
@@ -124,7 +129,7 @@ $env:VELORAUG_ALLOWED_ORIGINS = '["http://localhost:8765","http://localhost:9000
 To run directly with Python, with sign-in and the database, load the settings from `.env` into that terminal first. This prints nothing:
 
 ```powershell
-Get-Content .env | Where-Object { $_ -match '^VELORAUG_(NEON_AUTH_URL|API_RESOURCE|NEON_AUTH_CLIENT_IDS|DATABASE_URL|PLAYBACK_SIGNING_KEY|MEDIA_GATEWAY_URL)=' } | ForEach-Object { $name, $value = $_ -split '=', 2; Set-Item "env:$name" $value.Trim('"') }
+Get-Content .env | Where-Object { $_ -match '^VELORAUG_(NEON_AUTH_URL|API_RESOURCE|NEON_AUTH_CLIENT_IDS|DATABASE_URL|EDITOR_DATABASE_URL|TMDB_READ_ACCESS_TOKEN|PLAYBACK_SIGNING_KEY|MEDIA_GATEWAY_URL)=' } | ForEach-Object { $name, $value = $_ -split '=', 2; Set-Item "env:$name" $value.Trim('"') }
 ```
 
 The app refuses to start if a setting is invalid, such as an unknown environment, the wildcard `*`, an origin with a trailing slash, or a database URL for another role. Its error messages never quote a value.
@@ -219,6 +224,46 @@ Type one command at a time. If several are pasted together, the hidden prompt ca
 | `delete-test-films` | Deletes the films from before Milestone 9, after you type `delete`. The first run hides them and has the media worker remove their videos from R2; run it again once `uploads` shows them removed |
 
 **TMDB's terms forbid keeping its data for more than 6 months.** The API refreshes details older than 7 days itself, after answering, as long as `VELORAUG_TMDB_READ_ACCESS_TOKEN` is set. It never shows details older than 150 days. If the API isn't running for a long time, run `refresh` at least once a month.
+
+## Admin
+
+From Step 9C, admins run the catalogue from the app: drafts and upload keys, TMDB, posters, VJ credits and publishing. See the [VJ catalogue plan](../../docs/step-09a-vj-catalogue-plan.md#5-api). Every route under `/api/v1/admin/` needs a signed-in user listed in `public.admins`, checked on every request, and answers `403` to anyone else. The routes connect as their own role, `veloraug_editor`, which can change the catalogue and the admin list, but not profiles, Neon Auth or the schema.
+
+**To set it up, once:** give the editor role a login, then name yourself the first admin. Your user ID is in the Neon Console under **Auth**, **Users**.
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\services\api
+.\.venv\Scripts\python.exe scripts\create_app_role.py --role editor
+.\.venv\Scripts\python.exe scripts\catalogue.py admin add <your user id>
+```
+
+The first writes `VELORAUG_EDITOR_DATABASE_URL` to `.env`. Restart the API afterwards.
+
+| Route | Does |
+| --- | --- |
+| `GET /api/v1/admin/me` | `200` for an admin, `403` otherwise. The app shows its Admin menu on `200` |
+| `GET`, `POST /api/v1/admin/drafts` | Lists what needs an admin, with what each still needs; starts a draft and answers its upload key, once. Listing also looks up on TMDB, after answering, any draft whose video has become ready |
+| `GET`, `PATCH /api/v1/admin/editions/{id}` | One edition, with its episodes, videos, keys and TMDB candidates; changes the title viewers see |
+| `POST .../tmdb/search` | Searches TMDB again, with an optional corrected title or year |
+| `PUT .../source` | Chooses a TMDB title by ID, or typed-in details |
+| `GET .../posters`, `PUT .../poster` | The eligible TMDB posters; chooses one, or an uploaded one |
+| `GET`, `PUT .../credit` | Suggested VJs, from the files' names and tags; credits one, or a new one by name |
+| `POST .../publish`, `.../hide` | Publishes, or answers `409` with what is missing; hides |
+| `POST /api/v1/admin/items/{id}/preview` | A playback address for the item's ready video, published or not |
+| `POST /api/v1/admin/items/{id}/approve` | Shows a new episode of a published series |
+| `POST /api/v1/admin/items/{id}/keys`, `POST /api/v1/admin/keys/{id}/revoke` | Another upload key, such as for a better copy; stops one |
+| `GET`, `POST`, `PATCH /api/v1/admin/vjs` | VJs, with their other spellings, photo and bio |
+| `GET`, `POST /api/v1/admin/languages` | Languages editions can be in |
+| `GET`, `POST`, `DELETE /api/v1/admin/admins` | Admins. One is added by email: they must have signed in once and confirmed it. The last can't be removed |
+| `POST /api/v1/admin/images` | Where to send a poster or VJ photo: see below |
+
+**TMDB.** The submitted title is cleaned of VJ names, "Luganda", quality tags and a year, then searched. A **clear match**, exactly one title the same as the cleaned one and from the year if one is known, fills the details in, with its official trailer, and its poster if it has just one. Otherwise the candidates wait for the admin. If TMDB finds nothing or doesn't answer, the draft waits for a retry, a TMDB ID or typed-in details.
+
+**VJ credit** is only ever suggested: from `VJ` and the words after it in the file's name, its tags (kept by the worker as credit hints) and the submitted title, matched to known VJs and their other spellings. An admin confirms it after previewing the video.
+
+**Adding an admin by email** uses one database function, `verified_user_id`, which reads Neon Auth's user table and answers only the ID of a user with that confirmed email. Only the editor role may call it.
+
+**Uploaded images.** Posters for typed-in details and VJ photos are JPEG, PNG or WebP, up to 2 MB. `POST /api/v1/admin/images` answers a path and an address on the media gateway that accepts that one image for 10 minutes. The browser sends the image there with `PUT`, the gateway checks it and stores it in R2, and the admin then chooses the path as the poster or the photo. The API never holds R2's keys. Images are served publicly by the gateway at `/i/<path>`.
 
 ## Uploads
 

@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # reprs, logs and error messages.
     database_url: SecretStr | None = None
 
+    # Secret. veloraug_editor's pooled connection string, for the admin
+    # routes, Step 9C. Without it, they answer 503.
+    editor_database_url: SecretStr | None = None
+
     # Secret. TMDB's read access token, for refreshing movie details. Without
     # it, the catalogue serves the details it already has.
     tmdb_read_access_token: SecretStr | None = None
@@ -108,6 +112,21 @@ class Settings(BaseSettings):
                 "database_url must use the veloraug_app role. The owner role "
                 "bypasses row-level security"
             )
+        return url
+
+    @field_validator("editor_database_url")
+    @classmethod
+    def require_editor_role(cls, url: SecretStr | None) -> SecretStr | None:
+        # The messages never quote the value: it holds a password.
+        if url is None:
+            return None
+        parts = urlsplit(url.get_secret_value())
+        if parts.scheme not in ("postgresql", "postgres") or not parts.hostname:
+            raise ValueError(
+                "editor_database_url must be a postgresql:// connection string"
+            )
+        if unquote(parts.username or "") != "veloraug_editor":
+            raise ValueError("editor_database_url must use the veloraug_editor role")
         return url
 
     @field_validator("tmdb_read_access_token")

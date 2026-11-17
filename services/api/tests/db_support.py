@@ -73,6 +73,20 @@ def create_test_database() -> str:
         admin_db.execute("create schema neon_auth")
         admin_db.execute("create table neon_auth.users_sync (id text, email text)")
         admin_db.execute("insert into neon_auth.users_sync values ('1', 'a@b.test')")
+        # As Neon Auth (Better Auth) keeps its users, with the columns
+        # migration 0005's verified_user_id reads.
+        admin_db.execute(
+            """
+            create table neon_auth."user" (
+              id uuid primary key default gen_random_uuid(),
+              email text not null unique,
+              "emailVerified" boolean not null,
+              banned boolean
+            )
+            """
+        )
+        admin_db.execute(f"grant usage on schema neon_auth to {OWNER}")
+        admin_db.execute(f'grant select on neon_auth."user" to {OWNER}')
     return url_for(OWNER, OWNER_PASSWORD)
 
 
@@ -174,6 +188,14 @@ def set_published(conn, key: str, published: bool) -> uuid.UUID:
         (published, published, film),
     )
     return film
+
+
+def clear_admins(conn) -> None:
+    """Empties public.admins between tests. Only the table's owner can turn
+    off the rule that keeps one admin, and only for this."""
+    conn.execute("alter table public.admins disable trigger admins_keep_one")
+    conn.execute("delete from public.admins")
+    conn.execute("alter table public.admins enable trigger admins_keep_one")
 
 
 def delete_editions(conn, where: str = "true", params=()) -> None:

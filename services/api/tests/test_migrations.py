@@ -41,7 +41,9 @@ def test_the_migration_sql_can_be_read_without_a_database():
     assert "create table public.profiles" in sql
     assert "force row level security" in sql
     assert "grant update (display_name) on table public.profiles" in sql
-    assert "neon_auth." not in sql
+    # Only one function reads Neon Auth: the email lookup for adding admins.
+    assert sql.count("neon_auth.") == 1
+    assert 'from neon_auth."user" u' in sql
     assert "alembic_version" in sql
 
 
