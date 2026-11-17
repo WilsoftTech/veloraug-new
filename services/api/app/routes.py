@@ -216,7 +216,8 @@ def get_movie(
     try:
         with db.anonymous() as conn:
             row = catalogue.get_movie(conn, movie_id)
-            original = playback.ready_original(conn, movie_id) if row else None
+            item = catalogue.movie_item(conn, movie_id) if row else None
+            original = playback.ready_original(conn, item) if item else None
     except DetailsUnavailable as missing:
         # Returned, not raised: FastAPI runs background tasks only for a
         # response the route returns, and this one must fetch the details.
@@ -232,7 +233,7 @@ def get_movie(
         )
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_AVAILABLE)
-    if row.stale and refresher is not None:
+    if row.stale and row.tmdb_id is not None and refresher is not None:
         background.add_task(refresher.refresh, [row.tmdb_id])
     images = _images(refresher)
     return MovieDetail(
@@ -274,24 +275,21 @@ def grant_playback(
 ) -> PlaybackResponse:
     """A playback address for one published, ready movie, for 6 hours.
 
-    Any signed-in viewer may watch, until payments arrive in Milestone 9.
+    Any signed-in viewer may watch, until payments arrive in Milestone 10.
     Answers 404 for a movie that doesn't exist or isn't published, and 409
-    for one with nothing ready to watch.
+    for one with nothing ready to watch. The movie is a movie edition; the
+    grant names its playable item.
     """
     with db.as_user(user.user_id) as conn:
-        published = conn.execute(
-            "select from public.movies where id = %s", (movie_id,)
-        ).fetchone()
-        original = (
-            playback.ready_original(conn, movie_id) if published is not None else None
-        )
-    if published is None:
+        item = catalogue.movie_item(conn, movie_id)
+        original = playback.ready_original(conn, item) if item is not None else None
+    if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_AVAILABLE)
     if original is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=NOT_READY)
-    grant = granter.grant(movie_id, original)
-    # The movie only: never the user, the grant or the address.
-    playback_logger.info("Playback granted for movie %s", movie_id)
+    grant = granter.grant(item, original)
+    # The item only: never the user, the grant or the address.
+    playback_logger.info("Playback granted for item %s", item)
     return PlaybackResponse(
         playlist_url=grant.playlist_url, expires_at=grant.expires_at
     )

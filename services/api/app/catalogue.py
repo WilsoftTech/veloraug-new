@@ -1,12 +1,17 @@
-"""The catalogue: published movies, with the API's copy of their TMDB details.
+"""The catalogue: published movie editions, with their source's details.
 
 Reads run in Database.anonymous(), where row-level security shows the API's
-role published movies only. The rules from docs/step-06a-catalogue-plan.md:
+role published editions only. Since Milestone 9 a "movie" here is a movie
+edition, and its details are its source title's, from TMDB or typed in by an
+admin. See docs/step-09a-vj-catalogue-plan.md. The rules for TMDB copies,
+from docs/step-06a-catalogue-plan.md, apply to sources from TMDB:
 
 - A copy older than SERVE_FOR is never served. TMDB's terms allow 6 months.
 - A copy older than REFRESH_AFTER is served, then refreshed in the background.
 - A published movie with no copy, or only an expired one, is left out of
   lists, and its detail answers 503 until the background fetch succeeds.
+
+Typed-in details never expire.
 """
 
 import logging
@@ -48,7 +53,7 @@ logger = logging.getLogger("veloraug.catalogue")
 @dataclass(frozen=True)
 class MovieRow:
     id: UUID
-    tmdb_id: int
+    tmdb_id: int | None
     title: str
     original_title: str | None
     overview: str | None
@@ -64,10 +69,27 @@ class MovieRow:
         return self.release_date.year if self.release_date else None
 
 
-_COLUMNS = """
-    m.id, m.tmdb_id, d.title, d.original_title, d.overview, d.release_date,
-    d.runtime_minutes, d.genres, d.poster_path, d.backdrop_path,
-    d.fetched_at < now() - %(refresh_after)s as stale
+# Films from before Milestone 9 keep TMDB's title and poster, as they always
+# had. VJ editions show the title and poster the admin approved.
+_TITLE = "case when e.test then s.title else e.display_title end"
+
+_COLUMNS = f"""
+    e.id, s.tmdb_id, {_TITLE}, s.original_title, s.overview,
+    s.release_date, s.runtime_minutes, s.genres,
+    case when e.test then s.poster_path else e.poster_path end, s.backdrop_path,
+    s.details_from = 'tmdb'
+      and coalesce(s.fetched_at < now() - %(refresh_after)s, true) as stale
+"""
+
+# A source's details can be shown: typed in, or a TMDB copy young enough.
+_SERVABLE = """
+    (s.details_from = 'manual' or s.fetched_at >= now() - %(serve_for)s)
+"""
+
+_FROM = """
+    from public.editions e
+    join public.sources s on s.id = e.source_id
+    where e.kind = 'movie'
 """
 
 _AGES = {"refresh_after": REFRESH_AFTER, "serve_for": SERVE_FOR}
@@ -89,21 +111,20 @@ def list_movies(
     """Published movies with a servable copy. Newest published first, or,
     when searching, titles that start with the query first."""
     params: dict = {**_AGES, "limit": limit, "offset": offset}
-    where = "d.fetched_at >= now() - %(serve_for)s"
-    order = "m.published_at desc, m.id"
+    where = _SERVABLE
+    order = "e.published_at desc, e.id"
     if query:
         params["contains"] = f"%{_like_prefix(query.lower())}%"
         params["starts"] = f"{_like_prefix(query.lower())}%"
-        where += " and lower(d.title) like %(contains)s"
+        where += f" and lower({_TITLE}) like %(contains)s"
         order = (
-            "lower(d.title) like %(starts)s desc, lower(d.title), m.published_at desc"
+            f"lower({_TITLE}) like %(starts)s desc, lower({_TITLE}), "
+            "e.published_at desc"
         )
     rows = conn.execute(
         f"""
         select {_COLUMNS}
-        from public.movies m
-        join public.tmdb_movie_details d using (tmdb_id)
-        where {where}
+        {_FROM} and {where}
         order by {order}
         limit %(limit)s offset %(offset)s
         """,
@@ -125,10 +146,8 @@ def get_movie(conn: psycopg.Connection, movie_id: UUID) -> MovieRow | None:
     missing or too old to serve."""
     row = conn.execute(
         f"""
-        select {_COLUMNS}, d.fetched_at >= now() - %(serve_for)s as servable
-        from public.movies m
-        left join public.tmdb_movie_details d using (tmdb_id)
-        where m.id = %(id)s
+        select {_COLUMNS}, {_SERVABLE} as servable
+        {_FROM} and e.id = %(id)s
         """,
         {**_AGES, "id": movie_id},
     ).fetchone()
@@ -140,15 +159,26 @@ def get_movie(conn: psycopg.Connection, movie_id: UUID) -> MovieRow | None:
     return _row(tuple(values))
 
 
+def movie_item(conn: psycopg.Connection, edition_id: UUID) -> UUID | None:
+    """The playable item of a published movie edition, or None. For films
+    from before Milestone 9 it has the edition's own ID."""
+    row = conn.execute(
+        "select id from public.items where edition_id = %s and kind = 'movie'",
+        (edition_id,),
+    ).fetchone()
+    return row[0] if row else None
+
+
 def needing_refresh(conn: psycopg.Connection, limit: int) -> list[int]:
-    """TMDB IDs of published movies whose copy is missing or old, oldest
-    first."""
+    """TMDB IDs of published movie sources whose copy is missing or old,
+    oldest first. Row-level security shows the API's role only sources of
+    published editions."""
     rows = conn.execute(
         """
-        select m.tmdb_id from public.movies m
-        left join public.tmdb_movie_details d using (tmdb_id)
-        where d.fetched_at is null or d.fetched_at < now() - %(refresh_after)s
-        order by d.fetched_at nulls first
+        select s.tmdb_id from public.sources s
+        where s.kind = 'movie' and s.details_from = 'tmdb'
+          and (s.fetched_at is null or s.fetched_at < now() - %(refresh_after)s)
+        order by s.fetched_at nulls first
         limit %(limit)s
         """,
         {**_AGES, "limit": limit},
@@ -156,28 +186,19 @@ def needing_refresh(conn: psycopg.Connection, limit: int) -> list[int]:
     return [row[0] for row in rows]
 
 
-def save_details(conn: psycopg.Connection, details: MovieDetails) -> None:
-    """Adds or replaces a movie's copy, dated now. The owner's script uses
-    this too."""
-    conn.execute(
+def save_details(conn: psycopg.Connection, details: MovieDetails) -> int:
+    """Replaces a movie source's TMDB copy, dated now. Returns how many
+    sources changed: 0 if there is none, or the role can't see it. The
+    owner's script and the admin routes use this too."""
+    return conn.execute(
         """
-        insert into public.tmdb_movie_details (
-          tmdb_id, title, original_title, overview, release_date,
-          runtime_minutes, genres, poster_path, backdrop_path, fetched_at
-        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, now())
-        on conflict (tmdb_id) do update set
-          title = excluded.title,
-          original_title = excluded.original_title,
-          overview = excluded.overview,
-          release_date = excluded.release_date,
-          runtime_minutes = excluded.runtime_minutes,
-          genres = excluded.genres,
-          poster_path = excluded.poster_path,
-          backdrop_path = excluded.backdrop_path,
-          fetched_at = excluded.fetched_at
+        update public.sources set
+          title = %s, original_title = %s, overview = %s, release_date = %s,
+          runtime_minutes = %s, genres = %s, poster_path = %s,
+          backdrop_path = %s, fetched_at = now()
+        where kind = 'movie' and tmdb_id = %s
         """,
         (
-            details.tmdb_id,
             details.title,
             details.original_title,
             details.overview,
@@ -186,8 +207,9 @@ def save_details(conn: psycopg.Connection, details: MovieDetails) -> None:
             list(details.genres),
             details.poster_path,
             details.backdrop_path,
+            details.tmdb_id,
         ),
-    )
+    ).rowcount
 
 
 class Refresher:
@@ -280,10 +302,11 @@ class Refresher:
             return
         try:
             with self._database.anonymous() as conn:
-                save_details(conn, details)
+                if not save_details(conn, details):
+                    # The movie was unpublished meanwhile, so row-level
+                    # security hides its source.
+                    raise LookupError("no published source")
         except Exception as error:
-            # For example, the movie was unpublished meanwhile, so row-level
-            # security refuses the write.
             logger.warning(
                 "Couldn't save TMDB movie %s: %s", tmdb_id, type(error).__name__
             )

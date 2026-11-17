@@ -1,9 +1,11 @@
-"""The owner's catalogue script and migration 0002, on a real Postgres.
+"""The owner's catalogue script, editions, and migration 0005, on a real
+Postgres.
 
 TMDB is replaced by a fake. Skipped without a local test Postgres: see
 tests/db_support.py.
 """
 
+import os
 import subprocess
 import sys
 import uuid
@@ -12,23 +14,33 @@ from datetime import UTC, date, datetime, timedelta
 import psycopg
 import pytest
 
+from app import editions
+from app.editions import EditionError, PublishRefused, create_draft
 from app.tmdb import MovieDetails, TmdbNotFound, TmdbRefused, TmdbUnavailable
 from scripts import catalogue
 from scripts.catalogue import (
     DELETE_AFTER,
     REFRESH_AFTER,
     CatalogueError,
-    Movie,
-    add_movie,
-    describe_movie,
-    find_movie,
-    list_movies,
+    Edition,
+    add_admin,
+    describe_edition,
+    find_edition,
+    list_admins,
+    list_editions,
     purge_tmdb,
     refresh,
-    set_published,
+    remove_admin,
 )
 from scripts.check_database import check_catalogue
-from tests.db_support import API_DIR, needs_database, owner_query
+from tests.db_support import (
+    API_DIR,
+    add_movie,
+    delete_editions,
+    migrate,
+    needs_database,
+    set_published,
+)
 
 
 def details(tmdb_id: int, title: str = "A movie") -> MovieDetails:
@@ -76,20 +88,38 @@ def test_the_script_explains_itself_without_a_database():
     )
 
     assert result.returncode == 0
-    for command in ("add", "publish", "unpublish", "list", "refresh", "purge-tmdb"):
+    for command in (
+        "draft",
+        "publish",
+        "unpublish",
+        "list",
+        "refresh",
+        "purge-tmdb",
+        "admin",
+        "delete-test-films",
+    ):
         assert command in result.stdout
 
 
-def test_add_without_a_token_stops_before_asking_for_the_database(monkeypatch, capsys):
+def test_refresh_without_a_token_stops_before_asking_for_the_database(
+    monkeypatch, capsys
+):
     # conftest.py has already cleared the environment and hidden .env.
     def no_database():
         raise AssertionError("asked for the database")
 
     monkeypatch.setattr(catalogue, "connect", no_database)
-    monkeypatch.setattr(sys, "argv", ["catalogue.py", "add", "550"])
+    monkeypatch.setattr(sys, "argv", ["catalogue.py", "refresh"])
 
     assert catalogue.main() == 1
     assert "VELORAUG_TMDB_READ_ACCESS_TOKEN isn't set" in capsys.readouterr().err
+
+
+def test_admin_add_needs_a_user(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["catalogue.py", "admin", "add"])
+
+    assert catalogue.main() == 2
+    assert "user's ID" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -136,7 +166,7 @@ def test_a_failure_after_connecting_is_explained_without_its_password(
         )
 
     monkeypatch.setattr(catalogue, "run", fails)
-    monkeypatch.setattr(sys, "argv", ["catalogue.py", "unpublish", "550"])
+    monkeypatch.setattr(sys, "argv", ["catalogue.py", "unpublish", str(uuid.uuid4())])
 
     assert catalogue.main() == 1
 
@@ -168,55 +198,336 @@ def test_counts_read_naturally():
     assert catalogue.plural(0, "movie", "movies") == "0 movies"
 
 
-def test_a_movie_is_described_on_one_line():
-    movie_id = uuid.uuid4()
-    now = datetime(2026, 11, 10, tzinfo=UTC)
-    line = describe_movie(
-        Movie(movie_id, 550, True, "Fight Club", 1999, now - timedelta(days=3)), now
+def test_an_edition_is_described_on_one_line():
+    edition_id = uuid.uuid4()
+    now = datetime(2026, 11, 17, tzinfo=UTC)
+    movie = Edition(
+        edition_id,
+        "movie",
+        "Fast X",
+        "published",
+        False,
+        "VJ Junior",
+        "lg",
+        385687,
+        "tmdb",
+        now - timedelta(days=3),
+        1,
+        1,
+    )
+    series = Edition(
+        edition_id,
+        "series",
+        "Kabaka",
+        "draft",
+        False,
+        None,
+        "lg",
+        None,
+        None,
+        None,
+        3,
+        2,
     )
 
-    assert line == (
-        f"Fight Club (1999)  TMDB 550  published  fetched 3 days ago  id {movie_id}"
+    assert describe_edition(movie, now) == (
+        "Fast X  movie  published  VJ Junior  lg  TMDB 385687, fetched 3 days ago"
+        f"  video ready  id {edition_id}"
+    )
+    assert describe_edition(series, now) == (
+        "Kabaka  series  draft  no VJ yet  lg  no details yet  2 of 3 episodes "
+        f"ready  id {edition_id}"
     )
 
 
-# --- On the test database ----------------------------------------------------
+# --- Drafts, on the test database --------------------------------------------
 
 
 @needs_database
-def test_the_api_role_sees_published_movies_only(owner, app_url):
+def test_a_movie_draft_is_an_edition_and_one_item(owner):
+    draft = create_draft(owner, kind="movie", title="  Fast   X ", year=2023)
+
+    edition = owner.execute(
+        "select kind, display_title, submitted_year, language, status, vj_id, "
+        "source_id from public.editions where id = %s",
+        (draft.edition_id,),
+    ).fetchone()
+    item = owner.execute(
+        "select edition_id, kind, season, episode, approved_at from public.items "
+        "where id = %s",
+        (draft.item_id,),
+    ).fetchone()
+    assert edition == ("movie", "Fast X", 2023, "lg", "draft", None, None)
+    assert item == (draft.edition_id, "movie", None, None, None)
+    assert editions.find_item(owner, draft.edition_id) == draft.item_id
+    assert editions.find_item(owner, draft.item_id) == draft.item_id
+
+
+@needs_database
+def test_a_series_gets_one_item_per_episode(owner):
+    first = create_draft(owner, kind="series", title="Kabaka", season=1, episode=1)
+    second = create_draft(
+        owner, kind="series", series_edition=first.edition_id, season=1, episode=2
+    )
+
+    assert second.edition_id == first.edition_id
+    assert second.item_id != first.item_id
+    with pytest.raises(EditionError, match="already exists"):
+        create_draft(
+            owner, kind="series", series_edition=first.edition_id, season=1, episode=2
+        )
+    with pytest.raises(EditionError, match="find_item|episode's item"):
+        editions.find_item(owner, first.edition_id)
+
+
+@needs_database
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"kind": "show"}, "movie or series"),
+        ({"title": "   "}, "Give the title"),
+        ({"title": "x" * 201}, "at most 200"),
+        ({"year": 1850}, "1900 to 2100"),
+        ({"season": 1}, "no season"),
+        ({"kind": "series"}, "season and episode"),
+        ({"kind": "series", "season": 1, "episode": 0}, "episodes 1"),
+        ({"language": "xx"}, "No language"),
+    ],
+)
+def test_draft_mistakes_are_explained(owner, changes, message):
+    fields = {"kind": "movie", "title": "Fast X"} | changes
+    with pytest.raises(EditionError, match=message):
+        create_draft(owner, **fields)
+
+
+@needs_database
+def test_an_episode_needs_a_series_edition(owner):
+    movie = create_draft(owner, kind="movie", title="Fast X")
+
+    with pytest.raises(EditionError, match="movie, not a series"):
+        create_draft(
+            owner, kind="series", series_edition=movie.edition_id, season=1, episode=1
+        )
+    with pytest.raises(EditionError, match="No edition"):
+        create_draft(
+            owner, kind="series", series_edition=uuid.uuid4(), season=1, episode=1
+        )
+
+
+# --- Publishing --------------------------------------------------------------
+
+
+def ready(owner, item_id):
+    """An original taken to 'ready', as the worker would, for the item."""
+    (key_id,) = owner.execute(
+        """
+        insert into public.upload_keys (item_id, key_hash, label, expires_at, used_at)
+        values (%s, %s, 'Test', now() + interval '1 day', now()) returning id
+        """,
+        (item_id, os.urandom(32)),
+    ).fetchone()
+    original = uuid.uuid4()
+    owner.execute(
+        """
+        insert into public.media_originals
+          (id, item_id, upload_key_id, size_bytes, state, ready_at)
+        values (%s, %s, %s, 1000, 'ready', now())
+        """,
+        (original, item_id, key_id),
+    )
+    return original
+
+
+def vj(owner, name="VJ Junior"):
+    slug = name.lower().replace(" ", "-") + "-" + uuid.uuid4().hex[:6]
+    return owner.execute(
+        "insert into public.vjs (name, slug) values (%s, %s) returning id",
+        (f"{name} {slug[-6:]}", slug),
+    ).fetchone()[0]
+
+
+def describe(owner, edition_id, *, title="Fast X", tmdb_id=None, vj_id=None):
+    """Gives an edition details, a poster and a VJ, as an admin will."""
+    source = owner.execute(
+        """
+        insert into public.sources (kind, tmdb_id, title, details_from, fetched_at)
+        select kind, %s, %s, case when %s::int is null then 'manual' else 'tmdb' end,
+               now()
+        from public.editions where id = %s
+        returning id
+        """,
+        (tmdb_id, title, tmdb_id, edition_id),
+    ).fetchone()[0]
+    owner.execute(
+        "update public.editions set source_id = %s, vj_id = %s, "
+        "poster_path = '/p.jpg' where id = %s",
+        (source, vj_id or vj(owner), edition_id),
+    )
+    return source
+
+
+@needs_database
+def test_publishing_says_what_is_missing(owner):
+    draft = create_draft(owner, kind="movie", title="Fast X")
+
+    with pytest.raises(PublishRefused) as refused:
+        editions.publish(owner, draft.edition_id)
+
+    assert refused.value.missing == [
+        "a ready video",
+        "details, from TMDB or typed in",
+        "a chosen poster",
+        "a confirmed VJ credit",
+    ]
+
+
+@needs_database
+def test_a_complete_movie_publishes_and_its_item_is_approved(owner, app_url):
+    draft = create_draft(owner, kind="movie", title="Fast X")
+    original = ready(owner, draft.item_id)
+    describe(owner, draft.edition_id)
+
+    editions.publish(owner, draft.edition_id)
+    owner.commit()
+    try:
+        assert as_app(
+            app_url,
+            "select id from public.media_originals where item_id = %s",
+            (draft.item_id,),
+        ) == [(original,)]
+        editions.hide(owner, draft.edition_id)
+        owner.commit()
+        assert (
+            as_app(
+                app_url,
+                "select id from public.items where id = %s",
+                (draft.item_id,),
+            )
+            == []
+        )
+    finally:
+        delete_editions(owner, "id = %s", (draft.edition_id,))
+        owner.commit()
+
+
+@needs_database
+def test_a_series_shows_only_approved_episodes(owner, app_url):
+    first = create_draft(owner, kind="series", title="Kabaka", season=1, episode=1)
+    second = create_draft(
+        owner, kind="series", series_edition=first.edition_id, season=1, episode=2
+    )
+    ready(owner, first.item_id)
+    describe(owner, first.edition_id, title="Kabaka")
+    editions.publish(owner, first.edition_id)
+    owner.commit()
+    try:
+
+        def episodes():
+            return as_app(
+                app_url,
+                "select episode from public.items where edition_id = %s "
+                "order by episode",
+                (first.edition_id,),
+            )
+
+        assert episodes() == [(1,)]
+        with pytest.raises(PublishRefused):
+            editions.approve_item(owner, second.item_id)
+        ready(owner, second.item_id)
+        editions.approve_item(owner, second.item_id)
+        owner.commit()
+        assert episodes() == [(1,), (2,)]
+    finally:
+        delete_editions(owner, "id = %s", (first.edition_id,))
+        owner.commit()
+
+
+@needs_database
+def test_the_database_refuses_publishing_an_incomplete_edition(owner):
+    draft = create_draft(owner, kind="movie", title="Fast X")
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        owner.execute(
+            "update public.editions set status = 'published', published_at = now() "
+            "where id = %s",
+            (draft.edition_id,),
+        )
+
+
+@needs_database
+def test_one_edition_per_source_per_vj(owner):
+    first = create_draft(owner, kind="movie", title="Fast X")
+    second = create_draft(owner, kind="movie", title="Fast X again")
+    source = describe(owner, first.edition_id, tmdb_id=new_id())
+    junior = owner.execute(
+        "select vj_id from public.editions where id = %s", (first.edition_id,)
+    ).fetchone()[0]
+
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        owner.execute(
+            "update public.editions set source_id = %s, vj_id = %s where id = %s",
+            (source, junior, second.edition_id),
+        )
+
+
+@needs_database
+def test_an_edition_and_its_source_must_be_the_same_kind(owner):
+    series = create_draft(owner, kind="series", title="Kabaka", season=1, episode=1)
+    movie = create_draft(owner, kind="movie", title="Fast X")
+    source = describe(owner, movie.edition_id)
+
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        owner.execute(
+            "update public.editions set source_id = %s where id = %s",
+            (source, series.edition_id),
+        )
+
+
+# --- What the API's role sees ------------------------------------------------
+
+
+@needs_database
+def test_the_api_role_sees_published_editions_only(owner, app_url):
     hidden, shown = new_id(), new_id()
     add_movie(owner, details(hidden, "Hidden"))
     add_movie(owner, details(shown, "Shown"))
     set_published(owner, str(shown), True)
+    draft = create_draft(owner, kind="movie", title="A draft")
     owner.commit()
     try:
         seen = as_app(
             app_url,
-            "select m.tmdb_id, d.title from public.movies m "
-            "join public.tmdb_movie_details d using (tmdb_id) "
-            "where m.tmdb_id in (%s, %s)",
+            "select s.tmdb_id, s.title from public.editions e "
+            "join public.sources s on s.id = e.source_id "
+            "where s.tmdb_id in (%s, %s)",
             (hidden, shown),
         )
         assert seen == [(shown, "Shown")]
         assert as_app(
             app_url,
-            "select count(*) from public.tmdb_movie_details where tmdb_id = %s",
+            "select count(*) from public.sources where tmdb_id = %s",
             (hidden,),
         ) == [(0,)]
+        assert as_app(
+            app_url,
+            "select count(*) from public.editions where id = %s",
+            (draft.edition_id,),
+        ) == [(0,)]
     finally:
-        owner.execute(
-            "delete from public.movies where tmdb_id in (%s, %s)", (hidden, shown)
-        )
+        delete_editions(owner, "test or id = %s", (draft.edition_id,))
         owner.commit()
 
 
 @needs_database
-def test_every_catalogue_check_passes_with_hidden_and_published_movies(owner, app_url):
+def test_every_catalogue_check_passes_with_hidden_and_published_editions(
+    owner, app_url
+):
     hidden, shown = new_id(), new_id()
     add_movie(owner, details(hidden))
     add_movie(owner, details(shown))
     set_published(owner, str(shown), True)
+    create_draft(owner, kind="series", title="Kabaka", season=1, episode=1)
+    vj(owner)
     owner.commit()
     try:
         with psycopg.connect(app_url, autocommit=True) as conn:
@@ -224,14 +535,15 @@ def test_every_catalogue_check_passes_with_hidden_and_published_movies(owner, ap
         assert [r.name for r in results if not r.passed] == []
         assert len(results) == 5
     finally:
-        owner.execute(
-            "delete from public.movies where tmdb_id in (%s, %s)", (hidden, shown)
-        )
+        delete_editions(owner)
+        owner.execute("delete from public.vjs")
         owner.commit()
 
 
 @needs_database
-def test_the_api_role_can_refresh_a_published_copy_but_not_a_hidden_one(owner, app_url):
+def test_the_api_role_can_refresh_a_published_source_but_not_a_hidden_one(
+    owner, app_url
+):
     hidden, shown = new_id(), new_id()
     add_movie(owner, details(hidden))
     add_movie(owner, details(shown))
@@ -240,152 +552,203 @@ def test_the_api_role_can_refresh_a_published_copy_but_not_a_hidden_one(owner, a
     try:
         with psycopg.connect(app_url) as conn:
             changed = conn.execute(
-                "update public.tmdb_movie_details set title = 'New' "
-                "where tmdb_id in (%s, %s)",
+                "update public.sources set title = 'New' where tmdb_id in (%s, %s)",
                 (hidden, shown),
             ).rowcount
             conn.rollback()
         assert changed == 1
     finally:
-        owner.execute(
-            "delete from public.movies where tmdb_id in (%s, %s)", (hidden, shown)
-        )
+        delete_editions(owner, "test")
         owner.commit()
 
 
 @needs_database
-def test_add_publish_and_unpublish(owner):
-    tmdb_id = new_id()
-
-    movie_id = add_movie(owner, details(tmdb_id, "Mine"))
-    movie = find_movie(owner, str(tmdb_id))
-    assert (movie.id, movie.published, movie.title, movie.year) == (
-        movie_id,
-        False,
-        "Mine",
-        2024,
-    )
-
-    published = set_published(owner, str(movie_id), True)
-    assert published.published is True
-    first = owner.execute(
-        "select published_at from public.movies where id = %s", (movie_id,)
+def test_vjs_show_only_with_a_published_edition(owner, app_url):
+    draft = create_draft(owner, kind="movie", title="Fast X")
+    ready(owner, draft.item_id)
+    describe(owner, draft.edition_id)
+    junior = owner.execute(
+        "select vj_id from public.editions where id = %s", (draft.edition_id,)
     ).fetchone()[0]
-    assert first is not None
-    # Publishing again keeps the first date.
-    set_published(owner, str(tmdb_id), True)
-    assert (
-        owner.execute(
-            "select published_at from public.movies where id = %s", (movie_id,)
-        ).fetchone()[0]
-        == first
-    )
+    owner.commit()
+    try:
 
-    hidden = set_published(owner, str(tmdb_id), False)
-    assert hidden.published is False
-    assert owner.execute(
-        "select published_at from public.movies where id = %s", (movie_id,)
-    ).fetchone() == (None,)
+        def seen():
+            return as_app(
+                app_url, "select count(*) from public.vjs where id = %s", (junior,)
+            )
 
-
-@needs_database
-def test_mistakes_are_explained(owner):
-    tmdb_id = new_id()
-    add_movie(owner, details(tmdb_id))
-
-    with pytest.raises(CatalogueError, match="already added"):
-        add_movie(owner, details(tmdb_id))
-    with pytest.raises(CatalogueError, match="No movie"):
-        set_published(owner, str(new_id()), True)
-    with pytest.raises(CatalogueError, match="isn't a TMDB ID"):
-        find_movie(owner, "fight-club")
-    with pytest.raises(CatalogueError, match="isn't a TMDB ID"):
-        find_movie(owner, "-5")
+        assert seen() == [(0,)]
+        editions.publish(owner, draft.edition_id)
+        owner.commit()
+        assert seen() == [(1,)]
+    finally:
+        delete_editions(owner, "id = %s", (draft.edition_id,))
+        owner.execute("delete from public.vjs where id = %s", (junior,))
+        owner.commit()
 
 
-@needs_database
-def test_a_movie_without_details_cant_be_published(owner):
-    tmdb_id = new_id()
-    add_movie(owner, details(tmdb_id))
-    owner.execute(
-        "delete from public.tmdb_movie_details where tmdb_id = %s", (tmdb_id,)
-    )
+# --- The editor role ---------------------------------------------------------
 
-    with pytest.raises(CatalogueError, match="no details"):
-        set_published(owner, str(tmdb_id), True)
+
+@pytest.fixture
+def editor_url(owner_url, app_url):
+    """The editor role, given a login as create_app_role.py --role editor
+    will."""
+    from scripts.create_app_role import role_problems, scram_verifier
+    from tests.db_support import url_for
+
+    password = "local-test-editor-password"
+    with psycopg.connect(owner_url) as conn:
+        conn.execute(
+            f"alter role veloraug_editor login password '{scram_verifier(password)}'"
+        )
+        assert role_problems(conn, "veloraug_editor") == []
+    return url_for("veloraug_editor", password)
 
 
 @needs_database
-def test_published_and_published_at_always_agree(owner):
-    tmdb_id = new_id()
-    add_movie(owner, details(tmdb_id))
+def test_the_editor_can_draft_describe_publish_and_manage_admins(editor_url):
+    with psycopg.connect(editor_url) as conn:
+        draft = create_draft(conn, kind="movie", title="Fast X")
+        describe(conn, draft.edition_id)
+        conn.execute(
+            "insert into public.admins (user_id, email) values (%s, 'a@b.test'), "
+            "(%s, 'c@d.test')",
+            (uuid.uuid4(), uuid.uuid4()),
+        )
+        conn.execute(
+            "delete from public.admins where email = 'a@b.test'",
+        )
+        with pytest.raises(PublishRefused, match="a ready video"):
+            editions.publish(conn, draft.edition_id)
+        conn.rollback()
+
+
+@needs_database
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "select count(*) from public.profiles",
+        "select count(*) from neon_auth.users_sync",
+        "select key_hash from public.upload_keys",
+        "delete from public.editions",
+        "delete from public.sources",
+        "delete from public.vjs",
+        "delete from public.upload_keys",
+        "update public.media_originals set state = 'ready'",
+        "update public.upload_keys set used_at = now()",
+        "create table public.veloraug_check (id int)",
+    ],
+)
+def test_the_editor_can_do_nothing_else(editor_url, statement):
+    with (
+        psycopg.connect(editor_url) as conn,
+        pytest.raises(psycopg.errors.InsufficientPrivilege),
+    ):
+        conn.execute(statement)
+
+
+# --- Admins ------------------------------------------------------------------
+
+
+@needs_database
+def test_admins_are_added_listed_and_removed_but_never_the_last(owner):
+    owner.execute("delete from public.admins")
+    first, second = str(uuid.uuid4()), str(uuid.uuid4())
+
+    add_admin(owner, first, "owner@example.test")
+    with pytest.raises(CatalogueError, match="already an admin"):
+        add_admin(owner, first)
+    with pytest.raises(CatalogueError, match="last admin"):
+        remove_admin(owner, first)
+    add_admin(owner, second)
+    remove_admin(owner, first)
+
+    assert [str(row[0]) for row in list_admins(owner)] == [second]
+    with pytest.raises(CatalogueError, match="isn't an admin"):
+        remove_admin(owner, first)
+    with pytest.raises(CatalogueError, match="isn't a user ID"):
+        add_admin(owner, "someone")
+    with pytest.raises(CatalogueError, match="isn't an email"):
+        add_admin(owner, str(uuid.uuid4()), "not-an-email")
+
+
+@needs_database
+def test_deleting_every_admin_at_once_is_refused(owner):
+    owner.execute("delete from public.admins")
+    add_admin(owner, str(uuid.uuid4()))
+    add_admin(owner, str(uuid.uuid4()))
 
     with pytest.raises(psycopg.errors.CheckViolation):
-        owner.execute(
-            "update public.movies set published = true where tmdb_id = %s", (tmdb_id,)
-        )
+        owner.execute("delete from public.admins")
+
+
+# --- Listing, refreshing and purging -----------------------------------------
 
 
 @needs_database
 def test_list_shows_published_first(owner):
     first, second = new_id(), new_id()
-    add_movie(owner, details(first, "Hidden one"))
-    add_movie(owner, details(second, "Published one"))
+    hidden = add_movie(owner, details(first, "Hidden one"))
+    shown = add_movie(owner, details(second, "Published one"))
     set_published(owner, str(second), True)
 
-    titles = [m.title for m in list_movies(owner) if m.tmdb_id in (first, second)]
+    found = [e.id for e in list_editions(owner) if e.id in (hidden, shown)]
 
-    assert titles == ["Published one", "Hidden one"]
+    assert found == [shown, hidden]
+    assert find_edition(owner, str(shown)).status == "published"
+    with pytest.raises(CatalogueError, match="No edition"):
+        find_edition(owner, str(uuid.uuid4()))
+    with pytest.raises(CatalogueError, match="isn't an edition ID"):
+        find_edition(owner, "fight-club")
 
 
 def age(owner, tmdb_id, days):
     owner.execute(
-        "update public.tmdb_movie_details set fetched_at = now() - %s "
-        "where tmdb_id = %s",
+        "update public.sources set fetched_at = now() - %s where tmdb_id = %s",
         (timedelta(days=days), tmdb_id),
     )
 
 
-def fetched_at(owner, tmdb_id):
-    row = owner.execute(
-        "select fetched_at from public.tmdb_movie_details where tmdb_id = %s",
+def fetched(owner, tmdb_id):
+    return owner.execute(
+        "select title, fetched_at from public.sources where tmdb_id = %s",
         (tmdb_id,),
     ).fetchone()
-    return row[0] if row else None
 
 
 @needs_database
 def test_refresh_fetches_only_old_copies(owner):
-    # Other tests' movies are rolled back, but committed ones from a failed
-    # run could remain. Only these three are asserted on.
     fresh, old, missing = new_id(), new_id(), new_id()
     for tmdb_id in (fresh, old, missing):
         add_movie(owner, details(tmdb_id))
     age(owner, fresh, 1)
     age(owner, old, REFRESH_AFTER.days + 1)
     owner.execute(
-        "delete from public.tmdb_movie_details where tmdb_id = %s", (missing,)
+        "update public.sources set fetched_at = null where tmdb_id = %s", (missing,)
     )
-    fetched: list[int] = []
+    fetched_ids: list[int] = []
 
     def fetch(tmdb_id):
-        fetched.append(tmdb_id)
+        fetched_ids.append(tmdb_id)
         return details(tmdb_id, f"New {tmdb_id}")
 
     refresh(owner, fetch)
 
-    assert fresh not in fetched
-    assert old in fetched and missing in fetched
-    assert find_movie(owner, str(old)).title == f"New {old}"
-    assert find_movie(owner, str(missing)).title == f"New {missing}"
-    assert find_movie(owner, str(fresh)).title == "A movie"
+    assert fresh not in fetched_ids
+    assert old in fetched_ids and missing in fetched_ids
+    assert fetched(owner, old)[0] == f"New {old}"
+    assert fetched(owner, missing)[0] == f"New {missing}"
+    assert fetched(owner, fresh)[0] == "A movie"
 
 
 @needs_database
-def test_a_failed_refresh_keeps_a_copy_until_180_days_then_deletes_it(owner):
+def test_a_failed_refresh_keeps_a_copy_until_180_days_then_clears_it(owner):
     young, expired = new_id(), new_id()
     add_movie(owner, details(young))
-    add_movie(owner, details(expired))
+    shown = add_movie(owner, details(expired))
+    set_published(owner, str(shown), True)
     age(owner, young, 30)
     age(owner, expired, DELETE_AFTER.days)
 
@@ -398,8 +761,9 @@ def test_a_failed_refresh_keeps_a_copy_until_180_days_then_deletes_it(owner):
 
     result = refresh(owner, fetch)
 
-    assert fetched_at(owner, young) is not None
-    assert fetched_at(owner, expired) is None
+    assert fetched(owner, young)[1] is not None
+    assert fetched(owner, expired)[1] is None
+    assert find_edition(owner, str(shown)).status == "hidden"
     assert f"{young}: TMDB answered 503" in result.failed
     assert f"{expired}: TMDB has no movie {expired}" in result.failed
     assert result.deleted >= 1
@@ -419,37 +783,133 @@ def test_a_refused_token_stops_the_refresh(owner):
 
 
 @needs_database
-def test_purge_deletes_every_copy_and_hides_every_movie(owner):
+def test_purge_clears_every_tmdb_copy_and_hides_what_shows_one(owner):
     tmdb_id = new_id()
-    add_movie(owner, details(tmdb_id))
+    film = add_movie(owner, details(tmdb_id))
     set_published(owner, str(tmdb_id), True)
+    typed_in = create_draft(owner, kind="movie", title="Typed in")
+    describe(owner, typed_in.edition_id)
 
     purge_tmdb(owner)
 
     assert (
-        owner.execute("select count(*) from public.tmdb_movie_details").fetchone()[0]
+        owner.execute(
+            "select count(*) from public.sources "
+            "where details_from = 'tmdb' and fetched_at is not null"
+        ).fetchone()[0]
         == 0
     )
+    assert find_edition(owner, str(film)).status == "hidden"
     assert owner.execute(
-        "select count(*) from public.movies where published"
-    ).fetchone() == (0,)
-    assert find_movie(owner, str(tmdb_id)).title is None
+        "select s.fetched_at is not null from public.editions e "
+        "join public.sources s on s.id = e.source_id where e.id = %s",
+        (typed_in.edition_id,),
+    ).fetchone() == (True,)
+
+
+# --- Deleting the test films -------------------------------------------------
 
 
 @needs_database
-def test_removing_a_movie_removes_its_copy(owner):
-    tmdb_id = new_id()
-    add_movie(owner, details(tmdb_id))
+def test_test_films_are_deleted_in_two_runs(owner):
+    delete_editions(owner, "test")
+    film = add_movie(owner, details(new_id()))
+    set_published(owner, str(film), True)
+    original = ready(owner, film)
+    kept = create_draft(owner, kind="movie", title="A real one")
 
-    owner.execute("delete from public.movies where tmdb_id = %s", (tmdb_id,))
+    first = editions.delete_test_films(owner)
 
-    assert fetched_at(owner, tmdb_id) is None
+    assert (first.editions, first.marked_for_removal, first.deleted) == (1, 1, False)
+    assert owner.execute(
+        "select state from public.media_originals where id = %s", (original,)
+    ).fetchone() == ("removing",)
+    assert find_edition(owner, str(film)).status == "hidden"
+
+    # The media worker removes the files, then marks it removed.
+    owner.execute(
+        "update public.media_originals set state = 'removed' where id = %s",
+        (original,),
+    )
+    second = editions.delete_test_films(owner)
+
+    assert second.deleted is True
+    assert owner.execute(
+        "select count(*) from public.editions where test"
+    ).fetchone() == (0,)
+    assert owner.execute(
+        "select count(*) from public.editions where id = %s", (kept.edition_id,)
+    ).fetchone() == (1,)
+    assert editions.delete_test_films(owner).editions == 0
+
+
+# --- Migration 0005 ----------------------------------------------------------
+
+
+@needs_database
+def test_0005_moves_todays_films_across_with_their_ids(owner_url, app_url):
+    """A film, its key and its ready original made at 0004 keep their IDs,
+    and the API still sees the original, after the upgrade."""
+    try:
+        migrate(owner_url, "0004", down=True)
+        tmdb_id = new_id()
+        with psycopg.connect(owner_url) as conn:
+            (movie,) = conn.execute(
+                "insert into public.movies (tmdb_id, published, published_at) "
+                "values (%s, true, now()) returning id",
+                (tmdb_id,),
+            ).fetchone()
+            conn.execute(
+                "insert into public.tmdb_movie_details (tmdb_id, title) "
+                "values (%s, 'The Matrix')",
+                (tmdb_id,),
+            )
+            (key,) = conn.execute(
+                """
+                insert into public.upload_keys
+                  (movie_id, key_hash, label, expires_at, used_at)
+                values (%s, %s, 'Test', now() + interval '1 day', now())
+                returning id
+                """,
+                (movie, os.urandom(32)),
+            ).fetchone()
+            original = uuid.uuid4()
+            conn.execute(
+                """
+                insert into public.media_originals
+                  (id, movie_id, upload_key_id, size_bytes, state, ready_at)
+                values (%s, %s, %s, 1000, 'ready', now())
+                """,
+                (original, movie, key),
+            )
+        migrate(owner_url)
+        with psycopg.connect(owner_url) as conn:
+            assert conn.execute(
+                "select e.status, e.test, i.id, s.title, s.tmdb_id "
+                "from public.editions e join public.items i on i.edition_id = e.id "
+                "join public.sources s on s.id = e.source_id where e.id = %s",
+                (movie,),
+            ).fetchone() == ("published", True, movie, "The Matrix", tmdb_id)
+            assert conn.execute(
+                "select item_id from public.media_originals where id = %s",
+                (original,),
+            ).fetchone() == (movie,)
+        assert as_app(
+            app_url,
+            "select id from public.media_originals where item_id = %s",
+            (movie,),
+        ) == [(original,)]
+    finally:
+        migrate(owner_url)
+        with psycopg.connect(owner_url) as conn:
+            delete_editions(conn, "test")
 
 
 @needs_database
 def test_the_owner_sees_the_migration(owner_url, app_url):
-    assert owner_query(
-        owner_url,
-        "select to_regclass('public.movies') is not null, "
-        "to_regclass('public.tmdb_movie_details') is not null",
-    ) == [(True, True)]
+    with psycopg.connect(owner_url) as conn:
+        assert conn.execute(
+            "select to_regclass('public.movies') is null, "
+            "to_regclass('public.editions') is not null, "
+            "(select name from public.languages where code = 'lg')"
+        ).fetchone() == (True, True, "Luganda")

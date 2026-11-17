@@ -24,7 +24,7 @@ from app.media_hooks import (
 from app.upload_keys import new_key
 from scripts.create_app_role import scram_verifier
 from scripts.upload_keys import grant_upload
-from tests.db_support import needs_database, url_for
+from tests.db_support import needs_database, new_item, url_for
 
 MEDIA_PASSWORD = "local-test-media-password"
 
@@ -162,12 +162,9 @@ def media_database(owner_url, app_url):
 
 @pytest.fixture
 def key(owner_url, app_url):
-    """A fresh key for a fresh movie: (movie id, key text)."""
+    """A fresh key for a fresh item: (item id, key text)."""
     with psycopg.connect(owner_url) as conn:
-        (movie_id,) = conn.execute(
-            "insert into public.movies (tmdb_id) values (%s) returning id",
-            (1_000_000 + uuid.uuid4().int % 1_000_000_000,),
-        ).fetchone()
+        movie_id = new_item(conn)
         _, text = grant_upload(conn, movie_id, "Kampala Films")
     return movie_id, text
 
@@ -176,7 +173,7 @@ def original(owner_url, original_id):
     with psycopg.connect(owner_url) as conn:
         return conn.execute(
             """
-            select o.movie_id, o.state, o.size_bytes, o.filename, k.used_at is not null
+            select o.item_id, o.state, o.size_bytes, o.filename, k.used_at is not null
             from public.media_originals o
             join public.upload_keys k on k.id = o.upload_key_id
             where o.id = %s
@@ -211,7 +208,7 @@ def test_a_wrong_key_changes_nothing(owner_url, media_database, key):
     assert answer["HTTPResponse"]["StatusCode"] == 403
     with psycopg.connect(owner_url) as conn:
         used = conn.execute(
-            "select count(*) from public.upload_keys where movie_id = %s "
+            "select count(*) from public.upload_keys where item_id = %s "
             "and used_at is not null",
             (key[0],),
         ).fetchone()[0]
@@ -274,4 +271,4 @@ def test_every_media_role_check_passes(media_database):
     results = run_checks(url_for("veloraug_media", MEDIA_PASSWORD))
 
     assert [result for result in results if not result.passed] == []
-    assert len(results) == 14
+    assert len(results) == 15

@@ -1,8 +1,9 @@
 """One-time upload keys, the originals uploaded with them, and their qualities.
 
 Used by scripts/catalogue.py, as the database owner. A key lets whoever holds
-it upload one file for one movie. Only its SHA-256 is stored, so the text is
-shown once, when it is made. See docs/step-07a-uploads-plan.md.
+it upload one file for one playable item: a movie edition, or one episode.
+Only its SHA-256 is stored, so the text is shown once, when it is made. See
+docs/step-07a-uploads-plan.md and docs/step-09a-vj-catalogue-plan.md.
 """
 
 import uuid
@@ -27,7 +28,7 @@ class UploadKeyError(Exception):
 @dataclass(frozen=True)
 class UploadKey:
     id: uuid.UUID
-    movie_id: uuid.UUID
+    item_id: uuid.UUID
     label: str
     created_at: datetime
     expires_at: datetime
@@ -58,15 +59,17 @@ class Original:
 
 
 @dataclass(frozen=True)
-class MovieUploads:
-    movie_id: uuid.UUID
-    tmdb_id: int
-    title: str | None
+class ItemUploads:
+    item_id: uuid.UUID
+    edition_id: uuid.UUID
+    title: str
+    season: int | None
+    episode: int | None
     keys: list[UploadKey]
     originals: list[Original]
 
 
-_KEY_COLUMNS = "id, movie_id, label, created_at, expires_at, used_at, revoked_at"
+_KEY_COLUMNS = "id, item_id, label, created_at, expires_at, used_at, revoked_at"
 
 
 def clean_label(label: str) -> str:
@@ -80,21 +83,21 @@ def clean_label(label: str) -> str:
 
 def grant_upload(
     conn: psycopg.Connection,
-    movie_id: uuid.UUID,
+    item_id: uuid.UUID,
     label: str,
     days: int = DEFAULT_DAYS,
 ) -> tuple[UploadKey, str]:
-    """A new key for one upload to the movie. Returns the key's text once."""
+    """A new key for one upload to the item. Returns the key's text once."""
     if not 1 <= days <= MAX_DAYS:
         raise UploadKeyError(f"--days must be from 1 to {MAX_DAYS}")
     key = new_key()
     row = conn.execute(
         f"""
-        insert into public.upload_keys (movie_id, key_hash, label, expires_at)
+        insert into public.upload_keys (item_id, key_hash, label, expires_at)
         values (%s, %s, %s, now() + %s)
         returning {_KEY_COLUMNS}
         """,
-        (movie_id, key_hash(key), clean_label(label), timedelta(days=days)),
+        (item_id, key_hash(key), clean_label(label), timedelta(days=days)),
     ).fetchone()
     return UploadKey(*row), key
 
@@ -120,31 +123,32 @@ def revoke_upload(conn: psycopg.Connection, key_id: str) -> UploadKey:
 
 
 def list_uploads(
-    conn: psycopg.Connection, movie_id: uuid.UUID | None = None
-) -> list[MovieUploads]:
-    """Every movie with a key, newest key first, with its keys and originals."""
-    movies = conn.execute(
+    conn: psycopg.Connection, only: uuid.UUID | None = None
+) -> list[ItemUploads]:
+    """Every item with a key, newest key first, with its keys and originals.
+    Only one edition's items, or one item, if its ID is given."""
+    items = conn.execute(
         """
-        select m.id, m.tmdb_id, d.title
-        from public.movies m
-        left join public.tmdb_movie_details d using (tmdb_id)
-        where exists (select from public.upload_keys k where k.movie_id = m.id)
-          and (%(movie)s::uuid is null or m.id = %(movie)s::uuid)
+        select i.id, e.id, e.display_title, i.season, i.episode
+        from public.items i join public.editions e on e.id = i.edition_id
+        where exists (select from public.upload_keys k where k.item_id = i.id)
+          and (%(only)s::uuid is null or e.id = %(only)s::uuid
+               or i.id = %(only)s::uuid)
         order by (select max(created_at) from public.upload_keys k
-                  where k.movie_id = m.id) desc
+                  where k.item_id = i.id) desc
         """,
-        {"movie": movie_id},
+        {"only": only},
     ).fetchall()
     result = []
-    for id_, tmdb_id, title in movies:
+    for item_id, edition, title, season, episode in items:
         keys = [
             UploadKey(*row)
             for row in conn.execute(
                 f"""
                 select {_KEY_COLUMNS} from public.upload_keys
-                where movie_id = %s order by created_at desc
+                where item_id = %s order by created_at desc
                 """,
-                (id_,),
+                (item_id,),
             )
         ]
         originals = [
@@ -155,14 +159,21 @@ def list_uploads(
                        o.video_codec, o.audio_codec, o.reason,
                        array(select r.height from public.media_renditions r
                              where r.original_id = o.id order by r.height)
-                from public.media_originals o where o.movie_id = %s
+                from public.media_originals o where o.item_id = %s
                 order by o.created_at desc
                 """,
-                (id_,),
+                (item_id,),
             )
         ]
-        result.append(MovieUploads(id_, tmdb_id, title, keys, originals))
+        result.append(
+            ItemUploads(item_id, edition, title, season, episode, keys, originals)
+        )
     return result
+
+
+def item_name(title: str, season: int | None, episode: int | None) -> str:
+    """ "Fast X", or "Kabaka S1 E2" for an episode."""
+    return title if season is None else f"{title} S{season} E{episode}"
 
 
 def size_text(size: int) -> str:
@@ -172,12 +183,12 @@ def size_text(size: int) -> str:
     return f"{size} bytes"
 
 
-def describe_uploads(movie: MovieUploads, now: datetime | None = None) -> list[str]:
-    """Lines for `uploads`: the movie, then each key with its original."""
+def describe_uploads(item: ItemUploads, now: datetime | None = None) -> list[str]:
+    """Lines for `uploads`: the item, then each key with its original."""
     now = now or datetime.now(UTC)
-    lines = [f"{movie.title or '(no details)'}  TMDB {movie.tmdb_id}"]
-    by_key = {original.upload_key_id: original for original in movie.originals}
-    for key in movie.keys:
+    lines = [f"{item_name(item.title, item.season, item.episode)}  item {item.item_id}"]
+    by_key = {original.upload_key_id: original for original in item.originals}
+    for key in item.keys:
         state = key.state(now)
         when = (
             f"expires {key.expires_at:%d %b %H:%M} UTC" if state == "unused" else state

@@ -294,7 +294,7 @@ The owner's direction for Milestone 10:
   - an unused key and an unfinished upload still work.
 - Database checks cover each role:
   - the viewer role sees only published, approved things,
-  - the editor role can't read profiles, `neon_auth` or change `admins`, and
+  - the editor role can't read profiles or `neon_auth`, delete editions, sources or VJs, or read key hashes, and can add and remove admins but never the last one, and
   - the media role works as before.
 - The worker stores credit hints, and publishes to the same R2 paths.
 

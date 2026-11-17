@@ -11,6 +11,7 @@ veloraug_app must not read.
 """
 
 import os
+import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -52,6 +53,7 @@ def create_test_database() -> str:
         admin.execute(f"drop database if exists {DATABASE} with (force)")
         admin.execute("drop role if exists veloraug_app")
         admin.execute("drop role if exists veloraug_media")
+        admin.execute("drop role if exists veloraug_editor")
         admin.execute(f"drop role if exists {OWNER}")
         admin.execute(
             """
@@ -91,3 +93,112 @@ def migrate(owner_url: str, revision: str = "head", *, down: bool = False) -> No
             os.environ.pop("VELORAUG_MIGRATION_DATABASE_URL", None)
         else:
             os.environ["VELORAUG_MIGRATION_DATABASE_URL"] = previous
+
+
+# --- Catalogue rows, made as the owner. The caller commits. ------------------
+
+
+def new_item(conn, kind: str = "movie", title: str = "A draft") -> uuid.UUID:
+    """A draft edition with one item: what an upload key and an original
+    need. Its ID is the item's."""
+    from app.editions import create_draft
+
+    if kind == "movie":
+        return create_draft(conn, kind="movie", title=title).item_id
+    return create_draft(conn, kind="series", title=title, season=1, episode=1).item_id
+
+
+def add_movie(conn, details) -> uuid.UUID:
+    """A film as migration 0005 moves one from before Milestone 9: a TMDB
+    source, a test edition and an item with the same ID, hidden. Returns
+    that ID."""
+    film = uuid.uuid4()
+    (source,) = conn.execute(
+        """
+        insert into public.sources (kind, tmdb_id, title, original_title, overview,
+          release_date, runtime_minutes, genres, poster_path, backdrop_path,
+          details_from, fetched_at)
+        values ('movie', %s, %s, %s, %s, %s, %s, %s, %s, %s, 'tmdb', now())
+        returning id
+        """,
+        (
+            details.tmdb_id,
+            details.title,
+            details.original_title,
+            details.overview,
+            details.release_date,
+            details.runtime_minutes,
+            list(details.genres),
+            details.poster_path,
+            details.backdrop_path,
+        ),
+    ).fetchone()
+    conn.execute(
+        """
+        insert into public.editions (id, kind, source_id, display_title, status,
+          test, tmdb_lookup)
+        values (%s, 'movie', %s, %s, 'hidden', true, 'chosen')
+        """,
+        (film, source, details.title),
+    )
+    conn.execute(
+        "insert into public.items (id, edition_id, kind, approved_at) "
+        "values (%s, %s, 'movie', now())",
+        (film, film),
+    )
+    return film
+
+
+def film_id(conn, key: str) -> uuid.UUID:
+    """A film from add_movie, by its ID or its TMDB ID."""
+    try:
+        return uuid.UUID(key)
+    except ValueError:
+        return conn.execute(
+            "select e.id from public.editions e join public.sources s "
+            "on s.id = e.source_id where s.tmdb_id = %s and e.test",
+            (int(key),),
+        ).fetchone()[0]
+
+
+def set_published(conn, key: str, published: bool) -> uuid.UUID:
+    """Shows or hides a film from add_movie, named by its ID or TMDB ID."""
+    film = film_id(conn, key)
+    conn.execute(
+        """
+        update public.editions
+        set status = case when %s then 'published' else 'hidden' end,
+            published_at = case when %s then coalesce(published_at, now()) end
+        where id = %s
+        """,
+        (published, published, film),
+    )
+    return film
+
+
+def delete_editions(conn, where: str = "true", params=()) -> None:
+    """Deletes editions, with their items, keys, originals and sources."""
+    editions = f"select id from public.editions where {where}"
+    items = f"select id from public.items where edition_id in ({editions})"
+    originals = f"select id from public.media_originals where item_id in ({items})"
+    conn.execute(
+        f"delete from public.media_renditions where original_id in ({originals})",
+        params,
+    )
+    conn.execute(
+        f"delete from public.media_originals where id in ({originals})", params
+    )
+    conn.execute(f"delete from public.upload_keys where item_id in ({items})", params)
+    sources = [
+        row[0]
+        for row in conn.execute(
+            f"select source_id from public.editions where id in ({editions})", params
+        ).fetchall()
+    ]
+    conn.execute(f"delete from public.items where id in ({items})", params)
+    conn.execute(f"delete from public.editions where id in ({editions})", params)
+    conn.execute(
+        "delete from public.sources s where s.id = any(%s) and not exists "
+        "(select from public.editions e where e.source_id = s.id)",
+        ([s for s in sources if s],),
+    )

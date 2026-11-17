@@ -30,17 +30,18 @@ ENV_NAME = "VELORAUG_MEDIA_DATABASE_URL"
 # Each must fail with a permission or policy error.
 REFUSED = {
     "can't make upload keys": (
-        "insert into public.upload_keys (movie_id, key_hash, label, expires_at) "
-        "select id, sha256('x'::bytea), 'x', now() + interval '1 day' "
+        "insert into public.upload_keys (item_id, key_hash, label, expires_at) "
+        "select item_id, sha256('x'::bytea), 'x', now() + interval '1 day' "
         "from public.media_originals limit 1"
     ),
     "can't revoke or relabel keys": "update public.upload_keys set label = 'x'",
     "can't read who a key is for": "select label from public.upload_keys",
     "can't delete keys": "delete from public.upload_keys",
     "can't delete originals": "delete from public.media_originals",
-    "can't read movies": "select count(*) from public.movies",
-    "can't publish movies": "update public.movies set published = true",
-    "can't read TMDB details": "select count(*) from public.tmdb_movie_details",
+    "can't read editions": "select count(*) from public.editions",
+    "can't publish editions": "update public.editions set status = 'published'",
+    "can't read source details": "select count(*) from public.sources",
+    "can't read admins": "select count(*) from public.admins",
     "can't read profiles": "select count(*) from public.profiles",
     "can't change the schema": "create table public.veloraug_check (id int)",
 }

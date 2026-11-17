@@ -17,8 +17,7 @@ from app.catalogue import RETRY_AFTER_FAILURE_SECONDS, Refresher
 from app.db import Database
 from app.main import create_app
 from app.tmdb import TmdbClient
-from scripts.catalogue import add_movie, set_published
-from tests.db_support import needs_database
+from tests.db_support import add_movie, delete_editions, needs_database, set_published
 from tests.test_catalogue import details
 
 pytestmark = needs_database
@@ -82,9 +81,9 @@ class Clock:
 def owner(owner_url, app_url):
     """The owner's connection, on an empty catalogue."""
     with psycopg.connect(owner_url, autocommit=True) as conn:
-        conn.execute("delete from public.movies")
+        delete_editions(conn)
         yield conn
-        conn.execute("delete from public.movies")
+        delete_editions(conn)
 
 
 @pytest.fixture
@@ -143,15 +142,17 @@ def published(owner, title: str, *, age_days: float = 0, poster: bool = True):
 
 def age(owner, tmdb_id: int, days: float) -> None:
     owner.execute(
-        "update public.tmdb_movie_details set fetched_at = now() - %s "
-        "where tmdb_id = %s",
+        "update public.sources set fetched_at = now() - %s "
+        "where kind = 'movie' and tmdb_id = %s",
         (timedelta(days=days), tmdb_id),
     )
 
 
 def title_of(owner, tmdb_id):
     row = owner.execute(
-        "select title from public.tmdb_movie_details where tmdb_id = %s", (tmdb_id,)
+        "select title from public.sources where kind = 'movie' and tmdb_id = %s "
+        "and fetched_at is not null",
+        (tmdb_id,),
     ).fetchone()
     return row[0] if row else None
 
@@ -365,7 +366,7 @@ def test_an_expired_copy_is_fetched_in_the_background(api, owner, tmdb):
 def test_a_published_movie_with_no_copy_is_fetched(api, owner, tmdb):
     movie_id, tmdb_id = published(owner, "Will vanish")
     owner.execute(
-        "delete from public.tmdb_movie_details where tmdb_id = %s", (tmdb_id,)
+        "update public.sources set fetched_at = null where tmdb_id = %s", (tmdb_id,)
     )
 
     assert api.get("/api/v1/movies").json()["movies"] == []

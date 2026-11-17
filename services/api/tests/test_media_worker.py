@@ -28,7 +28,7 @@ from app.media_worker import (
     parse_probe,
 )
 from scripts.create_app_role import scram_verifier
-from tests.db_support import needs_database, url_for
+from tests.db_support import needs_database, new_item, url_for
 
 MEDIA_PASSWORD = "local-test-media-password"
 
@@ -65,6 +65,29 @@ def test_a_normal_film_is_read():
 
 def test_a_film_without_sound_is_fine():
     assert parse_probe(probe_json(audio=None)).audio_codec is None
+
+
+def test_tags_that_may_name_the_vj_are_kept_as_hints():
+    data = probe_json(tags={"TITLE": "Fast X", "Comment": "Translated by VJ Junior"})
+    data["format"]["tags"] = {
+        "title": "Fast X  VJ\tJunior\x07",
+        "artist": "VJ Junior",
+        "encoder": "Lavf60",
+    }
+
+    assert parse_probe(data).credit_hints == (
+        "title: Fast X VJ Junior\n"
+        "artist: VJ Junior\n"
+        "title: Fast X\n"
+        "comment: Translated by VJ Junior"
+    )
+
+
+def test_a_file_without_tags_has_no_hints_and_long_ones_are_cut():
+    assert parse_probe(probe_json()).credit_hints is None
+    data = probe_json()
+    data["format"]["tags"] = {"description": "x" * 2000}
+    assert len(parse_probe(data).credit_hints) == 500
 
 
 @pytest.mark.parametrize(
@@ -238,14 +261,11 @@ def new_original(owner_url, uploads, state="received", size=1000, age_seconds=0)
     """An original as the hooks would leave it, with its file in uploads."""
     original_id = uuid.uuid4()
     with psycopg.connect(owner_url) as conn:
-        (movie_id,) = conn.execute(
-            "insert into public.movies (tmdb_id) values (%s) returning id",
-            (1_000_000 + uuid.uuid4().int % 1_000_000_000,),
-        ).fetchone()
+        movie_id = new_item(conn)
         (key_id,) = conn.execute(
             """
             insert into public.upload_keys
-              (movie_id, key_hash, label, expires_at, used_at)
+              (item_id, key_hash, label, expires_at, used_at)
             values (%s, %s, 'Test', now() + interval '1 day', now()) returning id
             """,
             (movie_id, os.urandom(32)),
@@ -253,7 +273,7 @@ def new_original(owner_url, uploads, state="received", size=1000, age_seconds=0)
         conn.execute(
             """
             insert into public.media_originals
-              (id, movie_id, upload_key_id, size_bytes, state, updated_at)
+              (id, item_id, upload_key_id, size_bytes, state, updated_at)
             values (%s, %s, %s, %s, %s, now() - make_interval(secs => %s))
             """,
             (original_id, movie_id, key_id, size, state, age_seconds),

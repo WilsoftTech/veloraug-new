@@ -138,23 +138,23 @@ class Hooks:
                     update public.upload_keys set used_at = now()
                     where key_hash = %s and used_at is null and revoked_at is null
                       and expires_at > now()
-                    returning id, movie_id
+                    returning id, item_id
                     """,
                     (key_hash(key),),
                 ).fetchone()
                 if claimed is None:
                     logger.info("upload refused: the key doesn't work")
                     return refuse(403, BAD_KEY)
-                key_id, movie_id = claimed
+                key_id, item_id = claimed
                 conn.execute(
                     """
                     insert into public.media_originals
-                      (id, movie_id, upload_key_id, size_bytes, filename)
+                      (id, item_id, upload_key_id, size_bytes, filename)
                     values (%s, %s, %s, %s, %s)
                     """,
                     (
                         original_id,
-                        movie_id,
+                        item_id,
                         key_id,
                         size,
                         clean_filename(upload.get("MetaData")),
@@ -163,7 +163,7 @@ class Hooks:
         except DatabaseUnavailable as error:
             logger.warning("upload refused: database unavailable (%s)", error)
             return refuse(503, UNAVAILABLE)
-        logger.info("upload %s accepted for movie %s", original_id, movie_id)
+        logger.info("upload %s accepted for item %s", original_id, item_id)
         # tusd uses this as the upload's ID, so its files are named by it.
         return {"ChangeFileInfo": {"ID": str(original_id)}}
 

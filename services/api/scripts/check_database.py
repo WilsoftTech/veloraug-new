@@ -295,24 +295,41 @@ def check_isolation(conn: psycopg.Connection) -> list[Result]:
     return results
 
 
-def check_catalogue(conn: psycopg.Connection) -> list[Result]:
-    """The API reads published movies only, and can't change the catalogue.
+CATALOGUE_TABLES = (
+    "public.languages",
+    "public.vjs",
+    "public.sources",
+    "public.editions",
+    "public.items",
+    "public.tmdb_matches",
+    "public.admins",
+)
 
-    These follow the Step 6B criteria in docs/step-06a-catalogue-plan.md.
+
+def check_catalogue(conn: psycopg.Connection) -> list[Result]:
+    """The API reads what is published only, and can't change the catalogue.
+
+    These follow the Step 9B criteria in docs/step-09a-vj-catalogue-plan.md,
+    which replace Step 6B's.
     """
     flags = conn.execute(
         """
-        select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
-        where oid in ('public.movies'::regclass,
-                      'public.tmdb_movie_details'::regclass)
-        """
+        select count(*) = %s and bool_and(relrowsecurity and relforcerowsecurity)
+        from pg_class where oid = any(%s::regclass[])
+        """,
+        (len(CATALOGUE_TABLES), list(CATALOGUE_TABLES)),
     ).fetchone()[0]
-    results = [Result("RLS and forced RLS on movies and tmdb_movie_details", flags)]
+    results = [Result("RLS and forced RLS on every catalogue table", flags)]
 
     privileges = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES")
     expected = {
-        "public.movies": {"SELECT"},
-        "public.tmdb_movie_details": {"SELECT", "INSERT", "UPDATE"},
+        "public.languages": {"SELECT"},
+        "public.editions": {"SELECT"},
+        "public.sources": {"SELECT"},
+        "public.vjs": set(),
+        "public.items": set(),
+        "public.tmdb_matches": set(),
+        "public.admins": set(),
     }
     wrong = []
     for table, allowed in expected.items():
@@ -322,46 +339,78 @@ def check_catalogue(conn: psycopg.Connection) -> list[Result]:
             ).fetchone()[0]
             if has != (privilege in allowed):
                 wrong.append(f"{table} {privilege}")
+    # Column rights: some columns of VJs and items, and refreshing details.
+    for table, privilege in (
+        ("public.vjs", "INSERT"),
+        ("public.vjs", "UPDATE"),
+        ("public.items", "INSERT"),
+        ("public.items", "UPDATE"),
+        ("public.sources", "INSERT"),
+    ):
+        if conn.execute(
+            "select has_any_column_privilege(%s, %s)", (table, privilege)
+        ).fetchone()[0]:
+            wrong.append(f"{table} {privilege}")
     results.append(
         Result("catalogue grants match the migration", not wrong, ", ".join(wrong))
     )
 
-    hidden = conn.execute(
-        "select count(*) from public.movies where not published"
+    unpublished = conn.execute(
+        "select count(*) from public.editions where status <> 'published'"
     ).fetchone()[0]
-    orphans = conn.execute(
+    sources = conn.execute(
         """
-        select count(*) from public.tmdb_movie_details d
-        where not exists (select from public.movies m where m.tmdb_id = d.tmdb_id)
+        select count(*) from public.sources s
+        where not exists (select from public.editions e where e.source_id = s.id)
+        """
+    ).fetchone()[0]
+    items = conn.execute(
+        """
+        select count(*) from public.items i
+        where not exists (select from public.editions e where e.id = i.edition_id)
+        """
+    ).fetchone()[0]
+    vjs = conn.execute(
+        """
+        select count(*) from public.vjs v
+        where not exists (select from public.editions e where e.vj_id = v.id)
         """
     ).fetchone()[0]
     results.append(
         Result(
-            "hidden movies and their details can't be seen",
-            hidden == 0 and orphans == 0,
-            f"{hidden} hidden movies, {orphans} details seen",
+            "drafts, hidden editions and what only they use can't be seen",
+            unpublished == 0 and sources == 0 and items == 0 and vjs == 0,
+            f"{unpublished} editions, {sources} sources, {items} items, {vjs} VJs seen",
         )
     )
     results.append(
         Result(
-            "can't add, publish, hide or remove movies",
-            refused(conn, "insert into public.movies (tmdb_id) values (2147483000)")
-            and refused(conn, "update public.movies set published = true")
-            and refused(
-                conn, "update public.movies set published = false, published_at = null"
-            )
-            and refused(conn, "delete from public.movies"),
-        )
-    )
-    results.append(
-        Result(
-            "can't delete details, or write details of a movie it can't see",
-            refused(conn, "delete from public.tmdb_movie_details")
-            and refused(
+            "can't add, publish, hide or remove editions or episodes",
+            refused(
                 conn,
-                "insert into public.tmdb_movie_details (tmdb_id, title) "
-                "values (2147483000, 'x')",
-            ),
+                "insert into public.editions (kind, display_title) "
+                "values ('movie', 'x')",
+            )
+            and refused(conn, "update public.editions set status = 'published'")
+            and refused(conn, "update public.editions set status = 'hidden'")
+            and refused(conn, "delete from public.editions")
+            and refused(conn, "update public.items set approved_at = now()"),
+        )
+    )
+    results.append(
+        Result(
+            "can't add or delete sources, VJs, languages or admins",
+            refused(
+                conn,
+                "insert into public.sources (kind, title, details_from) "
+                "values ('movie', 'x', 'manual')",
+            )
+            and refused(conn, "delete from public.sources")
+            and refused(conn, "insert into public.vjs (name, slug) values ('x', 'x')")
+            and refused(
+                conn, "insert into public.languages (code, name) values ('zz', 'x')"
+            )
+            and refused(conn, "select count(*) from public.admins"),
         )
     )
     return results
@@ -369,7 +418,7 @@ def check_catalogue(conn: psycopg.Connection) -> list[Result]:
 
 def check_uploads(conn: psycopg.Connection) -> list[Result]:
     """The API can't see or change upload keys or qualities, and sees only
-    which published movies have a ready original.
+    which published items have a ready original.
 
     These follow the Step 7B criteria in docs/step-07a-uploads-plan.md and
     the Step 8B criteria in docs/step-08a-playback-plan.md.
@@ -428,8 +477,8 @@ def check_uploads(conn: psycopg.Connection) -> list[Result]:
     )
     results.append(
         Result(
-            "reads only the ID, movie and state of originals, and changes none",
-            readable == {"id", "movie_id", "state"} and not changes,
+            "reads only the ID, item and state of originals, and changes none",
+            readable == {"id", "item_id", "state"} and not changes,
             ", ".join(sorted(readable)),
         )
     )
@@ -437,12 +486,12 @@ def check_uploads(conn: psycopg.Connection) -> list[Result]:
         """
         select count(*) from public.media_originals o
         where o.state <> 'ready'
-           or not exists (select from public.movies m where m.id = o.movie_id)
+           or not exists (select from public.items i where i.id = o.item_id)
         """
     ).fetchone()[0]
     results.append(
         Result(
-            "sees ready originals of published movies only",
+            "sees ready originals of published, approved items only",
             hidden == 0,
             f"{hidden} others seen",
         )

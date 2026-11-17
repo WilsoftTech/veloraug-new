@@ -118,7 +118,7 @@ Planned in the [playback plan](step-08a-playback-plan.md). Any signed-in viewer 
 VeloraUG streams **Luganda-translated movies and series by Ugandan VJs**, browsed by VJ. The catalogue from Milestone 6 is keyed by TMDB film and has no VJs or series, so it is replaced. The upload and playback pipeline is kept, and existing links keep working. Planned in the [VJ catalogue plan](step-09a-vj-catalogue-plan.md), approved on 17 November 2026.
 
 - [x] 9A: Plan VJs, source titles, editions and episodes, upload drafts, TMDB matching, VJ credit and admin publishing
-- [ ] 9B: Migration `0005`, the editor role, today's films moved across with their IDs, and credit hints from FFprobe
+- [x] 9B: Migration `0005`, the editor role, today's films moved across with their IDs, and credit hints from FFprobe (automated, on a local Postgres set up as Neon is; not yet run on Neon)
 - [ ] 9C: The API's admin routes: drafts and keys, previews, TMDB, VJ credit, publishing
 - [ ] 9D: The API's viewer routes: VJs, editions, episodes, search, playback by item
 - [ ] 9E: The app: localization set-up, viewer screens with Next Episode, and admin screens on the web

@@ -1,11 +1,13 @@
 """Creates the API's database role, veloraug_app, or gives it a new password.
 With --role media, gives the upload hooks' and worker's role, veloraug_media,
-a login and a new password instead.
+a login and a new password instead. With --role editor, does the same for
+veloraug_editor, the role the API's admin routes use from Step 9C.
 
 Run by the project owner, from services/api:
 
     .\\.venv\\Scripts\\python.exe scripts\\create_app_role.py
     .\\.venv\\Scripts\\python.exe scripts\\create_app_role.py --role media
+    .\\.venv\\Scripts\\python.exe scripts\\create_app_role.py --role editor
 
 It asks for the owner's direct connection string, hidden, unless
 VELORAUG_MIGRATION_DATABASE_URL is set. It then:
@@ -18,7 +20,8 @@ VELORAUG_MIGRATION_DATABASE_URL is set. It then:
    removes it again if it has, and
 4. writes the role's pooled connection string to services/api/.env, as
    VELORAUG_DATABASE_URL. For veloraug_media, to services/api/.env.media, as
-   VELORAUG_MEDIA_DATABASE_URL, so the API's container never holds it.
+   VELORAUG_MEDIA_DATABASE_URL, so the API's container never holds it. For
+   veloraug_editor, to services/api/.env, as VELORAUG_EDITOR_DATABASE_URL.
 
 Nothing secret is printed. Running it again changes the password and updates
 .env, so a lost password is fixed by running it again.
@@ -57,9 +60,13 @@ MEDIA_ROLE = "veloraug_media"
 MEDIA_ENV_FILE = API_DIR / ".env.media"
 MEDIA_ENV_NAME = "VELORAUG_MEDIA_DATABASE_URL"
 # role option: (role, .env file, variable)
+EDITOR_ROLE = "veloraug_editor"
+EDITOR_ENV_NAME = "VELORAUG_EDITOR_DATABASE_URL"
+
 ROLES = {
     "app": (APP_ROLE, ENV_FILE, ENV_NAME),
     "media": (MEDIA_ROLE, MEDIA_ENV_FILE, MEDIA_ENV_NAME),
+    "editor": (EDITOR_ROLE, ENV_FILE, EDITOR_ENV_NAME),
 }
 CONNECTION_LIMIT = 20
 SCRAM_ITERATIONS = 4096
@@ -177,7 +184,10 @@ def write_env(path: Path, url: str, name: str = ENV_NAME) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Create or update veloraug_app, or veloraug_media."
+        description=(
+            "Create or update veloraug_app, or give veloraug_media or "
+            "veloraug_editor a login."
+        )
     )
     parser.add_argument("--role", choices=sorted(ROLES), default="app")
     parser.add_argument("--env-file", type=Path)
@@ -207,7 +217,7 @@ def main() -> int:
                 return 1
             # PowerShell can put a byte-order mark before piped text.
             if (
-                role == MEDIA_ROLE
+                role in (MEDIA_ROLE, EDITOR_ROLE)
                 and not conn.execute(
                     "select 1 from pg_roles where rolname = %s", (role,)
                 ).fetchone()

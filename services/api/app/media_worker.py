@@ -77,6 +77,35 @@ class Probe:
     duration_seconds: float
     video_codec: str
     audio_codec: str | None
+    # The file's own tags, for suggesting the VJ's credit. Never trusted.
+    credit_hints: str | None = None
+
+
+# Tags that sometimes name the VJ, in the file or its first video track.
+CREDIT_TAGS = ("title", "artist", "album_artist", "comment", "description")
+MAX_CREDIT_HINTS = 500
+
+
+def credit_hints(data: dict) -> str | None:
+    """The tags in CREDIT_TAGS, as "tag: value" on one line each, or None.
+
+    Tag names are matched ignoring case. Values are cut to plain text on one
+    line, and the whole to MAX_CREDIT_HINTS characters."""
+    sources = [data.get("format") or {}]
+    sources += [s for s in data.get("streams") or [] if s.get("codec_type") == "video"][
+        :1
+    ]
+    lines: list[str] = []
+    for source in sources:
+        tags = {str(k).lower(): v for k, v in (source.get("tags") or {}).items()}
+        for name in CREDIT_TAGS:
+            value = " ".join(str(tags.get(name) or "").split())
+            value = "".join(ch for ch in value if ch.isprintable())
+            line = f"{name}: {value}"
+            if value and line not in lines:
+                lines.append(line)
+    text = "\n".join(lines)[:MAX_CREDIT_HINTS].strip()
+    return text or None
 
 
 def _rotation(stream: dict) -> int:
@@ -124,6 +153,7 @@ def parse_probe(data: dict) -> Probe:
         duration_seconds=round(duration, 3),
         video_codec=str(video.get("codec_name") or "unknown")[:50],
         audio_codec=str(audio.get("codec_name") or "unknown")[:50] if audio else None,
+        credit_hints=credit_hints(data),
     )
     if not ladder(probe):
         raise Refused(
@@ -400,6 +430,7 @@ class Worker:
             duration_seconds=probe.duration_seconds,
             video_codec=probe.video_codec,
             audio_codec=probe.audio_codec,
+            credit_hints=probe.credit_hints,
             reason=None,
         )
         logger.info(

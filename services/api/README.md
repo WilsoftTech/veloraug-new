@@ -75,6 +75,7 @@ The password is for that container only, which only this computer can reach. Por
 | `app/db.py` | The database connection pool. Each request runs in one transaction that acts for one user |
 | `app/profiles.py` | Profile reads and writes |
 | `app/catalogue.py` | Catalogue reads, the age rules for TMDB's details, and the background refresher |
+| `app/editions.py` | Drafts, publishing, episode approval and deleting the test films, shared by the owner's script and, from Step 9C, the admin routes |
 | `app/tmdb.py` | Fetches a movie's details from TMDB, with the read access token |
 | `app/config.py` | The typed settings |
 | `app/media_hooks.py` | A separate app: the upload hooks tusd calls, as `veloraug_media`. See [uploads](#uploads) |
@@ -167,7 +168,13 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe -m alembic current
 ```
 
-`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0004 (head)`: `0001` adds profiles, `0002` adds the catalogue, `0003` adds upload keys, originals, their qualities and the `veloraug_media` role, without a login yet, and `0004` lets the API see which published movies have a ready original.
+`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0005 (head)`:
+
+- `0001` adds profiles.
+- `0002` adds the first catalogue, of TMDB films.
+- `0003` adds upload keys, originals, their qualities and the `veloraug_media` role, without a login yet.
+- `0004` lets the API see which published movies have a ready original.
+- `0005` replaces the catalogue with the VJ catalogue: languages, VJs, source titles, editions, playable items, TMDB candidates and admins, and the `veloraug_editor` role, without a login yet. Today's films move across as test editions **with the same IDs**, so their videos in R2, their grants and their unused keys keep working. See the [VJ catalogue plan](../../docs/step-09a-vj-catalogue-plan.md#1-database).
 
 ### 4. Check it
 
@@ -175,7 +182,7 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe scripts\check_database.py
 ```
 
-This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. For the catalogue, it checks that hidden movies can't be seen, and that the API can't add, publish, hide or remove movies, or delete their details. For uploads, it checks that the API can't read or change upload keys or qualities, and that of originals it reads only the ID, movie and state of ready ones of published movies, and changes none. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
+This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks the role's rights, the grants and row-level security, that one user can't see or change another's row, that the user setting doesn't leak between transactions through the pooler, and that prepared statements work. For the catalogue, it checks that drafts, hidden editions and what only they use can't be seen, and that the API can't add, publish, hide or remove editions or episodes, or add or delete sources, VJs, languages or admins. For uploads, it checks that the API can't read or change upload keys or qualities, and that of originals it reads only the ID, item and state of ready ones of published, approved items, and changes none. The tests that write use random user IDs inside a transaction that is rolled back, so they leave nothing behind. Every line should say `PASS`.
 
 **Rules for migrations:**
 
@@ -186,26 +193,30 @@ This connects as `veloraug_app`, using `.env`, and asks for nothing. It checks t
 
 ## Catalogue
 
-The catalogue lists only VeloraUG's own movies. The owner adds each one by its TMDB ID, the number in its themoviedb.org address, such as `550` in `themoviedb.org/movie/550-fight-club`. A new movie is hidden until it is published. See the [catalogue plan](../../docs/step-06a-catalogue-plan.md).
+VeloraUG streams **Luganda-translated movies and series by Ugandan VJs**. A **source title**, usually from TMDB, can have several **VJ editions**. A movie edition has one **playable item**; a series edition has one per episode. Upload keys and videos belong to items. An edition starts as a **draft**, before its video is uploaded, and is published once it has a ready video, details, a chosen poster and a confirmed VJ credit. See the [VJ catalogue plan](../../docs/step-09a-vj-catalogue-plan.md).
 
-The script needs `VELORAUG_TMDB_READ_ACCESS_TOKEN` in `.env`. It asks for the owner string like the migration does, because the API's role can't change the catalogue, and checks the branch the same way. It never prints the token or the string.
+From Step 9C, admins do this in the app. The owner's script does it too, and some things only the owner can: adding the first admin, and deleting the test films. It asks for the owner string like the migration does, and checks the branch the same way. It never prints the TMDB token or the string.
 
 ```powershell
 cd C:\Users\Wilsoft\veloraug\services\api
-.\.venv\Scripts\python.exe scripts\catalogue.py add 550 27205
-.\.venv\Scripts\python.exe scripts\catalogue.py publish 550
 .\.venv\Scripts\python.exe scripts\catalogue.py list
+.\.venv\Scripts\python.exe scripts\catalogue.py draft movie "Fast X" --year 2023
+.\.venv\Scripts\python.exe scripts\catalogue.py admin add <user id>
 ```
 
 Type one command at a time. If several are pasted together, the hidden prompt can read the next line, rather than the string.
 
 | Command | What it does |
 | --- | --- |
-| `add` and TMDB IDs | Fetches every movie from TMDB first and shows its title and year. Then it asks for the owner string, and for `yes`, and adds them all, hidden. If one is already added, nothing changes |
-| `publish`, `unpublish` and movies | Shows or hides them in the app. A movie is its TMDB ID, or the VeloraUG ID from `list`. If one isn't found, nothing changes |
-| `list` | Every movie, published first, with how old its TMDB details are |
-| `refresh` | Fetches details older than 7 days again. Details that can't be fetched are deleted at 180 days |
-| `purge-tmdb` | Deletes every copy of TMDB's details and hides every movie, after you type `purge`. For when the TMDB licence ends |
+| `list` | Every edition, published first: its kind, state, VJ, language, where its details came from and whether its video is ready |
+| `draft movie` title `[--year]` | Starts a movie edition's draft and prints its item's ID, for `grant-upload` |
+| `draft series` title `--season` n `--episode` n | Starts a series edition with its first episode |
+| `draft episode --series` edition `--season` n `--episode` n | Adds an episode to a series edition |
+| `publish`, `unpublish` and edition IDs | Shows or hides them in the app. Publishing says what is missing, if anything, and shows a series' ready episodes. If one fails, nothing changes |
+| `refresh` | Fetches TMDB details older than 7 days again. Details that can't be fetched are cleared at 180 days, and what shows them is hidden |
+| `purge-tmdb` | Clears every copy of TMDB's details and hides what shows them, after you type `purge`. Typed-in details stay. For when the TMDB licence ends |
+| `admin add`, `admin remove` user ID, `admin list` | Names who may use the admin screens. The last admin can't be removed. The user ID is Neon Auth's, in the Neon Console under **Auth**, **Users** |
+| `delete-test-films` | Deletes the films from before Milestone 9, after you type `delete`. The first run hides them and has the media worker remove their videos from R2; run it again once `uploads` shows them removed |
 
 **TMDB's terms forbid keeping its data for more than 6 months.** The API refreshes details older than 7 days itself, after answering, as long as `VELORAUG_TMDB_READ_ACCESS_TOKEN` is set. It never shows details older than 150 days. If the API isn't running for a long time, run `refresh` at least once a month.
 
@@ -213,19 +224,19 @@ Type one command at a time. If several are pasted together, the hidden prompt ca
 
 ### Upload keys
 
-The owner and trusted uploaders upload movie files with one-time **upload keys**. A key lets whoever holds it upload one file for one movie. It expires after 7 days unless `--days` says otherwise, from 1 to 30. Only its SHA-256 is stored, so it is shown once, when it is made. See the [uploads plan](../../docs/step-07a-uploads-plan.md).
+The owner and trusted uploaders upload video files with one-time **upload keys**. A key lets whoever holds it upload one file for one item: a movie edition, or one episode. It expires after 7 days unless `--days` says otherwise, from 1 to 30. Only its SHA-256 is stored, so it is shown once, when it is made. See the [uploads plan](../../docs/step-07a-uploads-plan.md).
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\catalogue.py grant-upload 550 --for "Kampala Films"
+.\.venv\Scripts\python.exe scripts\catalogue.py grant-upload <item id> --for "Kampala Films"
 .\.venv\Scripts\python.exe scripts\catalogue.py uploads
 ```
 
 | Command | What it does |
 | --- | --- |
-| `grant-upload` movie `--for` who `[--days 7]` | Makes a key for one upload to the movie, which needn't be published, and prints it once. Send it privately |
+| `grant-upload` item `--for` who `[--days 7]` | Makes a key for one upload to the item, which needn't be published, and prints it once. Send it privately. A movie edition's ID works too |
 | `revoke-upload` key ID | Stops a key working. A key already used stays used |
 | `remove-original` original ID | Deletes an original and its qualities from R2, after you type `remove`. See [publish to R2](#publish-to-r2) |
-| `uploads [movie]` | Every key, newest first, with who it was for, whether it is unused, used, expired or revoked, and its original's state, size, resolution, format, the qualities made from it and any reason it was refused. Never the key itself |
+| `uploads [edition or item]` | Every key, newest first, with who it was for, whether it is unused, used, expired or revoked, and its original's state, size, resolution, format, the qualities made from it and any reason it was refused. Never the key itself |
 
 ### Start the upload services
 
@@ -239,7 +250,7 @@ cd C:\Users\Wilsoft\veloraug\services\api
 .\.venv\Scripts\python.exe scripts\check_media_role.py
 ```
 
-`check_media_role.py` asks for nothing, changes nothing, and should print **14 PASS**: the role has no special rights, and can't make, revoke or read the label of keys, delete keys or originals, read movies, TMDB details or profiles, publish movies or change the schema.
+`check_media_role.py` asks for nothing, changes nothing, and should print **15 PASS**: the role has no special rights, and can't make, revoke or read the label of keys, delete keys or originals, read editions, source details, admins or profiles, publish editions or change the schema.
 
 Then, with Docker Desktop running:
 
@@ -272,7 +283,7 @@ After the upload, `catalogue.py uploads` shows its original as `received`, then 
 
 The **media worker**, [`app/media_worker.py`](app/media_worker.py), takes one `received` original at a time:
 
-1. **Checks it with FFprobe.** A file without a video track, one FFprobe can't read, or one smaller than 360 lines and 640 pixels across is `refused`, with a plain reason, and deleted.
+1. **Checks it with FFprobe.** A file without a video track, one FFprobe can't read, or one smaller than 360 lines and 640 pixels across is `refused`, with a plain reason, and deleted. The file's own `title`, `artist`, `album_artist`, `comment` and `description` tags are kept as **credit hints**, up to 500 characters, so the admin screens can suggest the VJ.
 2. **Converts it with FFmpeg,** in one run, to every quality from 360p to 1080p that the original can fill, never larger: H.264 video, stereo AAC sound, 6-second chunks, and a keyframe every 2 seconds in every quality, so a player can switch cleanly. A wide film, 1920×800, gets all four. A failed conversion is tried 3 times, then marked `failed` with FFmpeg's last line.
 3. **Waits in `publishing`,** with its HLS files in `services/worker/transcoding/<original ID>/`, until Step 7E publishes them to R2.
 

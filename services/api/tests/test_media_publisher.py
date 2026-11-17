@@ -27,7 +27,7 @@ from app.media_publisher import (
 from app.media_worker import ATTEMPTS, RETRY_SECONDS, Worker
 from scripts.create_app_role import scram_verifier
 from scripts.upload_keys import UploadKeyError, list_uploads, request_removal
-from tests.db_support import needs_database, url_for
+from tests.db_support import needs_database, new_item, url_for
 
 MEDIA_PASSWORD = "local-test-media-password"
 
@@ -204,10 +204,7 @@ def quiet_queue(owner_url, app_url):
 @pytest.fixture
 def movie(owner_url, app_url):
     with psycopg.connect(owner_url) as conn:
-        (movie_id,) = conn.execute(
-            "insert into public.movies (tmdb_id) values (%s) returning id",
-            (1_000_000 + uuid.uuid4().int % 1_000_000_000,),
-        ).fetchone()
+        movie_id = new_item(conn)
     return movie_id
 
 
@@ -217,7 +214,7 @@ def waiting_original(owner_url, movie_id, state="publishing"):
         (key_id,) = conn.execute(
             """
             insert into public.upload_keys
-              (movie_id, key_hash, label, expires_at, used_at)
+              (item_id, key_hash, label, expires_at, used_at)
             values (%s, %s, 'Test', now() + interval '1 day', now()) returning id
             """,
             (movie_id, os.urandom(32)),
@@ -225,7 +222,7 @@ def waiting_original(owner_url, movie_id, state="publishing"):
         conn.execute(
             """
             insert into public.media_originals
-              (id, movie_id, upload_key_id, size_bytes, state)
+              (id, item_id, upload_key_id, size_bytes, state)
             values (%s, %s, %s, 5000, %s)
             """,
             (original_id, movie_id, key_id, state),

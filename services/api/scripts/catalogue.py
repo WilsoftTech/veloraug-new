@@ -1,27 +1,36 @@
-"""The owner's catalogue: add, publish, hide, list and refresh movies.
+"""The owner's catalogue: editions, drafts, keys, admins and the test films.
 
 Run by the project owner, from services/api:
 
-    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py add 550
-    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py publish 550
-    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py unpublish 550
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py list
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py draft movie "Fast X" --year 2023
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py draft series "Kabaka" \\
+        --season 1 --episode 1
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py draft episode \\
+        --series <edition id> --season 1 --episode 2
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py publish <edition id>
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py unpublish <edition id>
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py refresh
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py purge-tmdb
-    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py grant-upload 550 --for Owner
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py grant-upload <item id> --for Me
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py revoke-upload <key id>
-    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py uploads [550]
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py uploads [<edition id>]
     .\\.venv\\Scripts\\python.exe scripts\\catalogue.py remove-original <original id>
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py admin add <user id>
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py admin remove <user id>
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py admin list
+    .\\.venv\\Scripts\\python.exe scripts\\catalogue.py delete-test-films
 
-A movie is named by its TMDB ID, the number in its themoviedb.org address, or
-by VeloraUG's own ID from `list`.
+Editions, items and drafts are described in docs/step-09a-vj-catalogue-plan.md.
+From Step 9C, admins do most of this in the app; these commands stay for the
+owner, and `admin` and `delete-test-films` are the owner's alone.
 
-It connects as the database owner, because the API's role can't change the
-catalogue. It asks for the owner's direct connection string, hidden, unless
+It connects as the database owner, because the API's roles can't do all of
+this. It asks for the owner's direct connection string, hidden, unless
 VELORAUG_MIGRATION_DATABASE_URL is set, and checks it is the branch sign-in
 uses before changing anything. The TMDB token comes from
 VELORAUG_TMDB_READ_ACCESS_TOKEN, in the environment or services/api/.env.
-Neither is ever printed. See docs/step-06a-catalogue-plan.md.
+Neither is ever printed.
 """
 
 import argparse
@@ -40,6 +49,7 @@ import psycopg
 API_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(API_DIR))
 
+from app import editions  # noqa: E402
 from app.catalogue import REFRESH_AFTER, save_details  # noqa: E402
 from app.tmdb import (  # noqa: E402
     MovieDetails,
@@ -60,6 +70,7 @@ from scripts.upload_keys import (  # noqa: E402
     UploadKeyError,
     describe_uploads,
     grant_upload,
+    item_name,
     list_uploads,
     request_removal,
     revoke_upload,
@@ -77,91 +88,58 @@ class CatalogueError(Exception):
 
 
 @dataclass(frozen=True)
-class Movie:
+class Edition:
     id: uuid.UUID
-    tmdb_id: int
-    published: bool
-    title: str | None
-    year: int | None
+    kind: str
+    title: str
+    status: str
+    test: bool
+    vj: str | None
+    language: str
+    tmdb_id: int | None
+    details_from: str | None
     fetched_at: datetime | None
+    items: int
+    ready: int
 
 
 # --- Database work, given a connection. The caller commits. ------------------
 
 
-def add_movie(conn: psycopg.Connection, details: MovieDetails) -> uuid.UUID:
-    """Adds the movie, unpublished, with its TMDB copy."""
-    row = conn.execute(
-        """
-        insert into public.movies (tmdb_id) values (%s)
-        on conflict (tmdb_id) do nothing
-        returning id
-        """,
-        (details.tmdb_id,),
-    ).fetchone()
-    if row is None:
-        raise CatalogueError(f"TMDB movie {details.tmdb_id} is already added")
-    save_details(conn, details)
-    return row[0]
+_EDITION = """
+    select e.id, e.kind, e.display_title, e.status, e.test, v.name, e.language,
+           s.tmdb_id, s.details_from, s.fetched_at,
+           (select count(*) from public.items i where i.edition_id = e.id),
+           (select count(*) from public.items i
+            where i.edition_id = e.id and exists (
+              select from public.media_originals o
+              where o.item_id = i.id and o.state = 'ready'))
+    from public.editions e
+    left join public.sources s on s.id = e.source_id
+    left join public.vjs v on v.id = e.vj_id
+"""
 
 
-def _where(key: str) -> tuple[str, object]:
-    """The movie a key names: VeloraUG's ID, or a TMDB ID."""
+def find_edition(conn: psycopg.Connection, key: str) -> Edition:
     try:
-        return "id = %s", uuid.UUID(key)
+        edition_id = uuid.UUID(key)
     except ValueError:
-        pass
-    if key.isdigit() and 0 < int(key) < 2**31:
-        return "tmdb_id = %s", int(key)
-    raise CatalogueError(f"{key!r} isn't a TMDB ID or a VeloraUG movie ID")
-
-
-def find_movie(conn: psycopg.Connection, key: str) -> Movie:
-    column, value = _where(key)
-    row = conn.execute(
-        f"""
-        select m.id, m.tmdb_id, m.published, d.title,
-               extract(year from d.release_date)::int, d.fetched_at
-        from public.movies m
-        left join public.tmdb_movie_details d using (tmdb_id)
-        where m.{column}
-        """,
-        (value,),
-    ).fetchone()
+        raise CatalogueError(f"{key!r} isn't an edition ID. See `list`") from None
+    row = conn.execute(_EDITION + " where e.id = %s", (edition_id,)).fetchone()
     if row is None:
-        raise CatalogueError(f"No movie {key} in the catalogue. Add it first")
-    return Movie(*row)
+        raise CatalogueError(f"No edition {key}. See `list`")
+    return Edition(*row)
 
 
-def set_published(conn: psycopg.Connection, key: str, published: bool) -> Movie:
-    movie = find_movie(conn, key)
-    if published and movie.title is None:
-        raise CatalogueError(
-            f"TMDB movie {movie.tmdb_id} has no details yet. Run refresh first"
-        )
-    conn.execute(
-        """
-        update public.movies
-        set published = %s,
-            published_at = case when %s then coalesce(published_at, now()) end
-        where id = %s
-        """,
-        (published, published, movie.id),
-    )
-    return find_movie(conn, str(movie.id))
-
-
-def list_movies(conn: psycopg.Connection) -> list[Movie]:
+def list_editions(conn: psycopg.Connection) -> list[Edition]:
     rows = conn.execute(
-        """
-        select m.id, m.tmdb_id, m.published, d.title,
-               extract(year from d.release_date)::int, d.fetched_at
-        from public.movies m
-        left join public.tmdb_movie_details d using (tmdb_id)
-        order by m.published desc, m.published_at desc nulls last, m.added_at desc
+        _EDITION
+        + """
+        order by e.status = 'published' desc, e.published_at desc nulls last,
+                 e.created_at desc
         """
     ).fetchall()
-    return [Movie(*row) for row in rows]
+    return [Edition(*row) for row in rows]
 
 
 @dataclass
@@ -177,19 +155,20 @@ def refresh(
     fetch: Callable[[int], MovieDetails],
     now: datetime | None = None,
 ) -> RefreshResult:
-    """Fetches copies older than REFRESH_AFTER. A copy that can't be fetched
-    is kept until DELETE_AFTER, then deleted.
+    """Fetches TMDB copies of movie sources older than REFRESH_AFTER. A copy
+    that can't be fetched is kept until DELETE_AFTER; then its source is
+    marked as needing details, and its editions are hidden.
 
     Stops at the first refused token, because every other fetch would fail
-    the same way.
+    the same way. Series sources are refreshed from Step 9C.
     """
     now = now or datetime.now(UTC)
     result = RefreshResult(failed=[])
     rows = conn.execute(
         """
-        select m.tmdb_id, d.fetched_at from public.movies m
-        left join public.tmdb_movie_details d using (tmdb_id)
-        order by m.tmdb_id
+        select tmdb_id, fetched_at from public.sources
+        where kind = 'movie' and details_from = 'tmdb'
+        order by tmdb_id
         """
     ).fetchall()
     for tmdb_id, fetched_at in rows:
@@ -205,20 +184,101 @@ def refresh(
         except TmdbError as error:
             result.failed.append(f"{tmdb_id}: {error}")
         if fetched_at is not None and now - fetched_at >= DELETE_AFTER:
-            conn.execute(
-                "delete from public.tmdb_movie_details where tmdb_id = %s", (tmdb_id,)
-            )
-            result.deleted += 1
+            result.deleted += expire_copy(conn, tmdb_id)
     return result
 
 
-def purge_tmdb(conn: psycopg.Connection) -> int:
-    """Deletes every TMDB copy. Movies stay, unpublished."""
+def expire_copy(conn: psycopg.Connection, tmdb_id: int) -> int:
+    """Clears a TMDB copy past TMDB's limit, and hides what shows it. The
+    source keeps its TMDB ID, so a later refresh can fill it again."""
     conn.execute(
-        "update public.movies set published = false, published_at = null "
-        "where published"
+        """
+        update public.editions set status = 'hidden', updated_at = now()
+        where status = 'published' and source_id in (
+          select id from public.sources where kind = 'movie' and tmdb_id = %s)
+        """,
+        (tmdb_id,),
     )
-    return conn.execute("delete from public.tmdb_movie_details").rowcount
+    return conn.execute(
+        """
+        update public.sources set overview = null, original_title = null,
+          release_date = null, runtime_minutes = null, genres = '{}',
+          poster_path = null, backdrop_path = null, trailer_key = null,
+          fetched_at = null
+        where kind = 'movie' and tmdb_id = %s
+        """,
+        (tmdb_id,),
+    ).rowcount
+
+
+def purge_tmdb(conn: psycopg.Connection) -> int:
+    """Clears every TMDB copy, and hides every edition that shows one.
+    Typed-in details stay."""
+    conn.execute(
+        """
+        update public.editions set status = 'hidden', updated_at = now()
+        where status = 'published' and source_id in (
+          select id from public.sources where details_from = 'tmdb')
+        """
+    )
+    return conn.execute(
+        """
+        update public.sources set overview = null, original_title = null,
+          release_date = null, runtime_minutes = null, genres = '{}',
+          poster_path = null, backdrop_path = null, trailer_key = null,
+          fetched_at = null
+        where details_from = 'tmdb'
+        """
+    ).rowcount
+
+
+def add_admin(
+    conn: psycopg.Connection, user_id: str, email: str | None = None
+) -> uuid.UUID:
+    try:
+        parsed = uuid.UUID(user_id)
+    except ValueError:
+        raise CatalogueError(
+            f"{user_id!r} isn't a user ID. It is the long ID Neon Auth gives "
+            "each user, shown in the Neon Console under Auth, Users"
+        ) from None
+    email = (email or "").strip() or None
+    if email is not None and ("@" not in email or len(email) > 320):
+        raise CatalogueError(f"{email!r} isn't an email address")
+    added = conn.execute(
+        """
+        insert into public.admins (user_id, email) values (%s, %s)
+        on conflict (user_id) do nothing
+        """,
+        (parsed, email),
+    ).rowcount
+    if not added:
+        raise CatalogueError("That user is already an admin")
+    return parsed
+
+
+def remove_admin(conn: psycopg.Connection, user_id: str) -> None:
+    try:
+        parsed = uuid.UUID(user_id)
+    except ValueError:
+        raise CatalogueError(f"{user_id!r} isn't a user ID") from None
+    try:
+        with conn.transaction():
+            removed = conn.execute(
+                "delete from public.admins where user_id = %s", (parsed,)
+            ).rowcount
+    except psycopg.errors.CheckViolation:
+        raise CatalogueError(
+            "That is the last admin. Add another first, then remove this one"
+        ) from None
+    if not removed:
+        raise CatalogueError("That user isn't an admin")
+
+
+def list_admins(conn: psycopg.Connection) -> list[tuple]:
+    return conn.execute(
+        "select user_id, email, added_by, added_at from public.admins order by added_at"
+    ).fetchall()
 
 
 # --- The command line --------------------------------------------------------
@@ -226,19 +286,28 @@ def purge_tmdb(conn: psycopg.Connection) -> int:
 
 def _age(fetched_at: datetime | None, now: datetime) -> str:
     if fetched_at is None:
-        return "no details"
+        return "no TMDB copy"
     days = (now - fetched_at).days
     return "fetched today" if days == 0 else f"fetched {days} days ago"
 
 
-def describe_movie(movie: Movie, now: datetime | None = None) -> str:
+def describe_edition(edition: Edition, now: datetime | None = None) -> str:
     now = now or datetime.now(UTC)
-    state = "published" if movie.published else "hidden"
-    year = f" ({movie.year})" if movie.year else ""
-    title = movie.title or "(no details)"
+    who = "test film" if edition.test else (edition.vj or "no VJ yet")
+    if edition.details_from == "tmdb":
+        details = f"TMDB {edition.tmdb_id}, {_age(edition.fetched_at, now)}"
+    elif edition.details_from == "manual":
+        details = "details typed in"
+    else:
+        details = "no details yet"
+    videos = (
+        f"{edition.ready} of {plural(edition.items, 'episode', 'episodes')} ready"
+        if edition.kind == "series"
+        else ("video ready" if edition.ready else "no video yet")
+    )
     return (
-        f"{title}{year}  TMDB {movie.tmdb_id}  {state}  "
-        f"{_age(movie.fetched_at, now)}  id {movie.id}"
+        f"{edition.title}  {edition.kind}  {edition.status}  {who}  "
+        f"{edition.language}  {details}  {videos}  id {edition.id}"
     )
 
 
@@ -322,57 +391,74 @@ def failure_message(error: psycopg.Error, url: str) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
-    if args.command == "add":
-        # Everything is fetched before the owner string is asked for, so a
-        # wrong ID costs nothing.
-        tmdb_ids = list(dict.fromkeys(args.tmdb_ids))
-        with tmdb_client() as client:
-            found = [client.movie(tmdb_id) for tmdb_id in tmdb_ids]
-        for details in found:
-            year = f" ({details.year})" if details.year else ""
-            genres = f"  {', '.join(details.genres)}" if details.genres else ""
-            print(f"TMDB {details.tmdb_id}: {details.title}{year}{genres}")
+    if args.command == "draft":
         with connect() as conn:
-            for details in found:
-                try:
-                    find_movie(conn, str(details.tmdb_id))
-                except CatalogueError:
-                    continue
-                raise CatalogueError(
-                    f"TMDB movie {details.tmdb_id} is already added. Nothing changed"
-                )
-            question = "Add it, hidden?" if len(found) == 1 else "Add them, hidden?"
-            if not typed(question, "yes"):
-                print("Nothing changed.")
-                return 1
-            for details in found:
-                add_movie(conn, details)
-            # One commit: all are added, or none.
+            try:
+                if args.kind == "episode" and not args.series:
+                    raise CatalogueError(
+                        "Name the series edition with --series. For a new "
+                        "series, use `draft series` with its first episode"
+                    )
+                if args.kind == "series" and args.series:
+                    raise CatalogueError(
+                        "`draft series` starts a new series. For another "
+                        "episode of one, use `draft episode`"
+                    )
+                if args.kind in ("series", "episode"):
+                    draft = editions.create_draft(
+                        conn,
+                        kind="series",
+                        title=args.title,
+                        year=args.year,
+                        language=args.language,
+                        series_edition=args.series,
+                        season=args.season,
+                        episode=args.episode,
+                    )
+                else:
+                    draft = editions.create_draft(
+                        conn,
+                        kind=args.kind,
+                        title=args.title,
+                        year=args.year,
+                        language=args.language,
+                    )
+            except editions.EditionError as error:
+                raise CatalogueError(str(error)) from None
             conn.commit()
-        print(f"Added {plural(len(found), 'movie', 'movies')}, hidden.")
-        ids = " ".join(str(tmdb_id) for tmdb_id in tmdb_ids)
-        print(f"Publish with: scripts\\catalogue.py publish {ids}")
+        print(f"Draft edition {draft.edition_id}, item {draft.item_id}.")
+        print(
+            "Make its upload key with: scripts\\catalogue.py grant-upload "
+            f"{draft.item_id} --for <who>"
+        )
         return 0
 
     if args.command in ("publish", "unpublish"):
         with connect() as conn:
-            movies = [
-                set_published(conn, key, args.command == "publish")
-                for key in dict.fromkeys(args.movies)
-            ]
+            changed = []
+            for key in dict.fromkeys(args.editions):
+                edition = find_edition(conn, key)
+                try:
+                    if args.command == "publish":
+                        editions.publish(conn, edition.id)
+                    else:
+                        editions.hide(conn, edition.id)
+                except editions.EditionError as error:
+                    raise CatalogueError(f"{edition.title}: {error}") from None
+                changed.append(edition.id)
             # One commit: all change, or none.
             conn.commit()
-        for movie in movies:
-            print(describe_movie(movie))
+            for edition_id in changed:
+                print(describe_edition(find_edition(conn, str(edition_id))))
         return 0
 
     if args.command == "list":
         with connect() as conn:
-            movies = list_movies(conn)
-        for movie in movies:
-            print(describe_movie(movie))
-        published = sum(movie.published for movie in movies)
-        print(f"\n{plural(len(movies), 'movie', 'movies')}, {published} published")
+            found = list_editions(conn)
+        for edition in found:
+            print(describe_edition(edition))
+        published = sum(edition.status == "published" for edition in found)
+        print(f"\n{plural(len(found), 'edition', 'editions')}, {published} published")
         return 0
 
     if args.command == "refresh":
@@ -382,7 +468,7 @@ def run(args: argparse.Namespace) -> int:
         print(
             f"{result.refreshed} refreshed, {result.up_to_date} already up to "
             f"date, {plural(result.deleted, 'expired copy', 'expired copies')} "
-            "deleted"
+            "cleared"
         )
         for failure in result.failed or []:
             print(f"Failed: {failure}")
@@ -390,20 +476,30 @@ def run(args: argparse.Namespace) -> int:
 
     if args.command == "grant-upload":
         with connect() as conn:
-            movie = find_movie(conn, args.movie)
-            key, text = grant_upload(conn, movie.id, args.label, args.days)
+            try:
+                item_id = editions.find_item(conn, args.item)
+            except editions.EditionError as error:
+                raise CatalogueError(str(error)) from None
+            title, season, episode = conn.execute(
+                """
+                select e.display_title, i.season, i.episode
+                from public.items i join public.editions e on e.id = i.edition_id
+                where i.id = %s
+                """,
+                (item_id,),
+            ).fetchone()
+            key, text = grant_upload(conn, item_id, args.label, args.days)
             conn.commit()
-        title = movie.title or f"TMDB {movie.tmdb_id}"
-        year = f" ({movie.year})" if movie.year else ""
         print(
-            f"Upload key for {key.label}: one file for {title}{year}, "
+            f"Upload key for {key.label}: one file for "
+            f"{item_name(title, season, episode)}, "
             f"until {key.expires_at:%d %B %Y %H:%M} UTC."
         )
         print("It is shown only this once:")
         print(f"\n    {text}\n")
         print(
-            "Send it privately. Anyone who has it can upload one file for this "
-            "movie. To stop it:"
+            "Send it privately. Anyone who has it can upload one file for this. "
+            "To stop it:"
         )
         print(f"    scripts\\catalogue.py revoke-upload {key.id}")
         return 0
@@ -423,12 +519,19 @@ def run(args: argparse.Namespace) -> int:
 
     if args.command == "uploads":
         with connect() as conn:
-            movie_id = find_movie(conn, args.movie).id if args.movie else None
-            movies = list_uploads(conn, movie_id)
-        if not movies:
+            only = None
+            if args.edition:
+                try:
+                    only = uuid.UUID(args.edition)
+                except ValueError:
+                    raise CatalogueError(
+                        f"{args.edition!r} isn't an edition or item ID"
+                    ) from None
+            items = list_uploads(conn, only)
+        if not items:
             print("No upload keys yet. Make one with grant-upload.")
-        for movie in movies:
-            print("\n".join(describe_uploads(movie)))
+        for item in items:
+            print("\n".join(describe_uploads(item)))
         return 0
 
     if args.command == "remove-original":
@@ -450,37 +553,93 @@ def run(args: argparse.Namespace) -> int:
 
     if args.command == "purge-tmdb":
         with connect() as conn:
-            if not typed("Delete every TMDB copy and hide every movie?", "purge"):
+            if not typed(
+                "Clear every TMDB copy and hide every edition that shows one?",
+                "purge",
+            ):
                 print("Nothing changed.")
                 return 1
-            deleted = purge_tmdb(conn)
+            cleared = purge_tmdb(conn)
             conn.commit()
         print(
-            f"{plural(deleted, 'TMDB copy', 'TMDB copies')} deleted. "
-            "Every movie is hidden."
+            f"{plural(cleared, 'TMDB copy', 'TMDB copies')} cleared. "
+            "Editions showing them are hidden."
         )
+        return 0
+
+    if args.command == "admin":
+        with connect() as conn:
+            if args.action == "add":
+                add_admin(conn, args.user_id, args.email)
+                conn.commit()
+                print("Added. They see Admin in the app once they sign in again.")
+            elif args.action == "remove":
+                remove_admin(conn, args.user_id)
+                conn.commit()
+                print("Removed.")
+            else:
+                admins = list_admins(conn)
+                for user_id, email, added_by, added_at in admins:
+                    by = f"by {added_by}" if added_by else "from the terminal"
+                    print(
+                        f"{email or '(no email)'}  user {user_id}  added "
+                        f"{added_at:%d %b %Y} {by}"
+                    )
+                print(plural(len(admins), "admin", "admins"))
+        return 0
+
+    if args.command == "delete-test-films":
+        with connect() as conn:
+            if not typed(
+                "Delete the films from before Milestone 9, with their videos "
+                "in R2? Their links stop working.",
+                "delete",
+            ):
+                print("Nothing changed.")
+                return 1
+            done = editions.delete_test_films(conn)
+            conn.commit()
+        if not done.editions:
+            print("There are no test films.")
+        elif done.deleted:
+            print(f"{plural(done.editions, 'test film', 'test films')} deleted.")
+        else:
+            print(
+                f"{plural(done.editions, 'test film', 'test films')} hidden, and "
+                f"{plural(done.still_removing, 'video', 'videos')} being removed "
+                "from R2 by the media worker. Run this again once `uploads` "
+                "shows them removed, to delete the films."
+            )
         return 0
 
     raise AssertionError(args.command)
 
 
 def parser() -> argparse.ArgumentParser:
-    main_parser = argparse.ArgumentParser(description="Manage VeloraUG's movies.")
+    main_parser = argparse.ArgumentParser(description="Manage VeloraUG's catalogue.")
     commands = main_parser.add_subparsers(dest="command", required=True)
-    add = commands.add_parser("add", help="add movies from TMDB, hidden")
-    add.add_argument("tmdb_ids", type=int, nargs="+", metavar="tmdb_id")
-    for name, text in (("publish", "show"), ("unpublish", "hide")):
-        command = commands.add_parser(name, help=f"{text} movies in the app")
-        command.add_argument(
-            "movies", nargs="+", metavar="movie", help="TMDB IDs or VeloraUG movie IDs"
-        )
-    commands.add_parser("list", help="every movie, published or not")
-    commands.add_parser("refresh", help="fetch TMDB copies older than 7 days")
-    commands.add_parser("purge-tmdb", help="delete every TMDB copy")
-    grant = commands.add_parser(
-        "grant-upload", help="make a one-time key to upload one file for a movie"
+    draft = commands.add_parser(
+        "draft", help="start a draft: a movie, a new series, or an episode"
     )
-    grant.add_argument("movie", help="TMDB ID or VeloraUG movie ID")
+    draft.add_argument("kind", choices=("movie", "series", "episode"))
+    draft.add_argument(
+        "title", nargs="?", help="as submitted; not needed for an episode"
+    )
+    draft.add_argument("--year", type=int)
+    draft.add_argument("--language", default=editions.DEFAULT_LANGUAGE)
+    draft.add_argument("--series", help="for an episode: the series edition's ID")
+    draft.add_argument("--season", type=int)
+    draft.add_argument("--episode", type=int)
+    for name, text in (("publish", "show"), ("unpublish", "hide")):
+        command = commands.add_parser(name, help=f"{text} editions in the app")
+        command.add_argument("editions", nargs="+", metavar="edition")
+    commands.add_parser("list", help="every edition, published or not")
+    commands.add_parser("refresh", help="fetch TMDB copies older than 7 days")
+    commands.add_parser("purge-tmdb", help="clear every TMDB copy")
+    grant = commands.add_parser(
+        "grant-upload", help="make a one-time key to upload one file"
+    )
+    grant.add_argument("item", help="an item ID, or a movie edition's ID")
     grant.add_argument(
         "--for", dest="label", required=True, help="who the key is for, e.g. Owner"
     )
@@ -490,19 +649,37 @@ def parser() -> argparse.ArgumentParser:
     revoke = commands.add_parser("revoke-upload", help="stop an upload key working")
     revoke.add_argument("key_id", help="the key ID that uploads shows")
     uploads = commands.add_parser("uploads", help="upload keys and their originals")
-    uploads.add_argument("movie", nargs="?", help="only this movie")
+    uploads.add_argument(
+        "edition", nargs="?", help="only this edition, or this one item"
+    )
     remove = commands.add_parser(
         "remove-original", help="delete an original and its qualities from R2"
     )
     remove.add_argument("original_id", help="the original ID that uploads shows")
+    admin = commands.add_parser("admin", help="add, remove or list admins")
+    admin.add_argument("action", choices=("add", "remove", "list"))
+    admin.add_argument("user_id", nargs="?", help="the user's Neon Auth ID")
+    admin.add_argument("--email", help="their email, to show in the list")
+    commands.add_parser(
+        "delete-test-films", help="delete the films from before Milestone 9"
+    )
     return main_parser
 
 
 def main() -> int:
     args = parser().parse_args()
+    if args.command == "admin" and args.action != "list" and not args.user_id:
+        print("Give the user's ID", file=sys.stderr)
+        return 2
     try:
         return run(args)
-    except (CatalogueError, UploadKeyError, TmdbError, ValueError) as error:
+    except (
+        CatalogueError,
+        UploadKeyError,
+        editions.EditionError,
+        TmdbError,
+        ValueError,
+    ) as error:
         print(str(error), file=sys.stderr)
         return 1
     except psycopg.Error as error:

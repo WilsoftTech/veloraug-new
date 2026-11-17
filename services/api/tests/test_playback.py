@@ -21,8 +21,7 @@ from app.config import Settings
 from app.db import Database
 from app.main import create_app
 from app.playback import GRANT_SECONDS, Granter, sign_grant
-from scripts.catalogue import add_movie, set_published
-from tests.db_support import migrate, needs_database
+from tests.db_support import add_movie, migrate, needs_database, set_published
 from tests.test_catalogue import details
 from tests.test_database import FakeVerifier, as_user
 from tests.test_uploads import ready_original
@@ -51,7 +50,7 @@ def test_the_shared_vector_matches():
     """The Worker's tests check the same grant, so the two can't drift."""
     grant = sign_grant(
         VECTOR["key"].encode(),
-        movie_id=uuid.UUID(VECTOR["movie_id"]),
+        item_id=uuid.UUID(VECTOR["movie_id"]),
         original_id=uuid.UUID(VECTOR["original_id"]),
         expires=VECTOR["expires"],
     )
@@ -60,7 +59,7 @@ def test_the_shared_vector_matches():
 
 def test_a_grant_is_a_signed_payload_naming_the_movie_and_original():
     movie, original = uuid.uuid4(), uuid.uuid4()
-    grant = sign_grant(KEY.encode(), movie_id=movie, original_id=original, expires=7)
+    grant = sign_grant(KEY.encode(), item_id=movie, original_id=original, expires=7)
 
     payload, signature = grant.split(".")
     assert json.loads(unb64(payload)) == {"m": str(movie), "o": str(original), "e": 7}
@@ -73,7 +72,7 @@ def test_a_grant_is_a_signed_payload_naming_the_movie_and_original():
 
 
 def test_a_different_key_makes_a_different_signature():
-    ids = {"movie_id": uuid.uuid4(), "original_id": uuid.uuid4(), "expires": 7}
+    ids = {"item_id": uuid.uuid4(), "original_id": uuid.uuid4(), "expires": 7}
     assert sign_grant(b"x" * 32, **ids) != sign_grant(b"y" * 32, **ids)
 
 
@@ -88,7 +87,7 @@ def test_the_granter_builds_the_address_and_expiry():
     assert playback.playlist_url.endswith("/master.m3u8")
     token = playback.playlist_url.removeprefix(prefix).removesuffix("/master.m3u8")
     assert token == sign_grant(
-        KEY.encode(), movie_id=movie, original_id=original, expires=NOW + GRANT_SECONDS
+        KEY.encode(), item_id=movie, original_id=original, expires=NOW + GRANT_SECONDS
     )
     assert playback.expires_at == datetime.fromtimestamp(NOW + 6 * 3600, UTC)
 

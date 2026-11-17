@@ -16,7 +16,7 @@ from scripts import catalogue
 from scripts.check_database import run_checks
 from scripts.upload_keys import (
     KEY_PREFIX,
-    MovieUploads,
+    ItemUploads,
     Original,
     UploadKey,
     UploadKeyError,
@@ -29,7 +29,7 @@ from scripts.upload_keys import (
     revoke_upload,
     size_text,
 )
-from tests.db_support import needs_database
+from tests.db_support import needs_database, new_item
 
 NOW = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
 
@@ -72,7 +72,7 @@ def test_sizes_read_naturally():
 def _key(**changes) -> UploadKey:
     fields = {
         "id": uuid.UUID(int=1),
-        "movie_id": uuid.UUID(int=2),
+        "item_id": uuid.UUID(int=2),
         "label": "Kampala Films",
         "created_at": NOW - timedelta(days=1),
         "expires_at": NOW + timedelta(days=6),
@@ -115,14 +115,20 @@ def test_uploads_lists_each_key_with_its_original():
             qualities=(360, 480, 720),
         ),
     ]
-    movie = MovieUploads(
-        uuid.UUID(int=2), 550, "Fight Club", [_key(), refused, ready], originals
+    item = ItemUploads(
+        uuid.UUID(int=2),
+        uuid.UUID(int=9),
+        "Fight Club",
+        None,
+        None,
+        [_key(), refused, ready],
+        originals,
     )
 
-    lines = describe_uploads(movie, NOW)
+    lines = describe_uploads(item, NOW)
 
     assert lines == [
-        "Fight Club  TMDB 550",
+        f"Fight Club  item {uuid.UUID(int=2)}",
         f"  key for Kampala Films: expires 18 Nov 12:00 UTC  key id {uuid.UUID(int=1)}",
         f"  key for Kampala Films: used  key id {uuid.UUID(int=3)}",
         f"    original {uuid.UUID(int=4)}: refused, 900.0 KB, 240p H264. "
@@ -152,10 +158,7 @@ def test_grant_upload_needs_to_know_who_for():
 def movie(owner_url, app_url):
     """A movie of its own for each test, committed so other roles see it."""
     with psycopg.connect(owner_url) as conn:
-        (movie_id,) = conn.execute(
-            "insert into public.movies (tmdb_id) values (%s) returning id",
-            (1_000_000 + uuid.uuid4().int % 1_000_000_000,),
-        ).fetchone()
+        movie_id = new_item(conn)
     return movie_id
 
 
@@ -171,7 +174,7 @@ def claim(conn, key):
         update public.upload_keys set used_at = now()
         where key_hash = %s and used_at is null and revoked_at is null
           and expires_at > now()
-        returning id, movie_id
+        returning id, item_id
         """,
         (key_hash(key),),
     ).fetchone()
@@ -182,7 +185,7 @@ def add_original(conn, key_id, movie_id):
     conn.execute(
         """
         insert into public.media_originals
-          (id, movie_id, upload_key_id, size_bytes, filename)
+          (id, item_id, upload_key_id, size_bytes, filename)
         values (%s, %s, %s, %s, %s)
         """,
         (original_id, movie_id, key_id, 1_000_000, "film.mp4"),
@@ -266,10 +269,7 @@ def test_an_original_needs_a_used_key_for_the_same_movie(owner_url, media_url, m
     unused_key, _ = grant(owner_url, movie)
     used_key, used = grant(owner_url, movie)
     with psycopg.connect(owner_url) as conn:
-        (other_movie,) = conn.execute(
-            "insert into public.movies (tmdb_id) values (%s) returning id",
-            (1_000_000 + uuid.uuid4().int % 1_000_000_000,),
-        ).fetchone()
+        other_movie = new_item(conn)
     with psycopg.connect(media_url) as conn:
         claim(conn, used)
         conn.commit()
@@ -286,19 +286,20 @@ def test_an_original_needs_a_used_key_for_the_same_movie(owner_url, media_url, m
 @pytest.mark.parametrize(
     "statement",
     [
-        "insert into public.upload_keys (movie_id, key_hash, label, expires_at) "
+        "insert into public.upload_keys (item_id, key_hash, label, expires_at) "
         "select id, sha256('x'), 'x', now() + interval '1 day' "
         "from public.media_originals",
         "update public.upload_keys set revoked_at = null",
         "update public.upload_keys set label = 'x'",
         "delete from public.upload_keys",
         "delete from public.media_originals",
-        "update public.media_originals set movie_id = id",
+        "update public.media_originals set item_id = id",
         "update public.media_renditions set width = 1",
         "select label from public.upload_keys",
-        "select count(*) from public.movies",
-        "update public.movies set published = true",
-        "select count(*) from public.tmdb_movie_details",
+        "select count(*) from public.editions",
+        "update public.editions set status = 'published'",
+        "select count(*) from public.sources",
+        "select count(*) from public.admins",
         "select count(*) from public.profiles",
     ],
 )
@@ -321,7 +322,7 @@ def test_the_media_role_can_do_nothing_else(media_url, statement):
         "update public.upload_keys set used_at = now()",
         "update public.media_originals set state = 'ready'",
         "delete from public.media_originals",
-        "insert into public.media_originals (id, movie_id, upload_key_id, size_bytes) "
+        "insert into public.media_originals (id, item_id, upload_key_id, size_bytes) "
         "values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1)",
     ],
 )
@@ -337,8 +338,8 @@ def test_the_database_checks_cover_uploads(app_url):
     for name in (
         "RLS and forced RLS on the upload tables",
         "can't read or change upload keys or qualities",
-        "reads only the ID, movie and state of originals, and changes none",
-        "sees ready originals of published movies only",
+        "reads only the ID, item and state of originals, and changes none",
+        "sees ready originals of published, approved items only",
     ):
         assert results[name].passed, results[name]
     assert all(result.passed for result in results.values())
@@ -346,10 +347,6 @@ def test_the_database_checks_cover_uploads(app_url):
 
 @needs_database
 def test_the_owner_commands_end_to_end(owner_url, movie, monkeypatch, capsys):
-    with psycopg.connect(owner_url) as conn:
-        (tmdb_id,) = conn.execute(
-            "select tmdb_id from public.movies where id = %s", (movie,)
-        ).fetchone()
     monkeypatch.setenv("VELORAUG_MIGRATION_DATABASE_URL", owner_url)
 
     def run(*args):
@@ -357,13 +354,13 @@ def test_the_owner_commands_end_to_end(owner_url, movie, monkeypatch, capsys):
         code = catalogue.main()
         return code, capsys.readouterr()
 
-    code, out = run("grant-upload", str(tmdb_id), "--for", "Owner", "--days", "2")
+    code, out = run("grant-upload", str(movie), "--for", "Owner", "--days", "2")
     assert code == 0
     [key] = [line.strip() for line in out.out.splitlines() if KEY_PREFIX in line]
     assert key.startswith(KEY_PREFIX)
     assert "shown only this once" in out.out
 
-    code, out = run("uploads", str(tmdb_id))
+    code, out = run("uploads", str(movie))
     assert code == 0
     assert "key for Owner: expires" in out.out
     assert key not in out.out
@@ -377,7 +374,7 @@ def test_the_owner_commands_end_to_end(owner_url, movie, monkeypatch, capsys):
     assert code == 0
     assert out.out.splitlines()[-1] == "Key for Owner revoked. It can't be used now."
 
-    code, out = run("uploads", str(tmdb_id))
+    code, out = run("uploads", str(movie))
     assert "key for Owner: revoked" in out.out
 
     code, out = run("revoke-upload", "not-an-id")

@@ -9,8 +9,8 @@ deleted. See "R2" in docs/step-07a-uploads-plan.md.
 
 Paths in R2 use VeloraUG's IDs only:
 
-    movies/<movie id>/<original id>/master.m3u8
-    movies/<movie id>/<original id>/<quality>/index.m3u8, init_N.mp4, seg_*.m4s
+    movies/<item id>/<original id>/master.m3u8
+    movies/<item id>/<original id>/<quality>/index.m3u8, init_N.mp4, seg_*.m4s
     originals/<original id>
 """
 
@@ -249,22 +249,24 @@ class Publisher:
         self.upload_dir = upload_dir
         self.output_dir = output_dir
 
-    def _movie(self, original_id: uuid.UUID) -> uuid.UUID:
+    def _item(self, original_id: uuid.UUID) -> uuid.UUID:
+        """The item the original belongs to. Its R2 folder is still called
+        movies/, so files published before items existed keep their paths."""
         with self.database.anonymous() as conn:
-            (movie_id,) = conn.execute(
-                "select movie_id from public.media_originals where id = %s",
+            (item_id,) = conn.execute(
+                "select item_id from public.media_originals where id = %s",
                 (original_id,),
             ).fetchone()
-        return movie_id
+        return item_id
 
     def publish(self, original_id: uuid.UUID) -> None:
-        movie_id = self._movie(original_id)
+        item_id = self._item(original_id)
         out = self.output_dir / str(original_id)
         source = self.upload_dir / str(original_id)
         if not (out / "master.m3u8").is_file() or not source.is_file():
             raise PublishError("The converted files or the original are missing.")
         qualities = read_master(out / "master.m3u8")
-        prefix = f"movies/{movie_id}/{original_id}"
+        prefix = f"movies/{item_id}/{original_id}"
 
         sent: dict[str, int] = {}
 
@@ -321,10 +323,10 @@ class Publisher:
                 """
                 update public.media_originals
                 set state = 'removing', updated_at = now()
-                where movie_id = %s and state = 'ready' and id <> %s
+                where item_id = %s and state = 'ready' and id <> %s
                 returning id
                 """,
-                (movie_id, original_id),
+                (item_id, original_id),
             ).fetchall()
             conn.execute(
                 """
@@ -350,8 +352,8 @@ class Publisher:
     def remove(self, original_id: uuid.UUID) -> int:
         """Deletes an original's files from R2 and this computer, and marks it
         'removed'. Infrequent Access still bills an original for 30 days."""
-        movie_id = self._movie(original_id)
-        deleted = self.store.delete_prefix(f"movies/{movie_id}/{original_id}/")
+        item_id = self._item(original_id)
+        deleted = self.store.delete_prefix(f"movies/{item_id}/{original_id}/")
         deleted += self.store.delete_prefix(f"originals/{original_id}")
         with self.database.anonymous() as conn:
             conn.execute(
