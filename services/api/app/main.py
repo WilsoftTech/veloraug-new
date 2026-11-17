@@ -13,6 +13,7 @@ from app.db import Database, DatabaseUnavailable
 from app.playback import Granter
 from app.routes import router
 from app.tmdb import TmdbClient
+from app.viewer_routes import router as viewer_router
 
 logger = logging.getLogger("veloraug.db")
 catalogue_logger = logging.getLogger("veloraug.catalogue")
@@ -114,5 +115,6 @@ def create_app(
         )
 
     app.include_router(router)
+    app.include_router(viewer_router)
     app.include_router(admin_router)
     return app

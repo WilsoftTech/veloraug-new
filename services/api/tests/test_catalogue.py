@@ -718,7 +718,7 @@ def test_refresh_fetches_only_old_copies(owner):
     )
     fetched_ids: list[int] = []
 
-    def fetch(tmdb_id):
+    def fetch(kind, tmdb_id):
         fetched_ids.append(tmdb_id)
         return details(tmdb_id, f"New {tmdb_id}")
 
@@ -740,7 +740,7 @@ def test_a_failed_refresh_keeps_a_copy_until_180_days_then_clears_it(owner):
     age(owner, young, 30)
     age(owner, expired, DELETE_AFTER.days)
 
-    def fetch(tmdb_id):
+    def fetch(kind, tmdb_id):
         if tmdb_id == young:
             raise TmdbUnavailable("TMDB answered 503")
         if tmdb_id == expired:
@@ -752,8 +752,8 @@ def test_a_failed_refresh_keeps_a_copy_until_180_days_then_clears_it(owner):
     assert fetched(owner, young)[1] is not None
     assert fetched(owner, expired)[1] is None
     assert find_edition(owner, str(shown)).status == "hidden"
-    assert f"{young}: TMDB answered 503" in result.failed
-    assert f"{expired}: TMDB has no movie {expired}" in result.failed
+    assert f"movie {young}: TMDB answered 503" in result.failed
+    assert f"movie {expired}: TMDB has no movie {expired}" in result.failed
     assert result.deleted >= 1
 
 
@@ -763,7 +763,7 @@ def test_a_refused_token_stops_the_refresh(owner):
     add_movie(owner, details(tmdb_id))
     age(owner, tmdb_id, 30)
 
-    def fetch(tmdb_id):
+    def fetch(kind, tmdb_id):
         raise TmdbRefused("TMDB refused the token")
 
     with pytest.raises(TmdbRefused):

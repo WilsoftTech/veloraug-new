@@ -79,6 +79,7 @@ The password is for that container only, which only this computer can reach. Por
 | `app/admin.py` | The admin routes, `/api/v1/admin/...`. See [admin](#admin) |
 | `app/admin_catalogue.py` | What the admin routes read and write, as `veloraug_editor` |
 | `app/matching.py` | Cleaning submitted titles, deciding when TMDB's answer is clear, and suggesting VJ credits |
+| `app/viewer.py`, `app/viewer_routes.py` | The viewers' catalogue from Step 9D: VJs, editions, episodes and playback by item |
 | `app/images.py` | Image addresses: TMDB's, or the media gateway's for uploaded posters and VJ photos |
 | `app/tmdb.py` | Fetches a movie's details from TMDB, with the read access token |
 | `app/config.py` | The typed settings |
@@ -442,6 +443,12 @@ VELORAUG_MEDIA_GATEWAY_URL=http://127.0.0.1:8787
 - `GET /health` says that this server process is running and can answer. **It does not check the database or any other service.** An `ok` means only that the process responded.
 - `GET /api/v1` says which service this is and which API version it serves. Future endpoints will go under `/api/v1`, so a later `v2` can exist alongside them without breaking older apps.
 - `GET /api/v1/me` returns the signed-in user's ID, from a verified [access token](#the-concepts-using-this-service-as-the-example), and their display name. The profile is created on first use. `PATCH /api/v1/me` with `{"display_name": "…"}` changes the name, from 1 to 80 characters, and `null` clears it. These are the only endpoints that need a token.
+- From Step 9D, the VJ catalogue, needing no sign-in:
+  - `GET /api/v1/editions` lists published editions, newest first, as cards: `id`, `kind`, `title`, `year`, `poster_url`, `vj_name` (for the label on the poster), `vj_slug`, `language` and `label`, such as `Luganda · VJ Junior`. Filters: `?kind=movie|series`, `?vj=` a VJ's slug, `?language=`, `?genre=` and `?q=`, which searches titles and VJ names. Paged like `/movies`.
+  - `GET /api/v1/editions/{id}` adds the source's title, `overview`, `runtime_minutes`, `genres`, `backdrop_url`, `trailer_url` (YouTube), the VJ's ID and photo, `playable`, and either `item_id`, a movie's video, or `seasons`, each with its approved episodes and their item IDs. `404` and `503` as for `/movies/{id}`.
+  - `GET /api/v1/vjs` lists VJs with something published; `GET /api/v1/vjs/{slug}` is a VJ's page, with their bio, movies and series.
+  - `GET /api/v1/languages` lists languages with published editions.
+  - `POST /api/v1/items/{id}/playback` grants a viewing of one item, a movie's video or one episode, exactly as `/movies/{id}/playback` does. It needs a token.
 - `GET /api/v1/movies` lists published movies, newest first: `id`, `title`, `year` and `poster_url`. `?q=` searches titles, 2 to 80 characters, with titles that start with it first. `?limit=` is 1 to 50, 24 by default, and `next_offset` gives the next page's `?offset=`, or `null` on the last.
 - `GET /api/v1/movies/{id}` adds `overview`, `runtime_minutes`, `genres` and `backdrop_url`. A movie that doesn't exist and one that isn't published both answer `404`, with the same message. `503` with `Retry-After` means its details are being fetched.
 

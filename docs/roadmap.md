@@ -120,7 +120,7 @@ VeloraUG streams **Luganda-translated movies and series by Ugandan VJs**, browse
 - [x] 9A: Plan VJs, source titles, editions and episodes, upload drafts, TMDB matching, VJ credit and admin publishing
 - [x] 9B: Migration `0005`, the editor role, today's films moved across with their IDs, and credit hints from FFprobe (automated, on a local Postgres set up as Neon is; not yet run on Neon)
 - [x] 9C: The API's admin routes: drafts and keys, previews, TMDB, VJ credit, publishing, and uploaded posters and VJ photos through the media gateway (automated, on a local Postgres set up as Neon is, with TMDB faked; not yet on Neon or Cloudflare)
-- [ ] 9D: The API's viewer routes: VJs, editions, episodes, search, playback by item
+- [x] 9D: The API's viewer routes: VJs, editions, episodes, search, playback by item, and TMDB refreshes for series as well as movies (automated, on a local Postgres set up as Neon is)
 - [ ] 9E: The app: localization set-up, viewer screens with Next Episode, and admin screens on the web
 - [ ] 9F: On Neon and Cloudflare: a real translated movie and a two-episode series published through the admin screens and watched on web and one phone
 

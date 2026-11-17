@@ -152,52 +152,53 @@ class RefreshResult:
 
 def refresh(
     conn: psycopg.Connection,
-    fetch: Callable[[int], MovieDetails],
+    fetch: Callable[[str, int], MovieDetails],
     now: datetime | None = None,
 ) -> RefreshResult:
-    """Fetches TMDB copies of movie sources older than REFRESH_AFTER. A copy
-    that can't be fetched is kept until DELETE_AFTER; then its source is
-    marked as needing details, and its editions are hidden.
+    """Fetches TMDB copies of sources, movies and series, older than
+    REFRESH_AFTER. `fetch` takes the kind and TMDB ID. A copy that can't be
+    fetched is kept until DELETE_AFTER; then it is cleared, and its editions
+    are hidden.
 
     Stops at the first refused token, because every other fetch would fail
-    the same way. Series sources are refreshed from Step 9C.
+    the same way.
     """
     now = now or datetime.now(UTC)
     result = RefreshResult(failed=[])
     rows = conn.execute(
         """
-        select tmdb_id, fetched_at from public.sources
-        where kind = 'movie' and details_from = 'tmdb'
-        order by tmdb_id
+        select kind, tmdb_id, fetched_at from public.sources
+        where details_from = 'tmdb'
+        order by kind, tmdb_id
         """
     ).fetchall()
-    for tmdb_id, fetched_at in rows:
+    for kind, tmdb_id, fetched_at in rows:
         if fetched_at is not None and now - fetched_at < REFRESH_AFTER:
             result.up_to_date += 1
             continue
         try:
-            save_details(conn, fetch(tmdb_id))
+            save_details(conn, fetch(kind, tmdb_id), kind)
             result.refreshed += 1
             continue
         except TmdbRefused:
             raise
         except TmdbError as error:
-            result.failed.append(f"{tmdb_id}: {error}")
+            result.failed.append(f"{kind} {tmdb_id}: {error}")
         if fetched_at is not None and now - fetched_at >= DELETE_AFTER:
-            result.deleted += expire_copy(conn, tmdb_id)
+            result.deleted += expire_copy(conn, tmdb_id, kind)
     return result
 
 
-def expire_copy(conn: psycopg.Connection, tmdb_id: int) -> int:
+def expire_copy(conn: psycopg.Connection, tmdb_id: int, kind: str = "movie") -> int:
     """Clears a TMDB copy past TMDB's limit, and hides what shows it. The
     source keeps its TMDB ID, so a later refresh can fill it again."""
     conn.execute(
         """
         update public.editions set status = 'hidden', updated_at = now()
         where status = 'published' and source_id in (
-          select id from public.sources where kind = 'movie' and tmdb_id = %s)
+          select id from public.sources where kind = %s and tmdb_id = %s)
         """,
-        (tmdb_id,),
+        (kind, tmdb_id),
     )
     return conn.execute(
         """
@@ -205,9 +206,9 @@ def expire_copy(conn: psycopg.Connection, tmdb_id: int) -> int:
           release_date = null, runtime_minutes = null, genres = '{}',
           poster_path = null, backdrop_path = null, trailer_key = null,
           fetched_at = null
-        where kind = 'movie' and tmdb_id = %s
+        where kind = %s and tmdb_id = %s
         """,
-        (tmdb_id,),
+        (kind, tmdb_id),
     ).rowcount
 
 
@@ -463,7 +464,7 @@ def run(args: argparse.Namespace) -> int:
 
     if args.command == "refresh":
         with tmdb_client() as client, connect() as conn:
-            result = refresh(conn, client.movie)
+            result = refresh(conn, client.details)
             conn.commit()
         print(
             f"{result.refreshed} refreshed, {result.up_to_date} already up to "
