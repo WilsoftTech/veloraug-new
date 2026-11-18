@@ -74,11 +74,16 @@ services:
       - -base-path=/files/
       - -upload-dir=/srv/tusd-data
       - -max-size=53687091200
-      # Nobody can read an upload back, or delete one, through tusd.
+      # Nobody can read an upload back through tusd.
       - -disable-download
-      - -disable-termination
+      # An unfinished upload can be removed, from the admin screens' Remove.
+      # The pre-terminate hook refuses any upload that has finished.
       - -hooks-http=http://media-hooks:8000/tusd
-      - -hooks-enabled-events=pre-create,post-finish
+      - -hooks-enabled-events=pre-create,post-finish,pre-terminate
+      # The admin screens upload from the browser, Step 9G. Only the local
+      # web app's address may, and it may send the upload key.
+      - -cors-allow-origin=^http://localhost:8765$$
+      - -cors-allow-headers=Upload-Key
       # A pre-create call is never repeated: a repeat could find its own key
       # already used, and refuse the upload it had just accepted.
       - -hooks-http-retry=0

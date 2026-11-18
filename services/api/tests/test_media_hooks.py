@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from app.db import Database
 from app.media_hooks import (
     BAD_KEY,
+    NOT_REMOVABLE,
     UNAVAILABLE,
     Hooks,
     MediaSettings,
@@ -48,6 +49,10 @@ def pre_create(key: str | None = None, size=1_000_000, **upload):
 
 def finished(upload_id: str):
     return {"Type": "post-finish", "Event": {"Upload": {"ID": upload_id}}}
+
+
+def terminate(upload_id: str):
+    return {"Type": "pre-terminate", "Event": {"Upload": {"ID": upload_id}}}
 
 
 class NoDatabase:
@@ -130,6 +135,14 @@ def test_the_app_has_no_documentation_pages_and_answers_health():
         for path in ("/docs", "/redoc", "/openapi.json"):
             assert client.get(path).status_code == 404
         assert client.post("/tusd", content=b"not json").json() == {}
+
+
+@pytest.mark.parametrize("upload_id", ["", "not-a-uuid", None])
+def test_removing_an_unknown_upload_is_refused_before_the_database(upload_id):
+    answer = Hooks(NoDatabase()).handle(terminate(upload_id))
+
+    assert answer["RejectTermination"] is True
+    assert answer["HTTPResponse"]["StatusCode"] == 403
 
 
 def test_an_unreachable_database_refuses_with_503_and_says_so():
@@ -225,6 +238,34 @@ def test_a_finished_upload_is_received_once(owner_url, media_database, key):
     assert hooks.handle(finished(upload_id)) == {}
     assert hooks.handle(finished("not-a-uuid")) == {}
     assert hooks.handle(finished(str(uuid.uuid4()))) == {}
+
+
+@needs_database
+def test_an_unfinished_upload_can_be_removed_once(owner_url, media_database, key):
+    hooks = Hooks(media_database)
+    upload_id = hooks.handle(pre_create(key[1]))["ChangeFileInfo"]["ID"]
+
+    assert hooks.handle(terminate(upload_id)) == {}
+    assert original(owner_url, upload_id)[1] == "removed"
+    again = hooks.handle(terminate(upload_id))
+    assert again["RejectTermination"] is True
+    assert again["HTTPResponse"]["StatusCode"] == 403
+    # A removed upload that finishes anyway stays removed.
+    hooks.handle(finished(upload_id))
+    assert original(owner_url, upload_id)[1] == "removed"
+
+
+@needs_database
+def test_a_finished_upload_cant_be_removed(owner_url, media_database, key):
+    hooks = Hooks(media_database)
+    upload_id = hooks.handle(pre_create(key[1]))["ChangeFileInfo"]["ID"]
+    hooks.handle(finished(upload_id))
+
+    answer = hooks.handle(terminate(upload_id))
+
+    assert answer["RejectTermination"] is True
+    assert answer["HTTPResponse"]["Body"] == NOT_REMOVABLE + "\n"
+    assert original(owner_url, upload_id)[1] == "received"
 
 
 @needs_database

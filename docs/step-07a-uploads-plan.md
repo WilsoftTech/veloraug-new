@@ -36,7 +36,7 @@ Not in Milestone 7: playback, the Worker and the player (Milestone 8); an upload
 | 3 | The owner issues keys with `scripts/catalogue.py`, as the database owner | The same tool and the same trust as adding and publishing movies |
 | 4 | Uploaders use `tools/veloraug_upload.py`, which needs only Python 3, no packages | Trusted uploaders can run it without the repository's setup. It speaks the tus protocol itself, which is three kinds of request |
 | 5 | tusd checks each new upload with a **pre-create hook** to a separate, internal **media hooks** service, which is never published outside Docker's network | tusd's blocking pre-create hook can refuse an upload before any data arrives. Keeping the hooks off the public API means no one outside can call them |
-| 6 | tusd runs with downloads and deletion turned off. A resumed upload is reached only by its upload address, a random ID only the uploader receives | Nobody can read or delete an upload through tusd. The pre-create hook runs once, so the address itself is the permission to resume |
+| 6 | tusd runs with downloads and deletion turned off. A resumed upload is reached only by its upload address, a random ID only the uploader receives | Nobody can read or delete an upload through tusd. The pre-create hook runs once, so the address itself is the permission to resume. **Changed in Step 9G:** deletion is on for unfinished uploads only, for the browser's Remove. A `pre-terminate` hook refuses it for any upload that has finished |
 | 7 | The hooks and the media worker use a new database role, **`veloraug_media`**, with row-level security | The API's role, `veloraug_app`, still can't change the catalogue or uploads. The media role can't publish movies |
 | 8 | **The quality ladder:** 360p, 480p, 720p and 1080p, H.264 video and stereo AAC sound, in HLS with fMP4 chunks of 6 seconds. Only the qualities at or below the original's height are made | The owner's choice. H.264 and AAC play everywhere. A fixed keyframe every 2 seconds, the same in every quality, lets the player switch cleanly |
 | 9 | Accepted: any file FFprobe reads with a video track **at least 360 lines** high. The first video track and the first sound track are used | Conversion means almost any format works. Below 360 lines there is no quality to make |
@@ -58,11 +58,13 @@ Draft bitrates, to be checked by eye at 7D:
 
 Widths follow the original's shape: a wider film keeps its proportions, and only the height is fixed.
 
+**Changed on 18 November 2026:** no quality gets more video bitrate than the original's own, read by FFprobe from the video track, from Matroska's `BPS` tag, or from the whole file's less its sound. The first real translated film, a 2.0 Mbit/s 1920 × 800 rip, was stored at 6.7 GB with the table above, its 1080p at about 4.8 Mbit/s. With the cap, 720p and 1080p get 2.0 Mbit/s and the film about 4.2 GB, with nothing visible lost. The floor is 400 kbit/s, and a file whose bitrate can't be read keeps the table.
+
 ### Routes ruled out
 
 | Route | Why not |
 | --- | --- |
-| An upload screen in the app | The owner chose the script. It would need admin roles, an upload UI and a Dart tus client. It can come later, using the same keys |
+| An upload screen in the app | The owner chose the script. It would need admin roles, an upload UI and a Dart tus client. It can come later, using the same keys. **Built in Step 9G**, in the admin screens, with the same keys. The script stays for trusted uploaders |
 | Uploader accounts with roles | More than one-time keys need now. Keys can be tied to accounts later |
 | Keeping the original's quality without converting | Compared with the owner on 12 November. Viewers on mobile data would get one large stream, HEVC and 4K don't play everywhere, and many files would be refused |
 | 4K | Most viewers watch on phones, and it would roughly double storage again. It can be made later from the kept originals |

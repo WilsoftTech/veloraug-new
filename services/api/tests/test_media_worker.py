@@ -153,6 +153,46 @@ def test_only_qualities_the_original_can_fill_are_made(width, height, expected):
     assert names(ladder(size(width, height))) == expected
 
 
+def test_the_original_bitrate_is_read_from_the_video_track_or_the_file():
+    assert parse_probe(probe_json(bit_rate="2100000")).video_bps == 2_100_000
+    # Matroska keeps it in a tag.
+    assert parse_probe(probe_json(tags={"BPS-eng": "1950000"})).video_bps == 1_950_000
+
+    data = probe_json()
+    data["format"]["bit_rate"] = "2228000"
+    data["streams"][1]["bit_rate"] = "128000"
+    assert parse_probe(data).video_bps == 2_100_000
+
+    # The total, less the audio assumed, when the audio's isn't given.
+    data = probe_json(duration="100")
+    data["format"]["size"] = str(2_628_000 * 100 // 8)
+    assert parse_probe(data).video_bps == 2_500_000
+
+    assert parse_probe(probe_json()).video_bps is None
+
+
+def test_no_quality_gets_more_bitrate_than_the_original():
+    film = Probe(1920, 800, 5118.0, "h264", "mp3", video_bps=2_100_000)
+
+    assert {r.name: r.video_bps for r in ladder(film)} == {
+        "360p": 800_000,
+        "480p": 1_400_000,
+        "720p": 2_100_000,
+        "1080p": 2_100_000,
+    }
+    command = " ".join(ffmpeg_command(Path("/x"), ladder(film), has_audio=True))
+    assert "-b:v:3 2100000" in command
+    assert "-b:v:0 800000" in command
+
+
+def test_a_rich_original_keeps_the_full_ladder_and_a_poor_one_a_floor():
+    rich = Probe(1920, 1080, 60.0, "h264", "aac", video_bps=12_000_000)
+    assert [r.video_bps for r in ladder(rich)] == [r.video_bps for r in LADDER]
+
+    poor = Probe(1280, 720, 60.0, "h264", "aac", video_bps=150_000)
+    assert {r.video_bps for r in ladder(poor)} == {400_000}
+
+
 def test_one_command_makes_every_quality_with_shared_keyframes():
     command = ffmpeg_command(Path("/srv/uploads/x"), list(LADDER), has_audio=True)
     text = " ".join(command)

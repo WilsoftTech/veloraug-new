@@ -112,6 +112,7 @@ Planned in the [playback plan](step-08a-playback-plan.md). Any signed-in viewer 
   - [x] *The Matrix*'s test clip plays, and seeking works, in Chrome and other browsers and on one Android phone (Galaxy S20, user-reported)
   - [x] Direct access refused: the bucket without credentials and its `r2.dev` address off; a changed, expired or wrongly signed grant `403`; one film's grant for another film, the original file and `../` refused (11 of 11 checks)
   - [ ] A real film's bitrates, using an authorized **translated** film: each quality watched, and the bitrates kept or changed
+    - Found with the first real film, 18 November 2026: the fixed bitrates stored a 2.0 Mbit/s film at 6.7 GB, its 1080p at about 4.8 Mbit/s. Every quality is now capped at the original's bitrate, about 4.2 GB for that film. Still to do: watch each quality
 
 ### Milestone 9: The VJ catalogue and admin publishing
 
@@ -123,6 +124,7 @@ VeloraUG streams **Luganda-translated movies and series by Ugandan VJs**, browse
 - [x] 9D: The API's viewer routes: VJs, editions, episodes, search, playback by item, and TMDB refreshes for series as well as movies (automated, on a local Postgres set up as Neon is)
 - [x] 9E: The app: localization set-up, viewer screens with Next Episode, and admin screens on the web. The Milestone 6 `/api/v1/movies` routes removed (widget tests with the API faked; not yet against the real API)
 - [ ] 9F: On Neon and Cloudflare: a real translated movie and a two-episode series published through the admin screens and watched on web and one phone
+- [ ] 9G: Uploads from the browser: drag and drop many files, read from their names, two at a time with progress, pause, resume, retry and remove, carrying on after a lost connection, a closed tab or a power cut. Built and tested (automated, with tusd faked; tusd's browser settings and delete route checked locally): see the [Step 9G run sheet](step-09g-runbook.md). Not yet checked by hand
 
 ### Milestone 10: Payments
 

@@ -129,12 +129,13 @@ When you finish, remove only this mapping:
 
 **Plain HTTP is allowed for debug builds only,** and only to `127.0.0.1` and `localhost`. The rule is in `android/app/src/debug/`, which is not part of release builds. Don't move it to the main manifest.
 
-### The `API_BASE_URL` and `MEDIA_BASE_URL` settings
+### The `API_BASE_URL`, `MEDIA_BASE_URL` and `UPLOAD_BASE_URL` settings
 
 | Name | Default | Set with |
 | --- | --- | --- |
 | `API_BASE_URL` | `http://127.0.0.1:8000` | `"--dart-define=API_BASE_URL=..."` when running or building |
 | `MEDIA_BASE_URL` | `http://127.0.0.1:8787` | `"--dart-define=MEDIA_BASE_URL=..."`. The media gateway. The app plays video from nowhere else. See [Watching](#watching) |
+| `UPLOAD_BASE_URL` | `http://127.0.0.1:1080/files/` | `"--dart-define=UPLOAD_BASE_URL=..."`. tusd, for the admin screens' [Uploads](#uploads-from-the-browser). Unlike the others it has a path, which must end in `/` |
 
 **This is public configuration, never a secret.** It is built into the app, where anyone can read it. Never pass a key or password with `--dart-define`.
 
@@ -289,6 +290,7 @@ A grant lasts 6 hours. If playback stops once it has run out, the app gets a new
 Planned in the [VJ catalogue plan](../../docs/step-09a-vj-catalogue-plan.md#6-app). On the web, an **Admin** entry appears in the menu for admins only: the app asks `GET /api/v1/admin/me` after sign-in, and shows it on `200`. Opening the app at `/admin` starts there. It isn't on Android in the first release. Every admin route checks again on the server, so hiding the menu is a convenience, not the protection.
 
 - **Drafts** lists drafts, hidden titles and series with new episodes waiting, each with what it still needs. **New draft** takes the title, movie or series, language, an optional year, and for a series the first episode's numbers. It shows the **upload key once**, with **Copy**. Upload the video with `python tools/veloraug_upload.py <file>` and paste the key when asked.
+- **Uploads** does the same from the browser, for many files at once, with no key to copy: see [Uploads from the browser](#uploads-from-the-browser).
 - **A draft's page** has, in order:
   - each video's state, with **Preview**, **New upload key**, **Revoke**, and for a published series **Approve episode** and **Add episode**;
   - the **details**: TMDB's candidates with **Use this**, **Search TMDB again**, **Use a TMDB ID**, or **Type the details in**;
@@ -299,6 +301,38 @@ Planned in the [VJ catalogue plan](../../docs/step-09a-vj-catalogue-plan.md#6-ap
 - **Settings** lists the admins and who added each one, adds an admin by email, and removes one, except the last. It also lists and adds languages.
 
 Posters and photos are JPEG, PNG or WebP, at most 2 MB. The browser sends them straight to the media gateway with a 10-minute upload address from `POST /api/v1/admin/images`, so the media gateway must be running and redeployed with its image routes.
+
+### Uploads from the browser
+
+Step 9G, in `lib/admin/uploads/`. **Admin → Uploads** takes video files dragged onto the page or picked with **Choose files**, as many as you like.
+
+1. **Each file is read from its name** into a row to check: title, movie or series, year, or season and episode, VJ and language. An episode is matched to the series it belongs to, by title and VJ, from `GET /api/v1/admin/series`. Rows can be changed or left out, and an episode the series already has, or one listed twice, is stopped before anything is made.
+2. **Start uploads** makes each file's draft, or adds the episode, with `POST /api/v1/admin/drafts`, and credits the VJ chosen in the row. Choosing a known VJ there and starting is the admin's confirmation. A VJ the file names who isn't known yet is left for the draft's page. The upload key goes straight into the upload and is never shown or kept.
+3. **Two files upload at a time**, each with a progress bar, the percentage, MB sent, speed and time left, and **Pause**, **Resume**, **Remove** and **Open draft**. The list can be filtered by VJ.
+
+**The naming guide,** shown on the screen, puts the VJ first, so files sort and search by VJ in Windows Explorer too:
+
+```text
+VJ Junior - Commando (1985).mp4
+VJ Junior - Prison Break S01E02.mp4
+```
+
+Other styles, such as `Fast.X.2023.VJ.Junior.Luganda.mp4`, are read as well as they can be: known VJs and their other spellings are found anywhere in the name, and words like HD, 720p and Luganda are dropped.
+
+**Nothing starts again from the beginning.** The app speaks tus, the same protocol as the upload script, in Dart in [`tus.dart`](lib/admin/uploads/tus.dart):
+
+| What happens | What the app does |
+| --- | --- |
+| The connection drops, or the server is down | tusd keeps every byte it got. The app tries again after 1, 3, 5, 10, 20 and 30 seconds, then every minute, and at once when the browser is back online. It asks tusd how much it has (`HEAD`) and sends only the rest |
+| A request hangs without failing | After 60 seconds with no progress, it is given up and tried again the same way |
+| **Pause** | The request in flight is stopped. **Resume** carries on from tusd's offset |
+| The tab closes, the browser restarts, or the power goes | Each upload is kept in the browser's IndexedDB with its upload address and how far it got. Opening **Uploads** again lists it. In Chrome and Edge, the file's handle is kept too, so **Resume** opens it again after Chrome asks to allow access. Elsewhere, drop or choose the same file again: it is recognised by name, size and date, and carries on |
+| tusd lost the upload | It starts again with a new key, and says so |
+| **Remove** | It stops, and deletes the part uploaded from tusd with `DELETE`. tusd's `pre-terminate` hook refuses that for a finished upload. The draft stays in Drafts |
+
+Each part sent is at most 50 MB, under Cloudflare's 100 MB limit on a request, for Milestone 11. The browser warns before leaving the page while anything is uploading. Uploads carry on while you use other screens, but stop when the tab closes.
+
+**To run it locally,** start tusd and the hooks with the `uploads` profile, as in [the API's README](../../services/api/README.md#start-the-upload-services). tusd only answers browsers on `http://localhost:8765`, so run the app on that port, as in [In Chrome](#in-chrome-two-terminals). Upload addresses kept in the browser give access to that one unfinished upload, like the script's `.veloraug-upload` file.
 
 ## Text and languages
 

@@ -25,7 +25,7 @@ import subprocess
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from app.db import Database, DatabaseUnavailable
@@ -52,6 +52,13 @@ LADDER = (
     Rung("720p", 1280, 720, 2_800_000, 128_000),
     Rung("1080p", 1920, 1080, 5_000_000, 128_000),
 )
+# A quality never gets more video bitrate than the original's: more bits
+# can't add detail the original doesn't have, only size in R2 and time to
+# publish. Never below this, so a wrongly reported bitrate can't make a film
+# unwatchable.
+MIN_VIDEO_BPS = 400_000
+# Audio assumed when a file reports a total bitrate but not its audio's.
+ASSUMED_AUDIO_BPS = 128_000
 SEGMENT_SECONDS = 6
 KEYFRAME_SECONDS = 2
 ATTEMPTS = 3
@@ -79,6 +86,8 @@ class Probe:
     audio_codec: str | None
     # The file's own tags, for suggesting the VJ's credit. Never trusted.
     credit_hints: str | None = None
+    # The original's video bitrate, when it can be told. Caps every quality.
+    video_bps: int | None = None
 
 
 # Tags that sometimes name the VJ, in the file or its first video track.
@@ -106,6 +115,50 @@ def credit_hints(data: dict) -> str | None:
                 lines.append(line)
     text = "\n".join(lines)[:MAX_CREDIT_HINTS].strip()
     return text or None
+
+
+def _bps(value) -> int | None:
+    try:
+        number = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _stream_bps(stream: dict | None) -> int | None:
+    """A stream's bitrate, from FFprobe, or from the BPS tag Matroska files
+    carry instead, such as BPS-eng."""
+    if not stream:
+        return None
+    found = _bps(stream.get("bit_rate"))
+    if found:
+        return found
+    for name, value in (stream.get("tags") or {}).items():
+        if str(name).upper().split("-")[0] == "BPS":
+            found = _bps(value)
+            if found:
+                return found
+    return None
+
+
+def source_video_bps(
+    data: dict, video: dict, audio: dict | None, duration: float
+) -> int | None:
+    """The original's video bitrate: the video track's own, or else the
+    whole file's less its audio. None when the file says neither."""
+    found = _stream_bps(video)
+    if found:
+        return found
+    form = data.get("format") or {}
+    total = _bps(form.get("bit_rate"))
+    if total is None:
+        size = _bps(form.get("size"))
+        total = int(size * 8 / duration) if size and duration > 0 else None
+    if total is None:
+        return None
+    if audio is not None:
+        total -= _stream_bps(audio) or ASSUMED_AUDIO_BPS
+    return total if total > 0 else None
 
 
 def _rotation(stream: dict) -> int:
@@ -154,6 +207,7 @@ def parse_probe(data: dict) -> Probe:
         video_codec=str(video.get("codec_name") or "unknown")[:50],
         audio_codec=str(audio.get("codec_name") or "unknown")[:50] if audio else None,
         credit_hints=credit_hints(data),
+        video_bps=source_video_bps(data, video, audio, duration),
     )
     if not ladder(probe):
         raise Refused(
@@ -165,8 +219,15 @@ def parse_probe(data: dict) -> Probe:
 
 def ladder(probe: Probe) -> list[Rung]:
     """Every quality the original can fill in at least one direction, so a
-    picture is only ever made smaller. A wide film, 1920×800, gets 1080p."""
-    return [r for r in LADDER if probe.width >= r.width or probe.height >= r.height]
+    picture is only ever made smaller. A wide film, 1920×800, gets 1080p.
+
+    Each quality's video bitrate is capped at the original's, so a 2 Mbit/s
+    film isn't stored at 5 Mbit/s in 1080p."""
+    rungs = [r for r in LADDER if probe.width >= r.width or probe.height >= r.height]
+    if probe.video_bps is None:
+        return rungs
+    cap = max(probe.video_bps, MIN_VIDEO_BPS)
+    return [replace(r, video_bps=min(r.video_bps, cap)) for r in rungs]
 
 
 def ffmpeg_command(source: Path, rungs: list[Rung], has_audio: bool) -> list[str]:
@@ -434,13 +495,16 @@ class Worker:
             reason=None,
         )
         logger.info(
-            "original %s: %s×%s %s/%s, %.0f s, making %s",
+            "original %s: %s×%s %s/%s, %.0f s, %s, making %s",
             original_id,
             probe.width,
             probe.height,
             probe.video_codec,
             probe.audio_codec or "no sound",
             probe.duration_seconds,
+            f"{probe.video_bps / 1e6:.1f} Mbit/s"
+            if probe.video_bps
+            else "bitrate unknown",
             ", ".join(r.name for r in rungs),
         )
         started = self.clock()

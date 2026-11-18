@@ -411,6 +411,43 @@ def list_work(conn: psycopg.Connection) -> list[EditionState]:
     return [get_edition(conn, edition_id) for (edition_id,) in ids]
 
 
+@dataclass
+class SeriesRef:
+    """A series edition, for matching dropped episode files to it."""
+
+    id: uuid.UUID
+    display_title: str
+    language: str
+    status: str
+    vj_id: uuid.UUID | None
+    vj_name: str | None
+    episodes: list[tuple[int | None, int | None]]
+
+
+def list_series(conn: psycopg.Connection) -> list[SeriesRef]:
+    """Every series edition but test ones, in any state, with the
+    episode numbers it already has. Newest first."""
+    rows = conn.execute(
+        """
+        select e.id, e.display_title, e.language, e.status, e.vj_id, v.name,
+               coalesce(
+                 (select array_agg(array[i.season, i.episode]
+                                   order by i.season, i.episode)
+                  from public.items i where i.edition_id = e.id),
+                 '{}')
+        from public.editions e
+        left join public.vjs v on v.id = e.vj_id
+        where e.kind = 'series' and not e.test
+        order by e.created_at desc
+        limit 1000
+        """
+    ).fetchall()
+    return [
+        SeriesRef(*row[:6], episodes=[(pair[0], pair[1]) for pair in row[6]])
+        for row in rows
+    ]
+
+
 def due_for_lookup(conn: psycopg.Connection, limit: int = 5) -> list[uuid.UUID]:
     """Drafts whose video is ready and that TMDB hasn't been asked about."""
     return [

@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'admin/uploads/tus.dart';
+import 'admin/uploads/upload_platform.dart' as uploads;
+import 'admin/uploads/upload_queue.dart';
+import 'admin/uploads/uploads_view.dart';
 import 'api/admin_api.dart';
 import 'api/api_config.dart';
 import 'api/catalogue_api.dart';
@@ -22,6 +26,8 @@ class VeloraApp extends StatefulWidget {
     this.catalogueApi,
     this.playbackApi,
     this.adminApi,
+    this.uploadQueue,
+    this.pickVideos = uploads.pickVideos,
     this.showAdmin = adminScreensAvailable,
   });
 
@@ -38,6 +44,13 @@ class VeloraApp extends StatefulWidget {
 
   /// Replaces the admin client built from this build's settings, in tests.
   final AdminApi? adminApi;
+
+  /// Replaces the browser upload queue built from this build's settings, in
+  /// tests. The app doesn't dispose of it.
+  final UploadQueue? uploadQueue;
+
+  /// The file chooser for uploads. Tests replace it.
+  final Future<List<PickedVideo>> Function() pickVideos;
 
   /// Whether the Admin entry may show, to admins. The web only, except in
   /// tests.
@@ -56,6 +69,9 @@ class _VeloraAppState extends State<VeloraApp> {
   PlaybackApi? _ownPlayback;
   http.Client? _adminHttpClient;
   AdminApi? _ownAdmin;
+  UploadQueue? _ownUploads;
+
+  UploadQueue? get _uploads => widget.uploadQueue ?? _ownUploads;
 
   AdminApi? get _admin => widget.adminApi ?? _ownAdmin;
 
@@ -72,6 +88,7 @@ class _VeloraAppState extends State<VeloraApp> {
     if (widget.catalogueApi == null) _ownCatalogue = _catalogueFromSettings();
     if (widget.playbackApi == null) _ownPlayback = _playbackFromSettings();
     if (widget.adminApi == null) _ownAdmin = _adminFromSettings();
+    if (widget.uploadQueue == null) _ownUploads = _uploadsFromSettings();
     _auth?.restore();
   }
 
@@ -132,6 +149,30 @@ class _VeloraAppState extends State<VeloraApp> {
     }
   }
 
+  /// Uploads from the admin screens: the web only, with the admin routes
+  /// and tusd's address.
+  UploadQueue? _uploadsFromSettings() {
+    final admin = _admin;
+    if (!kIsWeb || !widget.showAdmin || admin == null) return null;
+    final Uri endpoint;
+    try {
+      endpoint = parseUploadBaseUrl(uploadBaseUrlSetting);
+    } on FormatException catch (error) {
+      if (kDebugMode) debugPrint('upload address: ${error.message}');
+      return null;
+    }
+    // A file dropped outside the upload area must never replace the app.
+    uploads.guardAgainstFileDrops();
+    return UploadQueue(
+      api: admin,
+      tus: TusClient(uploads.createTusTransport()),
+      endpoint: endpoint,
+      store: uploads.createUploadStore(),
+      network: uploads.createNetworkStatus(),
+      onBusyChanged: uploads.warnBeforeLeaving,
+    );
+  }
+
   /// Needs the API's address, the media gateway's, and sign-in.
   PlaybackApi? _playbackFromSettings() {
     final auth = _auth;
@@ -155,6 +196,7 @@ class _VeloraAppState extends State<VeloraApp> {
 
   @override
   void dispose() {
+    _ownUploads?.dispose();
     _ownController?.dispose();
     _httpClient?.close();
     _catalogueHttpClient?.close();
@@ -175,14 +217,18 @@ class _VeloraAppState extends State<VeloraApp> {
           api: _playback,
           child: AdminScope(
             api: _admin,
-            child: MaterialApp(
-              onGenerateTitle: (context) => context.l10n.appName,
-              debugShowCheckedModeBanner: false,
-              theme: buildVeloraTheme(),
-              // English only for now. A Luganda app_lg.arb adds itself here.
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              home: AppShell(showAdmin: widget.showAdmin),
+            child: UploadsScope(
+              queue: _uploads,
+              pick: widget.pickVideos,
+              child: MaterialApp(
+                onGenerateTitle: (context) => context.l10n.appName,
+                debugShowCheckedModeBanner: false,
+                theme: buildVeloraTheme(),
+                // English only for now. A Luganda app_lg.arb adds itself here.
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: AppShell(showAdmin: widget.showAdmin),
+              ),
             ),
           ),
         ),

@@ -41,6 +41,8 @@ BAD_KEY = (
     "revoked. Ask VeloraUG's owner for a new one."
 )
 UNAVAILABLE = "VeloraUG can't take uploads right now. Try again in a few minutes."
+NOT_REMOVABLE = "Only an unfinished upload can be removed."
+REMOVED_REASON = "Removed before it finished uploading."
 
 logger = logging.getLogger("veloraug.media_hooks")
 
@@ -70,6 +72,17 @@ class MediaSettings(BaseSettings):
 def refuse(status: int, message: str) -> dict[str, Any]:
     return {
         "RejectUpload": True,
+        "HTTPResponse": {
+            "StatusCode": status,
+            "Body": message + "\n",
+            "Header": {"Content-Type": "text/plain; charset=utf-8"},
+        },
+    }
+
+
+def refuse_removal(status: int, message: str) -> dict[str, Any]:
+    return {
+        "RejectTermination": True,
         "HTTPResponse": {
             "StatusCode": status,
             "Body": message + "\n",
@@ -113,8 +126,39 @@ class Hooks:
         kind = body.get("Type")
         if kind == "pre-create":
             return self.pre_create(body["Event"])
+        if kind == "pre-terminate":
+            return self.pre_terminate(body["Event"])
         if kind == "post-finish":
             self.post_finish(body["Event"])
+        return {}
+
+    def pre_terminate(self, event: dict[str, Any]) -> dict[str, Any]:
+        """Removing an upload through tusd, from the admin screens' Remove.
+        Only one still uploading: never one received, being converted or
+        published. It is marked removed here, before tusd deletes its files,
+        so the worker never picks up a half-deleted upload."""
+        upload_id = (event.get("Upload") or {}).get("ID")
+        try:
+            original_id = uuid.UUID(str(upload_id))
+        except ValueError:
+            return refuse_removal(403, NOT_REMOVABLE)
+        try:
+            with self.database.anonymous() as conn:
+                changed = conn.execute(
+                    """
+                    update public.media_originals
+                    set state = 'removed', reason = %s, updated_at = now()
+                    where id = %s and state = 'uploading'
+                    """,
+                    (REMOVED_REASON, original_id),
+                ).rowcount
+        except DatabaseUnavailable as error:
+            logger.warning("removal refused: database unavailable (%s)", error)
+            return refuse_removal(503, UNAVAILABLE)
+        if not changed:
+            logger.info("removal of upload %s refused: not uploading", original_id)
+            return refuse_removal(403, NOT_REMOVABLE)
+        logger.info("upload %s removed before it finished", original_id)
         return {}
 
     def pre_create(self, event: dict[str, Any]) -> dict[str, Any]:

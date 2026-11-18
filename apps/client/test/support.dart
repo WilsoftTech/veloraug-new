@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:veloraug/admin/uploads/upload_queue.dart';
 import 'package:veloraug/api/admin_api.dart';
 import 'package:veloraug/api/catalogue_api.dart';
 import 'package:veloraug/api/playback_api.dart';
@@ -271,6 +272,8 @@ Future<AuthController> pumpApp(
   bool signedIn = false,
   bool showAdmin = true,
   Size size = const Size(1200, 1600),
+  UploadQueue Function(AuthController auth)? uploads,
+  Future<List<PickedVideo>> Function()? pickVideos,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -283,6 +286,8 @@ Future<AuthController> pumpApp(
       catalogueApi: api.catalogue(),
       playbackApi: api.playback(auth),
       adminApi: api.adminApi(auth),
+      uploadQueue: uploads?.call(auth),
+      pickVideos: pickVideos ?? () async => const [],
       showAdmin: showAdmin,
     ),
   );

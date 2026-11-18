@@ -443,6 +443,32 @@ def test_a_new_episode_of_a_published_series_waits_for_approval(api, admin, owne
 
 
 @needs_database
+def test_series_are_listed_with_their_episodes_for_uploads(api, admin):
+    assert api.get("/api/v1/admin/series").status_code == 401
+    first = draft(api, admin, kind="series", title="Kabaka", season=1, episode=1)
+    draft(
+        api,
+        admin,
+        kind="series",
+        series_edition_id=first["edition_id"],
+        season=1,
+        episode=2,
+    )
+    draft(api, admin, title="Fast X")
+    url = f"/api/v1/admin/editions/{first['edition_id']}/credit"
+    api.put(url, json={"new_vj": "VJ Emmy"}, headers=as_user(admin))
+
+    listed = api.get("/api/v1/admin/series", headers=as_user(admin)).json()
+
+    assert len(listed) == 1
+    assert listed[0]["id"] == first["edition_id"]
+    assert listed[0]["display_title"] == "Kabaka"
+    assert listed[0]["status"] == "draft"
+    assert listed[0]["vj_name"] == "VJ Emmy"
+    assert listed[0]["episodes"] == [[1, 1], [1, 2]]
+
+
+@needs_database
 def test_an_episode_number_cant_repeat(api, admin):
     first = draft(api, admin, kind="series", title="Kabaka", season=1, episode=1)
     response = api.post(

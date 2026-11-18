@@ -1875,6 +1875,450 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} added.'**
   String languageAdded(String name);
+
+  /// No description provided for @adminUploads.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploads'**
+  String get adminUploads;
+
+  /// No description provided for @adminUploadsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload videos from this browser. Each file becomes a draft, or an episode of a series, and carries on after a lost connection, a closed tab or a power cut.'**
+  String get adminUploadsIntro;
+
+  /// No description provided for @uploadsNotSetUpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading isn\'t set up'**
+  String get uploadsNotSetUpTitle;
+
+  /// No description provided for @uploadsNotSetUpMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This build has no upload address. Upload with tools/veloraug_upload.py instead, or set UPLOAD_BASE_URL.'**
+  String get uploadsNotSetUpMessage;
+
+  /// No description provided for @dropVideosHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag video files here'**
+  String get dropVideosHere;
+
+  /// No description provided for @dropToAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop to add them'**
+  String get dropToAdd;
+
+  /// No description provided for @chooseFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose files'**
+  String get chooseFiles;
+
+  /// No description provided for @chooseFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the file'**
+  String get chooseFile;
+
+  /// No description provided for @uploadsHowItWorks.
+  ///
+  /// In en, this message translates to:
+  /// **'Two upload at a time. If the connection drops, they carry on by themselves. If this page closes, open Uploads again to carry on from where they stopped.'**
+  String get uploadsHowItWorks;
+
+  /// No description provided for @namingGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to name files'**
+  String get namingGuideTitle;
+
+  /// No description provided for @namingGuideIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Name each file with the VJ first, so files sort and search by VJ, and the upload screen fills everything in:'**
+  String get namingGuideIntro;
+
+  /// No description provided for @namingGuideMovie.
+  ///
+  /// In en, this message translates to:
+  /// **'VJ Junior - Commando (1985).mp4'**
+  String get namingGuideMovie;
+
+  /// No description provided for @namingGuideEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'VJ Junior - Prison Break S01E02.mp4'**
+  String get namingGuideEpisode;
+
+  /// No description provided for @namingGuideRules.
+  ///
+  /// In en, this message translates to:
+  /// **'\"VJ\" and the VJ\'s name, then \" - \", then the title. A movie\'s year in brackets. An episode\'s season and number as S01E02. Words like HD, 720p and Luganda are ignored.'**
+  String get namingGuideRules;
+
+  /// No description provided for @reviewUploadsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check {count, plural, =1{1 file} other{{count} files}} before uploading'**
+  String reviewUploadsTitle(int count);
+
+  /// No description provided for @reviewUploadsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Each row was filled in from the file\'s name. Change anything that\'s wrong. Choosing a VJ here, then starting, confirms their credit.'**
+  String get reviewUploadsIntro;
+
+  /// No description provided for @kind.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie or series'**
+  String get kind;
+
+  /// No description provided for @addToSeries.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get addToSeries;
+
+  /// No description provided for @newSeries.
+  ///
+  /// In en, this message translates to:
+  /// **'A new series'**
+  String get newSeries;
+
+  /// No description provided for @leaveOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave this file out'**
+  String get leaveOut;
+
+  /// No description provided for @episodeGoesTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to {title}, by {vj}.'**
+  String episodeGoesTo(String title, String vj);
+
+  /// No description provided for @reviewUnknownVj.
+  ///
+  /// In en, this message translates to:
+  /// **'The file names {vj}, who isn\'t a VJ here yet. Add them on the draft\'s page once it uploads, or choose a VJ.'**
+  String reviewUnknownVj(String vj);
+
+  /// No description provided for @reviewVjCredited.
+  ///
+  /// In en, this message translates to:
+  /// **'This VJ is credited when the draft is made.'**
+  String get reviewVjCredited;
+
+  /// No description provided for @reviewNeedsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Give it a title.'**
+  String get reviewNeedsTitle;
+
+  /// No description provided for @reviewBadYear.
+  ///
+  /// In en, this message translates to:
+  /// **'The year must be between 1900 and 2100.'**
+  String get reviewBadYear;
+
+  /// No description provided for @reviewNeedsEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the season and episode numbers.'**
+  String get reviewNeedsEpisode;
+
+  /// No description provided for @reviewEpisodeExists.
+  ///
+  /// In en, this message translates to:
+  /// **'This series already has season {season}, episode {episode}.'**
+  String reviewEpisodeExists(int season, int episode);
+
+  /// No description provided for @reviewEpisodeTwice.
+  ///
+  /// In en, this message translates to:
+  /// **'Season {season}, episode {episode} is in this list twice.'**
+  String reviewEpisodeTwice(int season, int episode);
+
+  /// No description provided for @startUploads.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Start the upload} other{Start {count} uploads}}'**
+  String startUploads(int count);
+
+  /// No description provided for @uploadsListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploads'**
+  String get uploadsListTitle;
+
+  /// No description provided for @allVjs.
+  ///
+  /// In en, this message translates to:
+  /// **'All VJs'**
+  String get allVjs;
+
+  /// No description provided for @clearFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear finished'**
+  String get clearFinished;
+
+  /// No description provided for @uploadsResumedFromDrop.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Carrying on with 1 unfinished upload.} other{Carrying on with {count} unfinished uploads.}}'**
+  String uploadsResumedFromDrop(int count);
+
+  /// No description provided for @uploadsNotVideos.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 file isn\'t a video, and was left out.} other{{count} files aren\'t videos, and were left out.}}'**
+  String uploadsNotVideos(int count);
+
+  /// No description provided for @uploadNeedsFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs its file'**
+  String get uploadNeedsFile;
+
+  /// No description provided for @uploadQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get uploadQueued;
+
+  /// No description provided for @uploadStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting'**
+  String get uploadStarting;
+
+  /// No description provided for @uploadUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading'**
+  String get uploadUploading;
+
+  /// No description provided for @uploadPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get uploadPaused;
+
+  /// No description provided for @uploadRetrying.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection lost'**
+  String get uploadRetrying;
+
+  /// No description provided for @uploadOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get uploadOffline;
+
+  /// No description provided for @uploadFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploaded'**
+  String get uploadFinished;
+
+  /// No description provided for @uploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get uploadFailed;
+
+  /// No description provided for @uploadRemoving.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing'**
+  String get uploadRemoving;
+
+  /// No description provided for @uploadPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%'**
+  String uploadPercent(int percent);
+
+  /// No description provided for @uploadBytesOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{sent} of {size}'**
+  String uploadBytesOf(String sent, String size);
+
+  /// No description provided for @uploadSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'{speed}/s'**
+  String uploadSpeed(String speed);
+
+  /// No description provided for @uploadHoursLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} h {minutes} min left'**
+  String uploadHoursLeft(int hours, int minutes);
+
+  /// No description provided for @uploadMinutesLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min left'**
+  String uploadMinutesLeft(int minutes);
+
+  /// No description provided for @uploadSecondsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s left'**
+  String uploadSecondsLeft(int seconds);
+
+  /// No description provided for @uploadNeedsFileResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at {percent}% when the page closed. Press Resume to carry on from there.'**
+  String uploadNeedsFileResume(int percent);
+
+  /// No description provided for @uploadNeedsFileDrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at {percent}% when the page closed. Drop or choose {file} again to carry on from there.'**
+  String uploadNeedsFileDrop(int percent, String file);
+
+  /// No description provided for @uploadWaitingTurn.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting its turn.'**
+  String get uploadWaitingTurn;
+
+  /// No description provided for @uploadPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Making the draft and starting the upload.'**
+  String get uploadPreparing;
+
+  /// No description provided for @uploadPausedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused at {percent}%. Nothing is lost.'**
+  String uploadPausedAt(int percent);
+
+  /// No description provided for @uploadRetryIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at {percent}%. Trying again in {seconds} s.'**
+  String uploadRetryIn(int percent, int seconds);
+
+  /// No description provided for @uploadWaitingNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped at {percent}%. Carries on when the network is back.'**
+  String uploadWaitingNetwork(int percent);
+
+  /// No description provided for @uploadDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploaded. It is checked and converted next: see its draft.'**
+  String get uploadDone;
+
+  /// No description provided for @uploadRemovingPart.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopping, and deleting the part uploaded.'**
+  String get uploadRemovingPart;
+
+  /// No description provided for @uploadKeyRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'The server refused the upload key twice. Try again for a new one.'**
+  String get uploadKeyRefused;
+
+  /// No description provided for @uploadTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The file is larger than 50 GB, VeloraUG\'s limit.'**
+  String get uploadTooLarge;
+
+  /// No description provided for @uploadRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach the server to delete the part uploaded. Remove it again.'**
+  String get uploadRemoveFailed;
+
+  /// No description provided for @uploadUnexpected.
+  ///
+  /// In en, this message translates to:
+  /// **'The upload stopped unexpectedly. Try again.'**
+  String get uploadUnexpected;
+
+  /// No description provided for @uploadFileChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'That isn\'t the same file: its size or date has changed. Choose the file that was uploading.'**
+  String get uploadFileChanged;
+
+  /// No description provided for @uploadFileUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'The browser didn\'t give access to the file. Press Resume and allow it, or drop the file again.'**
+  String get uploadFileUnreadable;
+
+  /// No description provided for @uploadRestarted.
+  ///
+  /// In en, this message translates to:
+  /// **'The server had lost this upload, so it started again from the beginning.'**
+  String get uploadRestarted;
+
+  /// No description provided for @uploadCreditFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The VJ wasn\'t credited: {reason} Credit them on the draft\'s page.'**
+  String uploadCreditFailed(String reason);
+
+  /// No description provided for @uploadProgressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload of {file}'**
+  String uploadProgressLabel(String file);
+
+  /// No description provided for @resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get resume;
+
+  /// No description provided for @tryNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Try now'**
+  String get tryNow;
+
+  /// No description provided for @removeAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove again'**
+  String get removeAgain;
+
+  /// No description provided for @openDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Open draft'**
+  String get openDraft;
+
+  /// No description provided for @removeUploadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this upload?'**
+  String get removeUploadTitle;
+
+  /// No description provided for @removeUploadMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'It stops, and the part uploaded is deleted from the server. Its draft stays in Drafts.'**
+  String get removeUploadMessage;
 }
 
 class _AppLocalizationsDelegate

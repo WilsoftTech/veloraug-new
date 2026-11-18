@@ -666,5 +666,247 @@
         "type": "String"
       }
     }
-  }
+  },
+  "adminUploads": "Uploads",
+  "adminUploadsIntro": "Upload videos from this browser. Each file becomes a draft, or an episode of a series, and carries on after a lost connection, a closed tab or a power cut.",
+  "uploadsNotSetUpTitle": "Uploading isn't set up",
+  "uploadsNotSetUpMessage": "This build has no upload address. Upload with tools/veloraug_upload.py instead, or set UPLOAD_BASE_URL.",
+  "dropVideosHere": "Drag video files here",
+  "dropToAdd": "Drop to add them",
+  "chooseFiles": "Choose files",
+  "chooseFile": "Choose the file",
+  "uploadsHowItWorks": "Two upload at a time. If the connection drops, they carry on by themselves. If this page closes, open Uploads again to carry on from where they stopped.",
+  "namingGuideTitle": "How to name files",
+  "namingGuideIntro": "Name each file with the VJ first, so files sort and search by VJ, and the upload screen fills everything in:",
+  "namingGuideMovie": "VJ Junior - Commando (1985).mp4",
+  "namingGuideEpisode": "VJ Junior - Prison Break S01E02.mp4",
+  "namingGuideRules": "\"VJ\" and the VJ's name, then \" - \", then the title. A movie's year in brackets. An episode's season and number as S01E02. Words like HD, 720p and Luganda are ignored.",
+  "reviewUploadsTitle": "Check {count, plural, =1{1 file} other{{count} files}} before uploading",
+  "@reviewUploadsTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewUploadsIntro": "Each row was filled in from the file's name. Change anything that's wrong. Choosing a VJ here, then starting, confirms their credit.",
+  "kind": "Movie or series",
+  "addToSeries": "Series",
+  "newSeries": "A new series",
+  "leaveOut": "Leave this file out",
+  "episodeGoesTo": "Added to {title}, by {vj}.",
+  "@episodeGoesTo": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "vj": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewUnknownVj": "The file names {vj}, who isn't a VJ here yet. Add them on the draft's page once it uploads, or choose a VJ.",
+  "@reviewUnknownVj": {
+    "placeholders": {
+      "vj": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewVjCredited": "This VJ is credited when the draft is made.",
+  "reviewNeedsTitle": "Give it a title.",
+  "reviewBadYear": "The year must be between 1900 and 2100.",
+  "reviewNeedsEpisode": "Give the season and episode numbers.",
+  "reviewEpisodeExists": "This series already has season {season}, episode {episode}.",
+  "@reviewEpisodeExists": {
+    "placeholders": {
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEpisodeTwice": "Season {season}, episode {episode} is in this list twice.",
+  "@reviewEpisodeTwice": {
+    "placeholders": {
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "startUploads": "{count, plural, =1{Start the upload} other{Start {count} uploads}}",
+  "@startUploads": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadsListTitle": "Uploads",
+  "allVjs": "All VJs",
+  "clearFinished": "Clear finished",
+  "uploadsResumedFromDrop": "{count, plural, =1{Carrying on with 1 unfinished upload.} other{Carrying on with {count} unfinished uploads.}}",
+  "@uploadsResumedFromDrop": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadsNotVideos": "{count, plural, =1{1 file isn't a video, and was left out.} other{{count} files aren't videos, and were left out.}}",
+  "@uploadsNotVideos": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadNeedsFile": "Needs its file",
+  "uploadQueued": "Waiting",
+  "uploadStarting": "Starting",
+  "uploadUploading": "Uploading",
+  "uploadPaused": "Paused",
+  "uploadRetrying": "Connection lost",
+  "uploadOffline": "Offline",
+  "uploadFinished": "Uploaded",
+  "uploadFailed": "Stopped",
+  "uploadRemoving": "Removing",
+  "uploadPercent": "{percent}%",
+  "@uploadPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadBytesOf": "{sent} of {size}",
+  "@uploadBytesOf": {
+    "placeholders": {
+      "sent": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadSpeed": "{speed}/s",
+  "@uploadSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadHoursLeft": "{hours} h {minutes} min left",
+  "@uploadHoursLeft": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadMinutesLeft": "{minutes} min left",
+  "@uploadMinutesLeft": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadSecondsLeft": "{seconds} s left",
+  "@uploadSecondsLeft": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadNeedsFileResume": "Stopped at {percent}% when the page closed. Press Resume to carry on from there.",
+  "@uploadNeedsFileResume": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadNeedsFileDrop": "Stopped at {percent}% when the page closed. Drop or choose {file} again to carry on from there.",
+  "@uploadNeedsFileDrop": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadWaitingTurn": "Waiting its turn.",
+  "uploadPreparing": "Making the draft and starting the upload.",
+  "uploadPausedAt": "Paused at {percent}%. Nothing is lost.",
+  "@uploadPausedAt": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadRetryIn": "Stopped at {percent}%. Trying again in {seconds} s.",
+  "@uploadRetryIn": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadWaitingNetwork": "Stopped at {percent}%. Carries on when the network is back.",
+  "@uploadWaitingNetwork": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "uploadDone": "Uploaded. It is checked and converted next: see its draft.",
+  "uploadRemovingPart": "Stopping, and deleting the part uploaded.",
+  "uploadKeyRefused": "The server refused the upload key twice. Try again for a new one.",
+  "uploadTooLarge": "The file is larger than 50 GB, VeloraUG's limit.",
+  "uploadRemoveFailed": "Couldn't reach the server to delete the part uploaded. Remove it again.",
+  "uploadUnexpected": "The upload stopped unexpectedly. Try again.",
+  "uploadFileChanged": "That isn't the same file: its size or date has changed. Choose the file that was uploading.",
+  "uploadFileUnreadable": "The browser didn't give access to the file. Press Resume and allow it, or drop the file again.",
+  "uploadRestarted": "The server had lost this upload, so it started again from the beginning.",
+  "uploadCreditFailed": "The VJ wasn't credited: {reason} Credit them on the draft's page.",
+  "@uploadCreditFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadProgressLabel": "Upload of {file}",
+  "@uploadProgressLabel": {
+    "placeholders": {
+      "file": {
+        "type": "String"
+      }
+    }
+  },
+  "resume": "Resume",
+  "tryNow": "Try now",
+  "removeAgain": "Remove again",
+  "openDraft": "Open draft",
+  "removeUploadTitle": "Remove this upload?",
+  "removeUploadMessage": "It stops, and the part uploaded is deleted from the server. Its draft stays in Drafts."
 }

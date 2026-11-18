@@ -50,3 +50,36 @@ Uri _parseServiceUrl(String name, String value) {
   }
   return uri;
 }
+
+/// Where the admin screens upload videos: tusd's address, set with
+/// --dart-define=UPLOAD_BASE_URL=... Public configuration, like the others.
+const String uploadBaseUrlSetting = String.fromEnvironment(
+  'UPLOAD_BASE_URL',
+  defaultValue: 'http://127.0.0.1:1080/files/',
+);
+
+/// Checks the upload address. Unlike the others it has a path, tusd's
+/// base path, which must end in a slash. Plain HTTP only on loopback.
+Uri parseUploadBaseUrl(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      !uri.hasScheme ||
+      uri.host.isEmpty ||
+      (uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment ||
+      !uri.path.endsWith('/')) {
+    throw FormatException(
+      'UPLOAD_BASE_URL must be an http or https address ending in "/": '
+      '"$value"',
+    );
+  }
+  if (uri.scheme == 'http' && !_loopbackHosts.contains(uri.host)) {
+    throw FormatException(
+      'UPLOAD_BASE_URL must use https unless the host is 127.0.0.1 or '
+      'localhost: "$value"',
+    );
+  }
+  return uri;
+}

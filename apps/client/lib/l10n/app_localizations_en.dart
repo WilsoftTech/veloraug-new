@@ -1056,4 +1056,306 @@ class AppLocalizationsEn extends AppLocalizations {
   String languageAdded(String name) {
     return '$name added.';
   }
+
+  @override
+  String get adminUploads => 'Uploads';
+
+  @override
+  String get adminUploadsIntro =>
+      'Upload videos from this browser. Each file becomes a draft, or an episode of a series, and carries on after a lost connection, a closed tab or a power cut.';
+
+  @override
+  String get uploadsNotSetUpTitle => 'Uploading isn\'t set up';
+
+  @override
+  String get uploadsNotSetUpMessage =>
+      'This build has no upload address. Upload with tools/veloraug_upload.py instead, or set UPLOAD_BASE_URL.';
+
+  @override
+  String get dropVideosHere => 'Drag video files here';
+
+  @override
+  String get dropToAdd => 'Drop to add them';
+
+  @override
+  String get chooseFiles => 'Choose files';
+
+  @override
+  String get chooseFile => 'Choose the file';
+
+  @override
+  String get uploadsHowItWorks =>
+      'Two upload at a time. If the connection drops, they carry on by themselves. If this page closes, open Uploads again to carry on from where they stopped.';
+
+  @override
+  String get namingGuideTitle => 'How to name files';
+
+  @override
+  String get namingGuideIntro =>
+      'Name each file with the VJ first, so files sort and search by VJ, and the upload screen fills everything in:';
+
+  @override
+  String get namingGuideMovie => 'VJ Junior - Commando (1985).mp4';
+
+  @override
+  String get namingGuideEpisode => 'VJ Junior - Prison Break S01E02.mp4';
+
+  @override
+  String get namingGuideRules =>
+      '\"VJ\" and the VJ\'s name, then \" - \", then the title. A movie\'s year in brackets. An episode\'s season and number as S01E02. Words like HD, 720p and Luganda are ignored.';
+
+  @override
+  String reviewUploadsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return 'Check $_temp0 before uploading';
+  }
+
+  @override
+  String get reviewUploadsIntro =>
+      'Each row was filled in from the file\'s name. Change anything that\'s wrong. Choosing a VJ here, then starting, confirms their credit.';
+
+  @override
+  String get kind => 'Movie or series';
+
+  @override
+  String get addToSeries => 'Series';
+
+  @override
+  String get newSeries => 'A new series';
+
+  @override
+  String get leaveOut => 'Leave this file out';
+
+  @override
+  String episodeGoesTo(String title, String vj) {
+    return 'Added to $title, by $vj.';
+  }
+
+  @override
+  String reviewUnknownVj(String vj) {
+    return 'The file names $vj, who isn\'t a VJ here yet. Add them on the draft\'s page once it uploads, or choose a VJ.';
+  }
+
+  @override
+  String get reviewVjCredited => 'This VJ is credited when the draft is made.';
+
+  @override
+  String get reviewNeedsTitle => 'Give it a title.';
+
+  @override
+  String get reviewBadYear => 'The year must be between 1900 and 2100.';
+
+  @override
+  String get reviewNeedsEpisode => 'Give the season and episode numbers.';
+
+  @override
+  String reviewEpisodeExists(int season, int episode) {
+    return 'This series already has season $season, episode $episode.';
+  }
+
+  @override
+  String reviewEpisodeTwice(int season, int episode) {
+    return 'Season $season, episode $episode is in this list twice.';
+  }
+
+  @override
+  String startUploads(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Start $count uploads',
+      one: 'Start the upload',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get uploadsListTitle => 'Uploads';
+
+  @override
+  String get allVjs => 'All VJs';
+
+  @override
+  String get clearFinished => 'Clear finished';
+
+  @override
+  String uploadsResumedFromDrop(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Carrying on with $count unfinished uploads.',
+      one: 'Carrying on with 1 unfinished upload.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String uploadsNotVideos(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files aren\'t videos, and were left out.',
+      one: '1 file isn\'t a video, and was left out.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get uploadNeedsFile => 'Needs its file';
+
+  @override
+  String get uploadQueued => 'Waiting';
+
+  @override
+  String get uploadStarting => 'Starting';
+
+  @override
+  String get uploadUploading => 'Uploading';
+
+  @override
+  String get uploadPaused => 'Paused';
+
+  @override
+  String get uploadRetrying => 'Connection lost';
+
+  @override
+  String get uploadOffline => 'Offline';
+
+  @override
+  String get uploadFinished => 'Uploaded';
+
+  @override
+  String get uploadFailed => 'Stopped';
+
+  @override
+  String get uploadRemoving => 'Removing';
+
+  @override
+  String uploadPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String uploadBytesOf(String sent, String size) {
+    return '$sent of $size';
+  }
+
+  @override
+  String uploadSpeed(String speed) {
+    return '$speed/s';
+  }
+
+  @override
+  String uploadHoursLeft(int hours, int minutes) {
+    return '$hours h $minutes min left';
+  }
+
+  @override
+  String uploadMinutesLeft(int minutes) {
+    return '$minutes min left';
+  }
+
+  @override
+  String uploadSecondsLeft(int seconds) {
+    return '$seconds s left';
+  }
+
+  @override
+  String uploadNeedsFileResume(int percent) {
+    return 'Stopped at $percent% when the page closed. Press Resume to carry on from there.';
+  }
+
+  @override
+  String uploadNeedsFileDrop(int percent, String file) {
+    return 'Stopped at $percent% when the page closed. Drop or choose $file again to carry on from there.';
+  }
+
+  @override
+  String get uploadWaitingTurn => 'Waiting its turn.';
+
+  @override
+  String get uploadPreparing => 'Making the draft and starting the upload.';
+
+  @override
+  String uploadPausedAt(int percent) {
+    return 'Paused at $percent%. Nothing is lost.';
+  }
+
+  @override
+  String uploadRetryIn(int percent, int seconds) {
+    return 'Stopped at $percent%. Trying again in $seconds s.';
+  }
+
+  @override
+  String uploadWaitingNetwork(int percent) {
+    return 'Stopped at $percent%. Carries on when the network is back.';
+  }
+
+  @override
+  String get uploadDone =>
+      'Uploaded. It is checked and converted next: see its draft.';
+
+  @override
+  String get uploadRemovingPart => 'Stopping, and deleting the part uploaded.';
+
+  @override
+  String get uploadKeyRefused =>
+      'The server refused the upload key twice. Try again for a new one.';
+
+  @override
+  String get uploadTooLarge =>
+      'The file is larger than 50 GB, VeloraUG\'s limit.';
+
+  @override
+  String get uploadRemoveFailed =>
+      'Couldn\'t reach the server to delete the part uploaded. Remove it again.';
+
+  @override
+  String get uploadUnexpected => 'The upload stopped unexpectedly. Try again.';
+
+  @override
+  String get uploadFileChanged =>
+      'That isn\'t the same file: its size or date has changed. Choose the file that was uploading.';
+
+  @override
+  String get uploadFileUnreadable =>
+      'The browser didn\'t give access to the file. Press Resume and allow it, or drop the file again.';
+
+  @override
+  String get uploadRestarted =>
+      'The server had lost this upload, so it started again from the beginning.';
+
+  @override
+  String uploadCreditFailed(String reason) {
+    return 'The VJ wasn\'t credited: $reason Credit them on the draft\'s page.';
+  }
+
+  @override
+  String uploadProgressLabel(String file) {
+    return 'Upload of $file';
+  }
+
+  @override
+  String get resume => 'Resume';
+
+  @override
+  String get tryNow => 'Try now';
+
+  @override
+  String get removeAgain => 'Remove again';
+
+  @override
+  String get openDraft => 'Open draft';
+
+  @override
+  String get removeUploadTitle => 'Remove this upload?';
+
+  @override
+  String get removeUploadMessage =>
+      'It stops, and the part uploaded is deleted from the server. Its draft stays in Drafts.';
 }

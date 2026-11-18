@@ -196,6 +196,17 @@ class EditionList(BaseModel):
     editions: list[Edition]
 
 
+class SeriesOut(BaseModel):
+    id: UUID
+    display_title: str
+    language: str
+    status: str
+    vj_id: UUID | None
+    vj_name: str | None
+    # [season, episode] pairs.
+    episodes: list[tuple[int | None, int | None]]
+
+
 class TitleChange(BaseModel):
     display_title: Title
 
@@ -511,6 +522,14 @@ def list_drafts(
     if due and client is not None:
         background.add_task(lookups_in_background, db, client, user.user_id)
     return EditionList(editions=[_edition(state, images) for state in found])
+
+
+@router.get("/series")
+def list_series(user: AdminUser, db: EditorDatabase) -> list[SeriesOut]:
+    """Every series edition, in any state, with its episodes' numbers, so the
+    upload screen can add a dropped episode to the series it belongs to."""
+    with editing(db, user) as conn:
+        return [SeriesOut(**asdict(s)) for s in work.list_series(conn)]
 
 
 @router.post("/drafts", status_code=status.HTTP_201_CREATED)

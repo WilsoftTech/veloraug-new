@@ -195,6 +195,32 @@ class AdminVj {
   final int editions;
 }
 
+/// A series edition, for adding a dropped episode to it.
+class AdminSeries {
+  const AdminSeries({
+    required this.id,
+    required this.title,
+    required this.language,
+    required this.status,
+    this.vjId,
+    this.vjName,
+    this.episodes = const [],
+  });
+
+  final String id;
+  final String title;
+  final String language;
+  final String status;
+  final String? vjId;
+  final String? vjName;
+
+  /// (season, episode) of each episode it has.
+  final List<(int?, int?)> episodes;
+
+  bool hasEpisode(int season, int episode) =>
+      episodes.any((e) => e.$1 == season && e.$2 == episode);
+}
+
 class AdminLanguage {
   const AdminLanguage({required this.code, required this.name});
 
@@ -495,6 +521,29 @@ class AdminApi {
   Future<void> revokeKey(String keyId) async {
     await _send('POST', '/keys/${_id(keyId)}/revoke');
   }
+
+  /// Every series edition, in any state, for the upload screen.
+  Future<List<AdminSeries>> series() async => [
+    for (final row in _rows(await _send('GET', '/series')))
+      AdminSeries(
+        id: _need<String>(row['id']),
+        title: _need<String>(row['display_title']),
+        language: _need<String>(row['language']),
+        status: _need<String>(row['status']),
+        vjId: _maybe<String>(row['vj_id']),
+        vjName: _maybe<String>(row['vj_name']),
+        episodes: [
+          for (final pair in _need<List<Object?>>(row['episodes'] ?? const []))
+            switch (_need<List<Object?>>(pair)) {
+              [final season, final episode] => (
+                _maybe<int>(season),
+                _maybe<int>(episode),
+              ),
+              _ => _bad(),
+            },
+        ],
+      ),
+  ];
 
   Future<List<AdminVj>> vjs() async => [
     for (final row in _rows(await _send('GET', '/vjs'))) _vj(row),

@@ -243,6 +243,7 @@ The first writes `VELORAUG_EDITOR_DATABASE_URL` to `.env`. Restart the API after
 | Route | Does |
 | --- | --- |
 | `GET /api/v1/admin/me` | `200` for an admin, `403` otherwise. The app shows its Admin menu on `200` |
+| `GET /api/v1/admin/series` | Every series edition, in any state, with its episodes' numbers, so the browser upload screen can add a dropped episode to its series |
 | `GET`, `POST /api/v1/admin/drafts` | Lists what needs an admin, with what each still needs; starts a draft and answers its upload key, once. Listing also looks up on TMDB, after answering, any draft whose video has become ready |
 | `GET`, `PATCH /api/v1/admin/editions/{id}` | One edition, with its episodes, videos, keys and TMDB candidates; changes the title viewers see |
 | `POST .../tmdb/search` | Searches TMDB again, with an optional corrected title or year |
@@ -310,8 +311,10 @@ docker compose -f infra/compose.local.yaml --profile uploads stop media-hooks tu
 
 - tusd listens on `http://127.0.0.1:1080/files/`, this computer only. The hooks have no port at all.
 - Received files land in `services/worker/uploads/`, which Git ignores. Each is named by its original's ID, beside a `.info` file.
-- tusd refuses downloads and deletion. A file over 50 GB, without a declared size, or without a working key is refused before any data arrives.
-- The hooks log each upload accepted, received or refused, never a key.
+- tusd refuses downloads. A file over 50 GB, without a declared size, or without a working key is refused before any data arrives.
+- An **unfinished** upload can be deleted, from the admin screens' **Remove** (Step 9G). The hooks' `pre-terminate` check marks its original `removed` first, and refuses with `403` for an upload that has finished, so a received, converting or published video can't be deleted through tusd.
+- tusd answers browsers from `http://localhost:8765` only, the local web app, and lets them send the `Upload-Key` header.
+- The hooks log each upload accepted, received, removed or refused, never a key.
 
 ### Upload a file
 
@@ -324,6 +327,8 @@ python C:\Users\Wilsoft\veloraug\tools\veloraug_upload.py "C:\Movies\My Film.mp4
 It asks for the key, hidden, then shows progress. If the connection drops, it tries again by itself. If it is stopped, or the computer restarts, **run the same command again**: it carries on from where it stopped, without asking for the key, using a small `.veloraug-upload` file beside the movie. That file is deleted at the end. Until then, keep it private: it holds the unfinished upload's address. `--server` points it at another upload address, such as the Oracle server's from Milestone 11.
 
 After the upload, `catalogue.py uploads` shows its original as `received`, then as the worker below takes it.
+
+Admins can also upload from the browser, with no key to copy: see [Uploads from the browser](../../apps/client/README.md#uploads-from-the-browser).
 
 ### Convert uploads
 
