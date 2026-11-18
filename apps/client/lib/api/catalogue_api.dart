@@ -4,61 +4,183 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
-/// A movie in a list: enough for a card.
-class MovieSummary {
-  const MovieSummary({
+import '../l10n/app_localizations.dart';
+import 'safe_urls.dart';
+
+enum EditionKind { movie, series }
+
+EditionKind? _kind(Object? value) => switch (value) {
+  'movie' => EditionKind.movie,
+  'series' => EditionKind.series,
+  _ => null,
+};
+
+/// One VJ's edition of a movie or series, as a poster card shows it.
+class EditionCard {
+  const EditionCard({
     required this.id,
+    required this.kind,
     required this.title,
+    required this.language,
+    required this.label,
     this.year,
     this.posterUrl,
+    this.vjName,
+    this.vjSlug,
   });
 
   final String id;
+  final EditionKind kind;
   final String title;
   final int? year;
   final String? posterUrl;
+
+  /// Shown in the poster's top-left corner. Null for a test film.
+  final String? vjName;
+  final String? vjSlug;
+
+  /// A language code, such as `lg`.
+  final String language;
+
+  /// "Luganda · VJ Junior", from the API, for the edition's page.
+  final String label;
 }
 
-/// One page of movies. [nextOffset] is null on the last page.
-class MoviePage {
-  const MoviePage({required this.movies, this.nextOffset});
+/// One page of editions. [nextOffset] is null on the last page.
+class EditionPage {
+  const EditionPage({required this.editions, this.nextOffset});
 
-  final List<MovieSummary> movies;
+  final List<EditionCard> editions;
   final int? nextOffset;
 }
 
-/// Everything the detail screen shows.
-class MovieDetail {
-  const MovieDetail({
-    required this.id,
-    required this.title,
-    this.year,
-    this.overview,
-    this.runtimeMinutes,
-    this.genres = const [],
-    this.posterUrl,
-    this.backdropUrl,
+/// One episode of a series edition.
+class Episode {
+  const Episode({
+    required this.itemId,
+    required this.season,
+    required this.episode,
+    this.title,
     this.playable = false,
   });
 
-  final String id;
-  final String title;
-  final int? year;
-  final String? overview;
-  final int? runtimeMinutes;
-  final List<String> genres;
-  final String? posterUrl;
-  final String? backdropUrl;
-
-  /// True when there is something to watch.
+  final String itemId;
+  final int season;
+  final int episode;
+  final String? title;
   final bool playable;
 }
 
+class Season {
+  const Season({required this.season, required this.episodes});
+
+  final int season;
+  final List<Episode> episodes;
+}
+
+/// Everything an edition's page shows.
+class EditionDetail {
+  const EditionDetail({
+    required this.card,
+    required this.sourceTitle,
+    this.overview,
+    this.runtimeMinutes,
+    this.genres = const [],
+    this.backdropUrl,
+    this.trailerUrl,
+    this.vjPhotoUrl,
+    this.itemId,
+    this.playable = false,
+    this.seasons = const [],
+  });
+
+  final EditionCard card;
+
+  /// TMDB's title, or the typed-in one. The card's title is the VJ's.
+  final String sourceTitle;
+  final String? overview;
+  final int? runtimeMinutes;
+  final List<String> genres;
+  final String? backdropUrl;
+
+  /// An official trailer on YouTube, opened outside the app.
+  final Uri? trailerUrl;
+  final String? vjPhotoUrl;
+
+  /// A movie's one video. Null for a series.
+  final String? itemId;
+
+  /// True when there is something to watch.
+  final bool playable;
+  final List<Season> seasons;
+
+  String get id => card.id;
+  String get title => card.title;
+  EditionKind get kind => card.kind;
+
+  /// The series' episodes in watching order: by season, then number.
+  List<Episode> get episodes => [
+    for (final season in seasons) ...season.episodes,
+  ];
+}
+
+/// The episode to offer after [itemId]: the next one in its season, then
+/// the first of the next season, in the same edition, so the same VJ.
+/// Episodes without a video are skipped. Null after the last one.
+Episode? nextEpisode(List<Episode> episodes, String itemId) {
+  final at = episodes.indexWhere((episode) => episode.itemId == itemId);
+  if (at < 0) return null;
+  for (final episode in episodes.skip(at + 1)) {
+    if (episode.playable) return episode;
+  }
+  return null;
+}
+
+class VjCard {
+  const VjCard({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.photoUrl,
+    this.editions = 0,
+  });
+
+  final String id;
+  final String name;
+  final String slug;
+  final String? photoUrl;
+
+  /// How many editions they have published.
+  final int editions;
+}
+
+class VjPage {
+  const VjPage({
+    required this.vj,
+    this.bio,
+    this.movies = const [],
+    this.series = const [],
+  });
+
+  final VjCard vj;
+  final String? bio;
+  final List<EditionCard> movies;
+  final List<EditionCard> series;
+}
+
+class Language {
+  const Language({required this.code, required this.name, this.editions = 0});
+
+  final String code;
+  final String name;
+  final int editions;
+}
+
 enum CatalogueFailure {
-  /// 404: the movie doesn't exist, or isn't published.
+  /// 404: it doesn't exist, or isn't published.
   notFound,
 
-  /// 503: the API, its database, or this movie's details aren't ready.
+  /// 503: the API, its database, or these details aren't ready.
   busy,
 
   /// No answer: no network, the API stopped, a timeout, or CORS.
@@ -77,17 +199,11 @@ class CatalogueException implements Exception {
   String toString() => 'CatalogueException(${failure.name})';
 }
 
-/// Images are shown only from TMDB's image server, over HTTPS. Anything else
-/// in an answer is ignored, so a bad answer can't make the app load an
-/// address from elsewhere.
-String? _imageUrl(Object? value) {
-  if (value is! String) return null;
-  final uri = Uri.tryParse(value);
-  if (uri == null || uri.scheme != 'https' || uri.host != 'image.tmdb.org') {
-    return null;
-  }
-  return value;
-}
+Never _bad() => throw const CatalogueException(CatalogueFailure.unexpected);
+
+T _need<T>(Object? value) => value is T ? value : _bad();
+
+T? _maybe<T>(Object? value) => value == null ? null : _need<T>(value);
 
 /// Calls the catalogue routes. They need no sign-in, so no token is ever
 /// sent, and browsing works the same signed in or out.
@@ -95,91 +211,162 @@ class CatalogueApi {
   CatalogueApi({
     required this.baseUrl,
     required this.httpClient,
+    this.mediaBaseUrl,
     this.timeout = const Duration(seconds: 15),
   });
 
   final Uri baseUrl;
   final http.Client httpClient;
 
+  /// Where uploaded posters and VJ photos come from. Without it, only
+  /// TMDB's images are shown.
+  final Uri? mediaBaseUrl;
+
   /// Long enough for a database that has scaled to zero to wake.
   final Duration timeout;
 
   static const int pageSize = 24;
 
-  /// Published movies, newest first, or those whose title contains [query].
-  Future<MoviePage> list({int offset = 0, String? query}) async {
-    final params = {
-      'limit': '$pageSize',
+  /// Published editions, newest first. [vj] is a VJ's slug; [query]
+  /// searches titles and VJ names.
+  Future<EditionPage> editions({
+    int offset = 0,
+    int limit = pageSize,
+    String? query,
+    EditionKind? kind,
+    String? vj,
+    String? language,
+    String? genre,
+  }) async {
+    final json = await _getObject('/api/v1/editions', {
+      'limit': '$limit',
       if (offset > 0) 'offset': '$offset',
       'q': ?query,
-    };
-    final json = await _get(
-      baseUrl.replace(path: '/api/v1/movies', queryParameters: params),
-    );
-    final movies = json['movies'];
-    final next = json['next_offset'];
-    if (movies is! List || (next != null && next is! int)) {
-      throw const CatalogueException(CatalogueFailure.unexpected);
-    }
-    return MoviePage(
-      movies: [for (final movie in movies) _summary(movie)],
-      nextOffset: next as int?,
+      'kind': ?kind?.name,
+      'vj': ?vj,
+      'language': ?language,
+      'genre': ?genre,
+    });
+    final editions = _need<List<Object?>>(json['editions']);
+    return EditionPage(
+      editions: [for (final card in editions) _card(card)],
+      nextOffset: _maybe<int>(json['next_offset']),
     );
   }
 
-  Future<MovieDetail> movie(String id) async {
-    final json = await _get(
-      baseUrl.replace(path: '/api/v1/movies/${Uri.encodeComponent(id)}'),
+  Future<EditionDetail> edition(String id) async {
+    final json = await _getObject(
+      '/api/v1/editions/${Uri.encodeComponent(id)}',
     );
-    final summary = _summary(json);
-    final overview = json['overview'];
-    final runtime = json['runtime_minutes'];
-    final genres = json['genres'];
-    // Missing from an older API: nothing to watch.
-    final playable = json['playable'] ?? false;
-    if ((overview != null && overview is! String) ||
-        playable is! bool ||
-        (runtime != null && runtime is! int) ||
-        genres is! List ||
-        genres.any((genre) => genre is! String)) {
-      throw const CatalogueException(CatalogueFailure.unexpected);
-    }
-    return MovieDetail(
-      id: summary.id,
-      title: summary.title,
-      year: summary.year,
-      overview: overview as String?,
-      runtimeMinutes: runtime as int?,
-      genres: genres.cast<String>(),
-      posterUrl: summary.posterUrl,
-      backdropUrl: _imageUrl(json['backdrop_url']),
-      playable: playable,
+    final genres = _need<List<Object?>>(json['genres']);
+    final seasons = _need<List<Object?>>(json['seasons'] ?? const []);
+    return EditionDetail(
+      card: _card(json),
+      sourceTitle: _need<String>(json['source_title']),
+      overview: _maybe<String>(json['overview']),
+      runtimeMinutes: _maybe<int>(json['runtime_minutes']),
+      genres: [for (final genre in genres) _need<String>(genre)],
+      backdropUrl: safeImageUrl(json['backdrop_url'], gateway: mediaBaseUrl),
+      trailerUrl: safeTrailerUrl(json['trailer_url']),
+      vjPhotoUrl: safeImageUrl(json['vj_photo_url'], gateway: mediaBaseUrl),
+      itemId: _maybe<String>(json['item_id']),
+      playable: _need<bool>(json['playable'] ?? false),
+      seasons: [for (final season in seasons) _season(season)],
     );
   }
 
-  MovieSummary _summary(Object? json) {
-    if (json is! Map<String, Object?>) {
-      throw const CatalogueException(CatalogueFailure.unexpected);
-    }
-    final id = json['id'];
-    final title = json['title'];
-    final year = json['year'];
-    if (id is! String ||
-        id.isEmpty ||
-        title is! String ||
-        title.isEmpty ||
-        (year != null && year is! int)) {
-      throw const CatalogueException(CatalogueFailure.unexpected);
-    }
-    return MovieSummary(
+  /// VJs with something published, by name.
+  Future<List<VjCard>> vjs() async {
+    final json = await _get('/api/v1/vjs');
+    return [for (final vj in _need<List<Object?>>(json)) _vj(vj)];
+  }
+
+  Future<VjPage> vj(String slug) async {
+    final json = await _getObject('/api/v1/vjs/${Uri.encodeComponent(slug)}');
+    return VjPage(
+      vj: _vj(json),
+      bio: _maybe<String>(json['bio']),
+      movies: [
+        for (final card in _need<List<Object?>>(json['movies'])) _card(card),
+      ],
+      series: [
+        for (final card in _need<List<Object?>>(json['series'])) _card(card),
+      ],
+    );
+  }
+
+  /// Languages with published editions, Luganda first.
+  Future<List<Language>> languages() async {
+    final json = await _get('/api/v1/languages');
+    return [
+      for (final row in _need<List<Object?>>(json))
+        if (_need<Map<String, Object?>>(row) case final language)
+          Language(
+            code: _need<String>(language['code']),
+            name: _need<String>(language['name']),
+            editions: _need<int>(language['editions'] ?? 0),
+          ),
+    ];
+  }
+
+  EditionCard _card(Object? value) {
+    final json = _need<Map<String, Object?>>(value);
+    final id = _need<String>(json['id']);
+    final title = _need<String>(json['title']);
+    if (id.isEmpty || title.isEmpty) _bad();
+    return EditionCard(
       id: id,
+      kind: _kind(json['kind']) ?? _bad(),
       title: title,
-      year: year as int?,
-      posterUrl: _imageUrl(json['poster_url']),
+      year: _maybe<int>(json['year']),
+      posterUrl: safeImageUrl(json['poster_url'], gateway: mediaBaseUrl),
+      vjName: _maybe<String>(json['vj_name']),
+      vjSlug: _maybe<String>(json['vj_slug']),
+      language: _need<String>(json['language']),
+      label: _need<String>(json['label']),
     );
   }
 
-  Future<Map<String, Object?>> _get(Uri uri) async {
+  Season _season(Object? value) {
+    final json = _need<Map<String, Object?>>(value);
+    final number = _need<int>(json['season']);
+    return Season(
+      season: number,
+      episodes: [
+        for (final row in _need<List<Object?>>(json['episodes']))
+          if (_need<Map<String, Object?>>(row) case final episode)
+            Episode(
+              itemId: _need<String>(episode['item_id']),
+              season: _need<int>(episode['season']),
+              episode: _need<int>(episode['episode']),
+              title: _maybe<String>(episode['title']),
+              playable: _need<bool>(episode['playable'] ?? false),
+            ),
+      ],
+    );
+  }
+
+  VjCard _vj(Object? value) {
+    final json = _need<Map<String, Object?>>(value);
+    return VjCard(
+      id: _need<String>(json['id']),
+      name: _need<String>(json['name']),
+      slug: _need<String>(json['slug']),
+      photoUrl: safeImageUrl(json['photo_url'], gateway: mediaBaseUrl),
+      editions: _need<int>(json['editions'] ?? 0),
+    );
+  }
+
+  Future<Map<String, Object?>> _getObject(
+    String path, [
+    Map<String, String>? params,
+  ]) async => _need<Map<String, Object?>>(await _get(path, params));
+
+  Future<Object?> _get(String path, [Map<String, String>? params]) async {
+    final uri = baseUrl.replace(
+      path: path,
+      queryParameters: params == null || params.isEmpty ? null : params,
+    );
     final http.Response response;
     try {
       response = await httpClient.get(uri).timeout(timeout);
@@ -197,29 +384,24 @@ class CatalogueApi {
       case 503:
         throw const CatalogueException(CatalogueFailure.busy);
       default:
-        throw const CatalogueException(CatalogueFailure.unexpected);
+        _bad();
     }
-    final Object? json;
     try {
-      json = jsonDecode(utf8.decode(response.bodyBytes));
+      return jsonDecode(utf8.decode(response.bodyBytes));
     } on FormatException {
-      throw const CatalogueException(CatalogueFailure.unexpected);
+      _bad();
     }
-    if (json is! Map<String, Object?>) {
-      throw const CatalogueException(CatalogueFailure.unexpected);
-    }
-    return json;
   }
 }
 
 /// Words for each failure. They never repeat the server's text.
-String catalogueFailureMessage(CatalogueFailure failure) => switch (failure) {
-  CatalogueFailure.notFound => "This movie isn't available.",
-  CatalogueFailure.busy => 'VeloraUG is busy right now. Try again in a moment.',
-  CatalogueFailure.unreachable =>
-    "Couldn't reach VeloraUG. Check your connection and try again.",
-  CatalogueFailure.unexpected => 'Something went wrong. Try again.',
-};
+String catalogueFailureMessage(AppLocalizations l, CatalogueFailure failure) =>
+    switch (failure) {
+      CatalogueFailure.notFound => l.notAvailable,
+      CatalogueFailure.busy => l.busy,
+      CatalogueFailure.unreachable => l.unreachable,
+      CatalogueFailure.unexpected => l.somethingWentWrong,
+    };
 
 /// Gives the screens below it the catalogue. [api] is null when this build
 /// has no usable API address, and the screens say so.

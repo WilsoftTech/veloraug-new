@@ -166,45 +166,51 @@ def test_the_list_shows_published_movies_newest_first(api, owner):
     hidden_tmdb = new_id()
     add_movie(owner, details(hidden_tmdb, "Hidden"))
 
-    response = api.get("/api/v1/movies")
+    response = api.get("/api/v1/editions")
 
     assert response.status_code == 200
     body = response.json()
-    assert [m["title"] for m in body["movies"]] == ["Second", "First"]
+    assert [m["title"] for m in body["editions"]] == ["Second", "First"]
     assert body["next_offset"] is None
-    assert body["movies"][0] == {
+    assert body["editions"][0] == {
         "id": str(second),
+        "kind": "movie",
         "title": "Second",
         "year": 2024,
         "poster_url": "https://image.tmdb.org/t/p/w342/poster.jpg",
+        # A test film from before Milestone 9: no VJ.
+        "vj_name": None,
+        "vj_slug": None,
+        "language": "lg",
+        "label": "Test",
     }
 
 
 def test_the_list_needs_no_token_and_ignores_one(api, owner):
     published(owner, "Open")
 
-    plain = api.get("/api/v1/movies")
-    with_token = api.get("/api/v1/movies", headers={"Authorization": "Bearer junk"})
+    plain = api.get("/api/v1/editions")
+    with_token = api.get("/api/v1/editions", headers={"Authorization": "Bearer junk"})
 
     assert plain.status_code == with_token.status_code == 200
-    assert plain.json()["movies"] == with_token.json()["movies"]
+    assert plain.json()["editions"] == with_token.json()["editions"]
 
 
 def test_pages_follow_next_offset(api, owner):
     for n in range(5):
         published(owner, f"Movie {n}")
 
-    first = api.get("/api/v1/movies", params={"limit": 2}).json()
-    second = api.get("/api/v1/movies", params={"limit": 2, "offset": 2}).json()
-    last = api.get("/api/v1/movies", params={"limit": 2, "offset": 4}).json()
+    first = api.get("/api/v1/editions", params={"limit": 2}).json()
+    second = api.get("/api/v1/editions", params={"limit": 2, "offset": 2}).json()
+    last = api.get("/api/v1/editions", params={"limit": 2, "offset": 4}).json()
 
-    assert [len(p["movies"]) for p in (first, second, last)] == [2, 2, 1]
+    assert [len(p["editions"]) for p in (first, second, last)] == [2, 2, 1]
     assert (first["next_offset"], second["next_offset"], last["next_offset"]) == (
         2,
         4,
         None,
     )
-    titles = [m["title"] for p in (first, second, last) for m in p["movies"]]
+    titles = [m["title"] for p in (first, second, last) for m in p["editions"]]
     assert sorted(titles) == [f"Movie {n}" for n in range(5)]
 
 
@@ -220,7 +226,7 @@ def test_pages_follow_next_offset(api, owner):
     ],
 )
 def test_bad_list_parameters_are_refused(api, params):
-    assert api.get("/api/v1/movies", params=params).status_code == 422
+    assert api.get("/api/v1/editions", params=params).status_code == 422
 
 
 def test_search_puts_title_starts_first_and_ignores_case(api, owner):
@@ -228,9 +234,9 @@ def test_search_puts_title_starts_first_and_ignores_case(api, owner):
     published(owner, "Matrix Reloaded")
     published(owner, "Inception")
 
-    body = api.get("/api/v1/movies", params={"q": "  MATRIX "}).json()
+    body = api.get("/api/v1/editions", params={"q": "  MATRIX "}).json()
 
-    assert [m["title"] for m in body["movies"]] == ["Matrix Reloaded", "The Matrix"]
+    assert [m["title"] for m in body["editions"]] == ["Matrix Reloaded", "The Matrix"]
 
 
 def test_search_treats_wildcards_as_plain_text(api, owner):
@@ -239,16 +245,16 @@ def test_search_treats_wildcards_as_plain_text(api, owner):
 
     assert [
         m["title"]
-        for m in api.get("/api/v1/movies", params={"q": "0%"}).json()["movies"]
+        for m in api.get("/api/v1/editions", params={"q": "0%"}).json()["editions"]
     ] == ["100% Wolf"]
-    assert api.get("/api/v1/movies", params={"q": "__"}).json()["movies"] == []
+    assert api.get("/api/v1/editions", params={"q": "__"}).json()["editions"] == []
 
 
 def test_a_movie_without_images_has_null_urls(api, owner):
     movie_id, _ = published(owner, "Plain", poster=False)
 
-    assert api.get("/api/v1/movies").json()["movies"][0]["poster_url"] is None
-    detail = api.get(f"/api/v1/movies/{movie_id}").json()
+    assert api.get("/api/v1/editions").json()["editions"][0]["poster_url"] is None
+    detail = api.get(f"/api/v1/editions/{movie_id}").json()
     assert detail["poster_url"] is None and detail["backdrop_url"] is None
 
 
@@ -258,19 +264,31 @@ def test_a_movie_without_images_has_null_urls(api, owner):
 def test_the_detail_has_every_field(api, owner):
     movie_id, tmdb_id = published(owner, "Mine")
 
-    response = api.get(f"/api/v1/movies/{movie_id}")
+    response = api.get(f"/api/v1/editions/{movie_id}")
 
     assert response.status_code == 200
     assert response.json() == {
         "id": str(movie_id),
+        "kind": "movie",
         "title": "Mine",
         "year": 2024,
+        "poster_url": "https://image.tmdb.org/t/p/w342/poster.jpg",
+        "vj_name": None,
+        "vj_slug": None,
+        "language": "lg",
+        "label": "Test",
+        "source_title": "Mine",
         "overview": "An overview.",
         "runtime_minutes": 101,
         "genres": ["Drama", "Comedy"],
-        "poster_url": "https://image.tmdb.org/t/p/w342/poster.jpg",
         "backdrop_url": "https://image.tmdb.org/t/p/w780/backdrop.jpg",
+        "trailer_url": None,
+        "vj_id": None,
+        "vj_photo_url": None,
+        # A film from before Milestone 9: its item has the edition's ID.
+        "item_id": str(movie_id),
         "playable": False,
+        "seasons": [],
     }
     # VeloraUG's ID only: the TMDB ID never leaves the API.
     assert str(tmdb_id) not in response.text
@@ -280,25 +298,25 @@ def test_missing_and_hidden_movies_answer_the_same_404(api, owner):
     hidden_tmdb = new_id()
     hidden_id = add_movie(owner, details(hidden_tmdb, "Hidden"))
 
-    missing = api.get(f"/api/v1/movies/{uuid.uuid4()}")
-    hidden = api.get(f"/api/v1/movies/{hidden_id}")
+    missing = api.get(f"/api/v1/editions/{uuid.uuid4()}")
+    hidden = api.get(f"/api/v1/editions/{hidden_id}")
 
     assert missing.status_code == hidden.status_code == 404
-    assert missing.json() == hidden.json() == {"detail": "This movie isn't available."}
+    assert missing.json() == hidden.json() == {"detail": "This isn't available."}
 
 
 def test_an_unpublished_movie_disappears_at_once(api, owner):
     movie_id, tmdb_id = published(owner, "Gone soon")
-    assert api.get(f"/api/v1/movies/{movie_id}").status_code == 200
+    assert api.get(f"/api/v1/editions/{movie_id}").status_code == 200
 
     set_published(owner, str(tmdb_id), False)
 
-    assert api.get(f"/api/v1/movies/{movie_id}").status_code == 404
-    assert api.get("/api/v1/movies").json()["movies"] == []
+    assert api.get(f"/api/v1/editions/{movie_id}").status_code == 404
+    assert api.get("/api/v1/editions").json()["editions"] == []
 
 
 def test_a_malformed_id_is_refused(api):
-    assert api.get("/api/v1/movies/not-a-uuid").status_code == 422
+    assert api.get("/api/v1/editions/not-a-uuid").status_code == 422
 
 
 # --- Ages and refreshing -----------------------------------------------------
@@ -307,8 +325,8 @@ def test_a_malformed_id_is_refused(api):
 def test_a_fresh_copy_is_served_without_calling_tmdb(api, owner, tmdb):
     movie_id, _ = published(owner, "Fresh", age_days=6)
 
-    api.get("/api/v1/movies")
-    api.get(f"/api/v1/movies/{movie_id}")
+    api.get("/api/v1/editions")
+    api.get(f"/api/v1/editions/{movie_id}")
 
     assert tmdb.movie_requests() == []
 
@@ -317,7 +335,7 @@ def test_an_old_copy_is_served_then_refreshed_once(api, owner, tmdb):
     movie_id, tmdb_id = published(owner, "Old title", age_days=8)
     tmdb.titles[tmdb_id] = "New title"
 
-    response = api.get(f"/api/v1/movies/{movie_id}")
+    response = api.get(f"/api/v1/editions/{movie_id}")
 
     # Served as it was. The refresh ran after the response.
     assert response.json()["title"] == "Old title"
@@ -325,8 +343,8 @@ def test_an_old_copy_is_served_then_refreshed_once(api, owner, tmdb):
     assert tmdb.movie_requests() == [f"/movie/{tmdb_id}"]
 
     # Now fresh, so no more requests.
-    assert api.get(f"/api/v1/movies/{movie_id}").json()["title"] == "New title"
-    api.get("/api/v1/movies")
+    assert api.get(f"/api/v1/editions/{movie_id}").json()["title"] == "New title"
+    api.get("/api/v1/editions")
     assert tmdb.movie_requests() == [f"/movie/{tmdb_id}"]
 
 
@@ -334,7 +352,7 @@ def test_a_list_refreshes_its_old_copies(api, owner, tmdb):
     _, old = published(owner, "Old", age_days=30)
     _, fresh = published(owner, "Fresh")
 
-    api.get("/api/v1/movies")
+    api.get("/api/v1/editions")
 
     assert tmdb.movie_requests() == [f"/movie/{old}"]
     assert title_of(owner, old) == f"Fresh {old}"
@@ -346,8 +364,8 @@ def test_an_expired_copy_is_never_served(make_api, owner, days):
     movie_id, _ = published(owner, "Expired", age_days=days)
     api = make_api(with_tmdb=False)
 
-    assert api.get("/api/v1/movies").json()["movies"] == []
-    response = api.get(f"/api/v1/movies/{movie_id}")
+    assert api.get("/api/v1/editions").json()["editions"] == []
+    response = api.get(f"/api/v1/editions/{movie_id}")
     assert response.status_code == 503
     assert response.headers["Retry-After"] == "30"
     assert "Expired" not in response.text
@@ -356,8 +374,8 @@ def test_an_expired_copy_is_never_served(make_api, owner, days):
 def test_an_expired_copy_is_fetched_in_the_background(api, owner, tmdb):
     movie_id, tmdb_id = published(owner, "Expired", age_days=151)
 
-    assert api.get(f"/api/v1/movies/{movie_id}").status_code == 503
-    after = api.get(f"/api/v1/movies/{movie_id}")
+    assert api.get(f"/api/v1/editions/{movie_id}").status_code == 503
+    after = api.get(f"/api/v1/editions/{movie_id}")
 
     assert after.status_code == 200
     assert after.json()["title"] == f"Fresh {tmdb_id}"
@@ -369,17 +387,17 @@ def test_a_published_movie_with_no_copy_is_fetched(api, owner, tmdb):
         "update public.sources set fetched_at = null where tmdb_id = %s", (tmdb_id,)
     )
 
-    assert api.get("/api/v1/movies").json()["movies"] == []
+    assert api.get("/api/v1/editions").json()["editions"] == []
     # The list's sweep found it and fetched it after answering.
     assert title_of(owner, tmdb_id) == f"Fresh {tmdb_id}"
-    assert api.get(f"/api/v1/movies/{movie_id}").status_code == 200
+    assert api.get(f"/api/v1/editions/{movie_id}").status_code == 200
 
 
 def test_without_a_token_old_copies_are_served_and_not_refreshed(make_api, owner):
     movie_id, tmdb_id = published(owner, "Old", age_days=100)
     api = make_api(with_tmdb=False)
 
-    assert api.get(f"/api/v1/movies/{movie_id}").json()["title"] == "Old"
+    assert api.get(f"/api/v1/editions/{movie_id}").json()["title"] == "Old"
     assert title_of(owner, tmdb_id) == "Old"
 
 
@@ -387,13 +405,13 @@ def test_a_failed_fetch_waits_before_trying_again(api, owner, tmdb, clock):
     movie_id, tmdb_id = published(owner, "Old", age_days=10)
     tmdb.status[tmdb_id] = 503
 
-    api.get(f"/api/v1/movies/{movie_id}")
-    api.get(f"/api/v1/movies/{movie_id}")
+    api.get(f"/api/v1/editions/{movie_id}")
+    api.get(f"/api/v1/editions/{movie_id}")
     assert tmdb.movie_requests() == [f"/movie/{tmdb_id}"]
 
     clock.now += RETRY_AFTER_FAILURE_SECONDS + 1
     tmdb.status.pop(tmdb_id)
-    api.get(f"/api/v1/movies/{movie_id}")
+    api.get(f"/api/v1/editions/{movie_id}")
 
     assert len(tmdb.movie_requests()) == 2
     assert title_of(owner, tmdb_id) == f"Fresh {tmdb_id}"
@@ -405,12 +423,12 @@ def test_tmdb_asking_to_wait_pauses_every_fetch(api, owner, tmdb, clock):
     tmdb.status[first] = 429
     tmdb.headers = {"Retry-After": "60"}
 
-    api.get(f"/api/v1/movies/{first_id}")
-    api.get(f"/api/v1/movies/{second_id}")
+    api.get(f"/api/v1/editions/{first_id}")
+    api.get(f"/api/v1/editions/{second_id}")
     assert tmdb.movie_requests() == [f"/movie/{first}"]
 
     clock.now += 61
-    api.get(f"/api/v1/movies/{second_id}")
+    api.get(f"/api/v1/editions/{second_id}")
     assert tmdb.movie_requests()[-1] == f"/movie/{second}"
 
 
@@ -420,9 +438,9 @@ def test_a_refused_token_stops_refreshing(api, owner, tmdb, clock, caplog):
     tmdb.status[first] = 401
 
     with caplog.at_level(logging.WARNING, logger="veloraug.catalogue"):
-        api.get(f"/api/v1/movies/{first_id}")
+        api.get(f"/api/v1/editions/{first_id}")
         clock.now += 24 * 60 * 60
-        api.get(f"/api/v1/movies/{second_id}")
+        api.get(f"/api/v1/editions/{second_id}")
 
     assert tmdb.movie_requests() == [f"/movie/{first}"]
     assert "refused the token" in caplog.text
@@ -433,7 +451,7 @@ def test_tmdb_deleting_a_movie_keeps_its_copy(api, owner, tmdb, caplog):
     tmdb.status[tmdb_id] = 404
 
     with caplog.at_level(logging.WARNING, logger="veloraug.catalogue"):
-        response = api.get(f"/api/v1/movies/{movie_id}")
+        response = api.get(f"/api/v1/editions/{movie_id}")
 
     assert response.json()["title"] == "Kept"
     assert title_of(owner, tmdb_id) == "Kept"
@@ -446,8 +464,8 @@ def test_the_token_never_reaches_a_response_or_a_log(api, owner, tmdb, caplog):
 
     with caplog.at_level(logging.DEBUG):
         responses = [
-            api.get("/api/v1/movies"),
-            api.get(f"/api/v1/movies/{movie_id}"),
+            api.get("/api/v1/editions"),
+            api.get(f"/api/v1/editions/{movie_id}"),
         ]
 
     assert TOKEN not in caplog.text
@@ -458,19 +476,19 @@ def test_the_token_never_reaches_a_response_or_a_log(api, owner, tmdb, caplog):
 def test_image_settings_come_from_tmdb_once_a_day(api, owner, tmdb, clock):
     published(owner, "Old", age_days=10)
 
-    api.get("/api/v1/movies")
-    api.get("/api/v1/movies")
+    api.get("/api/v1/editions")
+    api.get("/api/v1/editions")
 
     assert tmdb.requests.count("/configuration") == 1
     clock.now += 24 * 60 * 60 + 1
     published(owner, "Another old", age_days=10)
-    api.get("/api/v1/movies")
+    api.get("/api/v1/editions")
     assert tmdb.requests.count("/configuration") == 2
 
 
 def test_cors_lets_the_web_app_read_the_list(api, owner):
     published(owner, "Seen from the web")
 
-    response = api.get("/api/v1/movies", headers={"Origin": "http://localhost:8765"})
+    response = api.get("/api/v1/editions", headers={"Origin": "http://localhost:8765"})
 
     assert response.headers["access-control-allow-origin"] == "http://localhost:8765"

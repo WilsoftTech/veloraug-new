@@ -39,12 +39,11 @@ class AuthController extends ChangeNotifier {
   AuthStatus _status = AuthStatus.restoring;
   AuthStatus get status => _status;
 
-  String? _notice;
-  bool _noticeIsError = false;
+  AuthNotice? _notice;
 
   /// The last outcome worth telling the person about, or null.
-  String? get notice => _notice;
-  bool get noticeIsError => _noticeIsError;
+  AuthNotice? get notice => _notice;
+  bool get noticeIsError => _notice?.isError ?? false;
 
   /// For display only.
   String? get email => _session?.email;
@@ -87,7 +86,7 @@ class AuthController extends ChangeNotifier {
       _setStatus(AuthStatus.signedIn);
     } on Exception catch (error) {
       _logFailure('sign-in', error);
-      _setNotice(signInFailureMessage(error), isError: true);
+      _notice = signInFailureNotice(error);
       _setStatus(AuthStatus.signedOut);
     }
   }
@@ -149,27 +148,27 @@ class AuthController extends ChangeNotifier {
       }
     }
 
-    String message;
+    AuthNotice notice;
     if (!online) {
       // The sign-out page wouldn't load, and would leave a tab to close.
-      message = signedOutOfflineMessage;
+      notice = AuthNotice.signedOutOffline;
     } else {
       try {
         await _client.endBrowserSession();
-        message = signedOutMessage;
+        notice = AuthNotice.signedOut;
       } on Exception catch (error) {
         _logFailure('browser sign-out', error);
-        message = signedOutBrowserKeptMessage;
+        notice = AuthNotice.signedOutBrowserKept;
       }
     }
-    _setNotice(message, isError: message != signedOutMessage);
+    _notice = notice;
     _setStatus(AuthStatus.signedOut);
   }
 
   Future<void> _endLocally() async {
     _session = null;
     await _clearStore();
-    _setNotice(sessionEndedMessage, isError: false);
+    _notice = AuthNotice.sessionEnded;
     _setStatus(AuthStatus.signedOut);
   }
 
@@ -212,11 +211,6 @@ class AuthController extends ChangeNotifier {
   void _setStatus(AuthStatus status) {
     _status = status;
     notifyListeners();
-  }
-
-  void _setNotice(String message, {required bool isError}) {
-    _notice = message;
-    _noticeIsError = isError;
   }
 
   void _logFailure(String step, Exception error) {

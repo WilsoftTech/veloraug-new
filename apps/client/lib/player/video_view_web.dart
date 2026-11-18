@@ -67,6 +67,7 @@ class _WebVideoViewState extends State<_WebVideoView> {
   final web.HTMLVideoElement _video = web.HTMLVideoElement();
   _Hls? _hls;
   bool _reported = false;
+  bool _ended = false;
 
   @override
   void initState() {
@@ -78,7 +79,15 @@ class _WebVideoViewState extends State<_WebVideoView> {
       ..setAttribute('controlslist', 'nodownload')
       ..style.width = '100%'
       ..style.height = '100%'
-      ..style.backgroundColor = 'black';
+      ..style.backgroundColor = 'black'
+      ..addEventListener(
+        'ended',
+        ((web.Event _) {
+          if (_ended || !mounted) return;
+          _ended = true;
+          widget.request.onEnded?.call();
+        }).toJS,
+      );
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,
       (int _) => _video,

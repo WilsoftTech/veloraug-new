@@ -11,6 +11,7 @@ import 'package:veloraug/auth/oauth_config.dart';
 import 'package:veloraug/auth/token_store.dart';
 import 'package:veloraug/widgets/dev_token_checks.dart';
 import 'package:veloraug/widgets/profile_section.dart';
+import 'package:veloraug/l10n/app_localizations.dart';
 
 /// Signed in already, from a saved session. No network is used.
 AuthController _signedInController() {
@@ -116,6 +117,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Scaffold(
           body: SingleChildScrollView(
             child: ProfileSection(auth: auth, httpClient: httpClient),
@@ -150,6 +152,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Scaffold(
           body: ProfileSection(
             auth: auth,

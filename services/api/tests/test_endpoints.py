@@ -53,8 +53,8 @@ def test_openapi_describes_the_endpoints(client):
         "/health",
         "/api/v1",
         "/api/v1/me",
-        "/api/v1/movies",
-        "/api/v1/movies/{movie_id}",
+        "/api/v1/editions",
+        "/api/v1/editions/{edition_id}",
     } <= response.json()["paths"].keys()
 
 
@@ -66,8 +66,8 @@ def test_me_without_sign_in_settings_is_unavailable(client):
 
 
 def test_the_catalogue_without_a_database_is_unavailable(client):
-    assert client.get("/api/v1/movies").status_code == 503
+    assert client.get("/api/v1/editions").status_code == 503
     assert (
-        client.get(f"/api/v1/movies/{'0' * 8}-0000-0000-0000-{'0' * 12}").status_code
+        client.get(f"/api/v1/editions/{'0' * 8}-0000-0000-0000-{'0' * 12}").status_code
         == 503
     )

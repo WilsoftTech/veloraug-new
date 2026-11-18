@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
+import '../l10n/l10n.dart';
 
 /// The VeloraUG name with its two-stroke V. This is the first version of the
 /// identity, awaiting the owner's visual approval.
@@ -14,7 +15,7 @@ class VeloraWordmark extends StatelessWidget {
     final style = Theme.of(context).textTheme.titleLarge
         ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.25);
     return Semantics(
-      label: 'VeloraUG',
+      label: context.l10n.appName,
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,

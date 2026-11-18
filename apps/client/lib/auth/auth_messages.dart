@@ -1,56 +1,66 @@
 import 'package:flutter/services.dart';
 
+import '../l10n/app_localizations.dart';
 import 'oauth_client.dart';
 
-const String _tryAgain = "The sign-in didn't finish. Please try again.";
+/// The last sign-in or sign-out outcome. The Account screen words it, so
+/// the controller holds no text and the words can be translated.
+enum AuthNotice {
+  cancelled(isError: true),
+  browserFailed(isError: true),
+  denied(isError: true),
+  timedOut(isError: true),
+  network(isError: true),
+  unverified(isError: true),
+  tryAgain(isError: true),
+  sessionEnded(isError: false),
+  signedOut(isError: false),
+  signedOutOffline(isError: true),
+  signedOutBrowserKept(isError: true);
 
-/// Words a failed sign-in for the person using the app. It never includes a
-/// code, token, address or the server's own text.
-String signInFailureMessage(Object error) {
+  const AuthNotice({required this.isError});
+
+  final bool isError;
+}
+
+/// What a failed sign-in means for the person using the app. It never
+/// carries a code, token, address or the server's own text.
+AuthNotice signInFailureNotice(Object error) {
   if (error is PlatformException) {
     // flutter_web_auth_2 uses CANCELED when the tab or popup closes without a
     // result, including when the person goes back.
-    if (error.code == 'CANCELED') {
-      return "Sign-in was cancelled, so you're still signed out.";
-    }
-    return "The sign-in page couldn't open. Check that a browser is "
-        'available, and on the web that pop-ups are allowed, then try again.';
+    return error.code == 'CANCELED'
+        ? AuthNotice.cancelled
+        : AuthNotice.browserFailed;
   }
   if (error is OAuthException) {
     return switch (error.kind) {
-      OAuthFailure.denied =>
-        "You didn't allow VeloraUG to use your account, so you're still "
-            'signed out.',
-      OAuthFailure.loginRequired =>
-        'The sign-in timed out. Press Sign in to start again.',
-      OAuthFailure.network =>
-        "VeloraUG couldn't reach the sign-in service. Check your connection "
-            'and try again.',
+      OAuthFailure.denied => AuthNotice.denied,
+      OAuthFailure.loginRequired => AuthNotice.timedOut,
+      OAuthFailure.network => AuthNotice.network,
       OAuthFailure.wrongCallback ||
       OAuthFailure.stateMismatch ||
       OAuthFailure.wrongIssuer ||
-      OAuthFailure.nonceMismatch =>
-        "The sign-in couldn't be verified, so it was stopped. Please try "
-            'again.',
+      OAuthFailure.nonceMismatch => AuthNotice.unverified,
       OAuthFailure.refused ||
       OAuthFailure.grantRefused ||
-      OAuthFailure.badReply => _tryAgain,
+      OAuthFailure.badReply => AuthNotice.tryAgain,
     };
   }
-  return _tryAgain;
+  return AuthNotice.tryAgain;
 }
 
-const String sessionEndedMessage =
-    'Your sign-in has ended. Sign in again to continue.';
-
-const String signedOutMessage = "You're signed out.";
-
-const String signedOutOfflineMessage =
-    "You're signed out on this device. VeloraUG couldn't reach the sign-in "
-    'service, so the browser may still remember you. On a shared device, sign '
-    'in and out again when you are online.';
-
-const String signedOutBrowserKeptMessage =
-    "You're signed out on this device, but the browser sign-out didn't "
-    'finish, so the browser may still remember you. On a shared device, sign '
-    'in and out again.';
+String authNoticeMessage(AppLocalizations l, AuthNotice notice) =>
+    switch (notice) {
+      AuthNotice.cancelled => l.signInCancelled,
+      AuthNotice.browserFailed => l.signInBrowserFailed,
+      AuthNotice.denied => l.signInDenied,
+      AuthNotice.timedOut => l.signInTimedOut,
+      AuthNotice.network => l.signInNetwork,
+      AuthNotice.unverified => l.signInUnverified,
+      AuthNotice.tryAgain => l.signInTryAgain,
+      AuthNotice.sessionEnded => l.sessionEnded,
+      AuthNotice.signedOut => l.signedOutNotice,
+      AuthNotice.signedOutOffline => l.signedOutOffline,
+      AuthNotice.signedOutBrowserKept => l.signedOutBrowserKept,
+    };

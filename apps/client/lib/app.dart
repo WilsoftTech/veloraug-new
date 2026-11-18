@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'api/admin_api.dart';
 import 'api/api_config.dart';
 import 'api/catalogue_api.dart';
 import 'api/playback_api.dart';
@@ -10,6 +11,7 @@ import 'auth/browser_step.dart';
 import 'auth/oauth_client.dart';
 import 'auth/oauth_config.dart';
 import 'auth/token_store.dart';
+import 'l10n/l10n.dart';
 import 'shell/app_shell.dart';
 import 'theme/velora_theme.dart';
 
@@ -19,6 +21,8 @@ class VeloraApp extends StatefulWidget {
     this.authController,
     this.catalogueApi,
     this.playbackApi,
+    this.adminApi,
+    this.showAdmin = adminScreensAvailable,
   });
 
   /// Replaces the controller built from this build's settings. The app
@@ -32,6 +36,13 @@ class VeloraApp extends StatefulWidget {
   /// tests.
   final PlaybackApi? playbackApi;
 
+  /// Replaces the admin client built from this build's settings, in tests.
+  final AdminApi? adminApi;
+
+  /// Whether the Admin entry may show, to admins. The web only, except in
+  /// tests.
+  final bool showAdmin;
+
   @override
   State<VeloraApp> createState() => _VeloraAppState();
 }
@@ -43,6 +54,10 @@ class _VeloraAppState extends State<VeloraApp> {
   CatalogueApi? _ownCatalogue;
   http.Client? _playbackHttpClient;
   PlaybackApi? _ownPlayback;
+  http.Client? _adminHttpClient;
+  AdminApi? _ownAdmin;
+
+  AdminApi? get _admin => widget.adminApi ?? _ownAdmin;
 
   PlaybackApi? get _playback => widget.playbackApi ?? _ownPlayback;
 
@@ -56,6 +71,7 @@ class _VeloraAppState extends State<VeloraApp> {
     if (widget.authController == null) _ownController = _fromSettings();
     if (widget.catalogueApi == null) _ownCatalogue = _catalogueFromSettings();
     if (widget.playbackApi == null) _ownPlayback = _playbackFromSettings();
+    if (widget.adminApi == null) _ownAdmin = _adminFromSettings();
     _auth?.restore();
   }
 
@@ -87,10 +103,33 @@ class _VeloraAppState extends State<VeloraApp> {
       if (kDebugMode) debugPrint('API address: ${error.message}');
       return null;
     }
+    Uri? mediaBaseUrl;
+    try {
+      mediaBaseUrl = parseMediaBaseUrl(mediaBaseUrlSetting);
+    } on FormatException {
+      // Only TMDB's images are shown without it.
+    }
     return CatalogueApi(
       baseUrl: baseUrl,
+      mediaBaseUrl: mediaBaseUrl,
       httpClient: _catalogueHttpClient = http.Client(),
     );
+  }
+
+  /// Like playback: the API's address, the media gateway's, and sign-in.
+  AdminApi? _adminFromSettings() {
+    final auth = _auth;
+    if (auth == null) return null;
+    try {
+      return AdminApi(
+        baseUrl: parseApiBaseUrl(apiBaseUrlSetting),
+        mediaBaseUrl: parseMediaBaseUrl(mediaBaseUrlSetting),
+        httpClient: _adminHttpClient = http.Client(),
+        accessToken: auth.accessToken,
+      );
+    } on FormatException {
+      return null;
+    }
   }
 
   /// Needs the API's address, the media gateway's, and sign-in.
@@ -120,6 +159,7 @@ class _VeloraAppState extends State<VeloraApp> {
     _httpClient?.close();
     _catalogueHttpClient?.close();
     _playbackHttpClient?.close();
+    _adminHttpClient?.close();
     super.dispose();
   }
 
@@ -133,11 +173,17 @@ class _VeloraAppState extends State<VeloraApp> {
         api: _catalogue,
         child: PlaybackScope(
           api: _playback,
-          child: MaterialApp(
-            title: 'VeloraUG',
-            debugShowCheckedModeBanner: false,
-            theme: buildVeloraTheme(),
-            home: const AppShell(),
+          child: AdminScope(
+            api: _admin,
+            child: MaterialApp(
+              onGenerateTitle: (context) => context.l10n.appName,
+              debugShowCheckedModeBanner: false,
+              theme: buildVeloraTheme(),
+              // English only for now. A Luganda app_lg.arb adds itself here.
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: AppShell(showAdmin: widget.showAdmin),
+            ),
           ),
         ),
       ),

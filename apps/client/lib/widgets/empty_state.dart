@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/tokens.dart';
 import 'velora_button.dart';
+import '../l10n/l10n.dart';
 
 /// Explains why a screen has nothing to show yet.
 class EmptyState extends StatelessWidget {
@@ -41,14 +42,16 @@ class ErrorState extends StatelessWidget {
     required this.title,
     required this.message,
     this.onRetry,
-    this.retryLabel = 'Try again',
+    this.retryLabel,
     this.icon = Icons.error_outline,
   });
 
   final String title;
   final String message;
   final VoidCallback? onRetry;
-  final String retryLabel;
+
+  /// Defaults to "Try again".
+  final String? retryLabel;
   final IconData icon;
 
   @override
@@ -67,7 +70,7 @@ class ErrorState extends StatelessWidget {
         action: retry == null
             ? null
             : VeloraButton(
-                label: retryLabel,
+                label: retryLabel ?? context.l10n.tryAgain,
                 onPressed: retry,
                 variant: VeloraButtonVariant.secondary,
                 icon: Icons.refresh,

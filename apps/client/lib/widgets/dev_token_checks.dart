@@ -5,6 +5,7 @@ import '../api/api_config.dart';
 import '../api/profile_api.dart';
 import '../auth/auth_controller.dart';
 import '../auth/oauth_client.dart';
+import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 import 'status_badge.dart';
 
@@ -83,11 +84,12 @@ class _DevTokenChecksState extends State<DevTokenChecks> {
   Future<void> _run(Future<void> Function(ProfileApi api) check) async {
     final api = _api;
     if (api == null || _busy) return;
+    final l = context.l10n;
     setState(() => _busy = true);
     try {
       await check(api);
     } on ProfileException catch (error) {
-      _add(_Result(profileFailureMessage(error.failure), asExpected: false));
+      _add(_Result(profileFailureMessage(l, error.failure), asExpected: false));
     } on OAuthException {
       _add(const _Result("Couldn't renew the token.", asExpected: false));
     } finally {

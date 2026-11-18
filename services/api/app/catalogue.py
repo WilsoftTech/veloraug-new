@@ -1,15 +1,12 @@
-"""The catalogue: published movie editions, with their source's details.
+"""Keeping TMDB's details fresh: the Refresher, and the rules for copies.
 
-Reads run in Database.anonymous(), where row-level security shows the API's
-role published editions only. Since Milestone 9 a "movie" here is a movie
-edition, and its details are its source title's, from TMDB or typed in by an
-admin. See docs/step-09a-vj-catalogue-plan.md. The rules for TMDB copies,
-from docs/step-06a-catalogue-plan.md, apply to sources from TMDB:
+Viewers read the catalogue through app/viewer.py. The rules for TMDB
+copies, from docs/step-06a-catalogue-plan.md, apply to sources from TMDB:
 
 - A copy older than SERVE_FOR is never served. TMDB's terms allow 6 months.
 - A copy older than REFRESH_AFTER is served, then refreshed in the background.
-- A published movie with no copy, or only an expired one, is left out of
-  lists, and its detail answers 503 until the background fetch succeeds.
+- A published edition with no copy, or only an expired one, is left out of
+  lists, and its page answers 503 until the background fetch succeeds.
 
 Typed-in details never expire.
 """
@@ -18,9 +15,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
-from datetime import date, timedelta
-from uuid import UUID
+from datetime import timedelta
 
 import psycopg
 
@@ -50,125 +45,6 @@ MAX_FETCHES_PER_RUN = 10
 logger = logging.getLogger("veloraug.catalogue")
 
 
-@dataclass(frozen=True)
-class MovieRow:
-    id: UUID
-    tmdb_id: int | None
-    title: str
-    original_title: str | None
-    overview: str | None
-    release_date: date | None
-    runtime_minutes: int | None
-    genres: tuple[str, ...]
-    poster_path: str | None
-    backdrop_path: str | None
-    stale: bool
-
-    @property
-    def year(self) -> int | None:
-        return self.release_date.year if self.release_date else None
-
-
-# Films from before Milestone 9 keep TMDB's title and poster, as they always
-# had. VJ editions show the title and poster the admin approved.
-_TITLE = "case when e.test then s.title else e.display_title end"
-
-_COLUMNS = f"""
-    e.id, s.tmdb_id, {_TITLE}, s.original_title, s.overview,
-    s.release_date, s.runtime_minutes, s.genres,
-    case when e.test then s.poster_path else e.poster_path end, s.backdrop_path,
-    s.details_from = 'tmdb'
-      and coalesce(s.fetched_at < now() - %(refresh_after)s, true) as stale
-"""
-
-# A source's details can be shown: typed in, or a TMDB copy young enough.
-_SERVABLE = """
-    (s.details_from = 'manual' or s.fetched_at >= now() - %(serve_for)s)
-"""
-
-_FROM = """
-    from public.editions e
-    join public.sources s on s.id = e.source_id
-    where e.kind = 'movie'
-"""
-
-_AGES = {"refresh_after": REFRESH_AFTER, "serve_for": SERVE_FOR}
-
-
-def _row(values: tuple) -> MovieRow:
-    *head, genres, poster, backdrop, stale = values
-    return MovieRow(*head, tuple(genres or ()), poster, backdrop, bool(stale))
-
-
-def _like_prefix(text: str) -> str:
-    """text as a LIKE pattern that matches it literally."""
-    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
-def list_movies(
-    conn: psycopg.Connection, *, limit: int, offset: int, query: str | None = None
-) -> list[MovieRow]:
-    """Published movies with a servable copy. Newest published first, or,
-    when searching, titles that start with the query first."""
-    params: dict = {**_AGES, "limit": limit, "offset": offset}
-    where = _SERVABLE
-    order = "e.published_at desc, e.id"
-    if query:
-        params["contains"] = f"%{_like_prefix(query.lower())}%"
-        params["starts"] = f"{_like_prefix(query.lower())}%"
-        where += f" and lower({_TITLE}) like %(contains)s"
-        order = (
-            f"lower({_TITLE}) like %(starts)s desc, lower({_TITLE}), "
-            "e.published_at desc"
-        )
-    rows = conn.execute(
-        f"""
-        select {_COLUMNS}
-        {_FROM} and {where}
-        order by {order}
-        limit %(limit)s offset %(offset)s
-        """,
-        params,
-    ).fetchall()
-    return [_row(row) for row in rows]
-
-
-class DetailsUnavailable(Exception):
-    """The movie is published, but has no servable copy yet."""
-
-    def __init__(self, tmdb_id: int) -> None:
-        super().__init__(tmdb_id)
-        self.tmdb_id = tmdb_id
-
-
-def get_movie(conn: psycopg.Connection, movie_id: UUID) -> MovieRow | None:
-    """One published movie, or None. DetailsUnavailable if its copy is
-    missing or too old to serve."""
-    row = conn.execute(
-        f"""
-        select {_COLUMNS}, {_SERVABLE} as servable
-        {_FROM} and e.id = %(id)s
-        """,
-        {**_AGES, "id": movie_id},
-    ).fetchone()
-    if row is None:
-        return None
-    *values, servable = row
-    if not servable:
-        raise DetailsUnavailable(values[1])
-    return _row(tuple(values))
-
-
-def movie_item(conn: psycopg.Connection, edition_id: UUID) -> UUID | None:
-    """The playable item of a published movie edition, or None. For films
-    from before Milestone 9 it has the edition's own ID."""
-    row = conn.execute(
-        "select id from public.items where edition_id = %s and kind = 'movie'",
-        (edition_id,),
-    ).fetchone()
-    return row[0] if row else None
-
-
 # A source is named by its kind and TMDB ID: TMDB numbers movies and series
 # separately.
 SourceKey = tuple[str, int]
@@ -186,7 +62,7 @@ def needing_refresh(conn: psycopg.Connection, limit: int) -> list[SourceKey]:
         order by s.fetched_at nulls first
         limit %(limit)s
         """,
-        {**_AGES, "limit": limit},
+        {"refresh_after": REFRESH_AFTER, "limit": limit},
     ).fetchall()
     return [(kind, tmdb_id) for kind, tmdb_id in rows]
 

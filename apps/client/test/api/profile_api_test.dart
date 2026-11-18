@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:veloraug/api/profile_api.dart';
+import 'package:veloraug/l10n/app_localizations_en.dart';
 import 'package:veloraug/auth/oauth_client.dart';
 
 const _user = '5f0c2b1e-8a4d-4c1e-9b2f-3d6a7e8f9a0b';
@@ -153,8 +154,9 @@ void main() {
 
   test('failure messages never quote a token', () {
     for (final failure in ProfileFailure.values) {
-      expect(profileFailureMessage(failure), isNot(contains('SECRET')));
-      expect(profileFailureMessage(failure), isNotEmpty);
+      final message = profileFailureMessage(AppLocalizationsEn(), failure);
+      expect(message, isNot(contains('SECRET')));
+      expect(message, isNotEmpty);
     }
   });
 }

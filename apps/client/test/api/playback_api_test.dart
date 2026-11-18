@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:veloraug/api/playback_api.dart';
 import 'package:veloraug/auth/oauth_client.dart';
+import 'package:veloraug/l10n/app_localizations_en.dart';
 
 const _playlist = 'http://127.0.0.1:8787/v1/payload.signature/master.m3u8';
 
@@ -25,7 +26,7 @@ http.Response _grant({String url = _playlist}) => http.Response(
 
 Future<PlaybackFailure> _failure(PlaybackApi api) async {
   try {
-    await api.grant('movie-1');
+    await api.grant('item-1');
   } on PlaybackException catch (error) {
     return error.failure;
   }
@@ -38,16 +39,29 @@ void main() {
     final grant = await _api((request) {
       sent = request;
       return _grant();
-    }).grant('movie 1');
+    }).grant('item 1');
 
     expect(sent.method, 'POST');
     expect(
       sent.url.toString(),
-      'http://127.0.0.1:8000/api/v1/movies/movie%201/playback',
+      'http://127.0.0.1:8000/api/v1/items/item%201/playback',
     );
     expect(sent.headers['Authorization'], 'Bearer ACCESS-SECRET');
     expect(grant.playlistUrl.toString(), _playlist);
     expect(grant.expiresAt, DateTime.utc(2026, 11, 12, 22));
+  });
+
+  test("an admin's preview asks the admin route", () async {
+    late http.Request sent;
+    await _api((request) {
+      sent = request;
+      return _grant();
+    }).grant('item-1', preview: true);
+
+    expect(
+      sent.url.toString(),
+      'http://127.0.0.1:8000/api/v1/admin/items/item-1/preview',
+    );
   });
 
   test('signed out, nothing is sent', () async {
@@ -72,6 +86,7 @@ void main() {
 
   for (final (status, failure) in [
     (401, PlaybackFailure.refused),
+    (403, PlaybackFailure.notAdmin),
     (404, PlaybackFailure.notFound),
     (409, PlaybackFailure.notReady),
     (503, PlaybackFailure.busy),
@@ -115,7 +130,9 @@ void main() {
 
   test('messages never repeat a token', () {
     for (final failure in PlaybackFailure.values) {
-      expect(playbackFailureMessage(failure), isNot(contains('SECRET')));
+      final message = playbackFailureMessage(AppLocalizationsEn(), failure);
+      expect(message, isNot(contains('SECRET')));
+      expect(message, isNotEmpty);
     }
   });
 }

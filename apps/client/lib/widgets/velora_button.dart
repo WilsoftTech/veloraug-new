@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/tokens.dart';
 import 'loading_placeholder.dart';
+import '../l10n/l10n.dart';
 
 enum VeloraButtonVariant { primary, secondary, tertiary, danger }
 
@@ -16,7 +17,7 @@ class VeloraButton extends StatelessWidget {
     this.variant = VeloraButtonVariant.primary,
     this.icon,
     this.isLoading = false,
-    this.loadingLabel = 'Loading…',
+    this.loadingLabel,
     this.expand = false,
     this.statesController,
   });
@@ -31,7 +32,7 @@ class VeloraButton extends StatelessWidget {
   /// Disables the button and replaces its label with [loadingLabel], so
   /// waiting isn't shown by the spinner alone.
   final bool isLoading;
-  final String loadingLabel;
+  final String? loadingLabel;
 
   /// Fills the available width.
   final bool expand;
@@ -43,7 +44,7 @@ class VeloraButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final action = isLoading ? null : onPressed;
     final content = _ButtonContent(
-      label: isLoading ? loadingLabel : label,
+      label: isLoading ? loadingLabel ?? context.l10n.loading : label,
       icon: icon,
       isLoading: isLoading,
     );

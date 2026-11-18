@@ -290,7 +290,13 @@ def test_unapproved_episodes_drafts_and_strangers_are_refused(api, owner, catalo
 
 
 @needs_database
-def test_the_old_movie_routes_still_serve_films_from_before(api, catalogue):
+def test_films_from_before_keep_their_ids_on_the_new_routes(api, catalogue):
+    """The Milestone 6 routes are gone since Step 9E. A film from before
+    Milestone 9 keeps its ID as its edition's and its item's."""
     film = catalogue["film"]
 
-    assert api.get(f"/api/v1/movies/{film}").json()["title"] == "The Matrix"
+    assert api.get(f"/api/v1/movies/{film}").status_code == 404
+    assert api.get("/api/v1/movies").status_code == 404
+    detail = api.get(f"/api/v1/editions/{film}").json()
+    assert detail["title"] == "The Matrix"
+    assert detail["item_id"] == str(film)

@@ -174,7 +174,7 @@ void main() {
       final auth = controller();
       await auth.restore();
       expect(auth.status, AuthStatus.signedOut);
-      expect(auth.notice, sessionEndedMessage);
+      expect(auth.notice, AuthNotice.sessionEnded);
       expect(store.session, isNull);
     });
 
@@ -218,7 +218,7 @@ void main() {
       final auth = await failWith(
         (_) async => '$_callback?code=CODE-SECRET&state=forged',
       );
-      expect(auth.notice, contains("couldn't be verified"));
+      expect(auth.notice, AuthNotice.unverified);
     });
 
     test('a cancelled browser leaves the person signed out', () async {
@@ -229,7 +229,7 @@ void main() {
           details: '$_callback?code=CODE-SECRET',
         ),
       );
-      expect(auth.notice, contains('cancelled'));
+      expect(auth.notice, AuthNotice.cancelled);
     });
 
     test('a denied consent leaves the person signed out', () async {
@@ -237,7 +237,7 @@ void main() {
         (url) async =>
             '$_callback?error=access_denied&state=${url.queryParameters['state']}',
       );
-      expect(auth.notice, contains("didn't allow"));
+      expect(auth.notice, AuthNotice.denied);
     });
 
     test('a timed-out request says so', () async {
@@ -245,7 +245,7 @@ void main() {
         (url) async =>
             '$_callback?error=login_required&state=${url.queryParameters['state']}',
       );
-      expect(auth.notice, contains('timed out'));
+      expect(auth.notice, AuthNotice.timedOut);
     });
   });
 
@@ -277,7 +277,7 @@ void main() {
       expect(await auth.accessToken(), isNull);
       expect(neon.tokenRequests, hasLength(1));
       expect(auth.status, AuthStatus.signedOut);
-      expect(auth.notice, sessionEndedMessage);
+      expect(auth.notice, AuthNotice.sessionEnded);
       expect(store.session, isNull);
     });
 
@@ -321,7 +321,7 @@ void main() {
       expect(store.session, isNull);
       expect(neon.browserUrls.single.toString(), startsWith(_signOutPage));
       expect(auth.status, AuthStatus.signedOut);
-      expect(auth.notice, signedOutMessage);
+      expect(auth.notice, AuthNotice.signedOut);
       expect(await auth.accessToken(), isNull);
     });
 
@@ -332,7 +332,7 @@ void main() {
 
       expect(store.session, isNull);
       expect(auth.status, AuthStatus.signedOut);
-      expect(auth.notice, signedOutOfflineMessage);
+      expect(auth.notice, AuthNotice.signedOutOffline);
       // The sign-out page couldn't load, so no tab is opened.
       expect(neon.browserUrls, isEmpty);
     });
@@ -358,7 +358,7 @@ void main() {
 
       expect(store.session, isNull);
       expect(closing.status, AuthStatus.signedOut);
-      expect(closing.notice, signedOutBrowserKeptMessage);
+      expect(closing.notice, AuthNotice.signedOutBrowserKept);
       auth.dispose();
     });
   });

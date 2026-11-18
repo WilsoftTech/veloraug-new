@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../auth/auth_controller.dart';
+import '../auth/auth_messages.dart';
 import '../theme/palette.dart';
 import '../theme/tokens.dart';
 import '../widgets/dev_connection_check.dart';
@@ -11,6 +12,7 @@ import '../widgets/profile_section.dart';
 import '../widgets/screen_body.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
+import '../l10n/l10n.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -19,7 +21,7 @@ class AccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = AuthScope.of(context);
     return ScreenBody(
-      heading: 'Account',
+      heading: context.l10n.account,
       children: [
         if (auth == null) const _NotConfigured() else _AccountPanel(auth),
         const AboutSection(),
@@ -37,10 +39,10 @@ class _NotConfigured extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const EmptyState(
+    return EmptyState(
       icon: Icons.person_off_outlined,
-      title: "You're signed out",
-      message: "Sign-in isn't set up in this version of the app.",
+      title: context.l10n.signedOutTitle,
+      message: context.l10n.signInNotSetUp,
     );
   }
 }
@@ -52,40 +54,39 @@ class _AccountPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final notice = auth.notice;
     final panel = switch (auth.status) {
-      AuthStatus.restoring => const EmptyState(
+      AuthStatus.restoring => EmptyState(
         icon: Icons.hourglass_empty,
-        title: 'Checking your sign-in',
-        message: 'This takes a moment.',
+        title: l.checkingSignIn,
+        message: l.takesAMoment,
       ),
       AuthStatus.signedOut || AuthStatus.signingIn => EmptyState(
         icon: Icons.person_outline,
-        title: "You're signed out",
-        message:
-            'Sign in, or create an account, on the VeloraUG sign-in page. '
-            'It opens in your browser.',
+        title: l.signedOutTitle,
+        message: l.signInExplained,
         action: VeloraButton(
-          label: 'Sign in',
+          label: l.signIn,
           icon: Icons.login,
           isLoading: auth.status == AuthStatus.signingIn,
-          loadingLabel: 'Waiting for the sign-in page…',
+          loadingLabel: l.waitingForSignIn,
           onPressed: auth.signIn,
         ),
       ),
       AuthStatus.signedIn || AuthStatus.signingOut => EmptyState(
         icon: Icons.person,
-        title: "You're signed in",
+        title: l.signedInTitle,
         message: switch (auth.email) {
-          final email? => 'Signed in as $email.',
-          null => 'Your account is signed in on this device.',
+          final email? => l.signedInAs(email),
+          null => l.signedInOnDevice,
         },
         action: VeloraButton(
-          label: 'Sign out',
+          label: l.signOut,
           icon: Icons.logout,
           variant: VeloraButtonVariant.secondary,
           isLoading: auth.status == AuthStatus.signingOut,
-          loadingLabel: 'Signing out…',
+          loadingLabel: l.signingOut,
           onPressed: auth.signOut,
         ),
       ),
@@ -93,7 +94,8 @@ class _AccountPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (notice != null) _Notice(notice, isError: auth.noticeIsError),
+        if (notice != null)
+          _Notice(authNoticeMessage(l, notice), isError: notice.isError),
         panel,
         if (auth.status == AuthStatus.signedIn) ...[
           const SizedBox(height: VeloraSpacing.md),
@@ -161,6 +163,7 @@ class _DevToolsHeading extends StatelessWidget {
           Semantics(
             header: true,
             child: Text(
+              // Debug builds only, so not translated.
               'Development tools',
               style: Theme.of(context).textTheme.titleLarge,
             ),
@@ -175,10 +178,6 @@ class _DevToolsHeading extends StatelessWidget {
   }
 }
 
-/// The wording TMDB's terms and FAQ ask for, word for word.
-const String tmdbNotice =
-    'This product uses the TMDB API but is not endorsed or certified by TMDB.';
-
 /// TMDB's approved short logo, from themoviedb.org/about/logos-attribution,
 /// drawn from its SVG to a PNG at 820 × 107 so no SVG package is needed.
 const String tmdbLogoAsset = 'assets/brand/tmdb_logo.png';
@@ -191,6 +190,7 @@ class AboutSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.only(top: VeloraSpacing.md),
       child: Column(
@@ -199,17 +199,14 @@ class AboutSection extends StatelessWidget {
         children: [
           Semantics(
             header: true,
-            child: Text('About', style: theme.textTheme.titleLarge),
+            child: Text(l.about, style: theme.textTheme.titleLarge),
           ),
-          Text(
-            'Movie titles, descriptions and images come from TMDB, '
-            'The Movie Database.',
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(l.aboutTmdb, style: theme.textTheme.bodyMedium),
           // Small, so it stays less prominent than VeloraUG's own brand.
-          Image.asset(tmdbLogoAsset, height: 16, semanticLabel: 'TMDB logo'),
+          Image.asset(tmdbLogoAsset, height: 16, semanticLabel: l.tmdbLogo),
           Text(
-            tmdbNotice,
+            // The wording TMDB's terms and FAQ ask for, word for word.
+            l.tmdbNotice,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

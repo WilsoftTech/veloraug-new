@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:veloraug/widgets/dev_connection_check.dart';
+import 'package:veloraug/l10n/app_localizations.dart';
 
 const _baseUrl = 'http://127.0.0.1:8000';
 const _serviceInfoBody =
@@ -23,6 +24,7 @@ Future<void> _pumpCheck(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       home: Scaffold(
         body: SingleChildScrollView(
           child: DevConnectionCheck(baseUrl: baseUrl, httpClient: client),
@@ -244,7 +246,12 @@ void main() {
     await tester.tap(find.text('Check connection'));
     await tester.pump();
 
-    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        home: SizedBox(),
+      ),
+    );
     gate.complete();
     await tester.pumpAndSettle();
 

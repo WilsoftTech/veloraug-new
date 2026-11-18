@@ -3,6 +3,7 @@ import 'package:video_player/video_player.dart';
 
 import '../theme/tokens.dart';
 import 'video_view.dart';
+import '../l10n/l10n.dart';
 
 /// ExoPlayer on Android, through video_player.
 Widget platformVideoView(BuildContext context, VideoViewRequest request) =>
@@ -20,6 +21,7 @@ class _NativeVideoView extends StatefulWidget {
 class _NativeVideoViewState extends State<_NativeVideoView> {
   late final VideoPlayerController _controller;
   bool _reported = false;
+  bool _ended = false;
   bool _ready = false;
 
   @override
@@ -46,7 +48,13 @@ class _NativeVideoViewState extends State<_NativeVideoView> {
   }
 
   void _changed() {
-    if (_controller.value.hasError) _fail();
+    final value = _controller.value;
+    if (value.hasError) {
+      _fail();
+    } else if (value.isCompleted && !_ended && mounted) {
+      _ended = true;
+      widget.request.onEnded?.call();
+    }
   }
 
   void _fail() {
@@ -69,8 +77,10 @@ class _NativeVideoViewState extends State<_NativeVideoView> {
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
-      return const Center(
-        child: CircularProgressIndicator(semanticsLabel: 'Loading the video'),
+      return Center(
+        child: CircularProgressIndicator(
+          semanticsLabel: context.l10n.loadingVideo,
+        ),
       );
     }
     return Column(
@@ -130,7 +140,9 @@ class _ControlsState extends State<_Controls> {
           child: Row(
             children: [
               IconButton(
-                tooltip: value.isPlaying ? 'Pause' : 'Play',
+                tooltip: value.isPlaying
+                    ? context.l10n.pause
+                    : context.l10n.play,
                 icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow),
                 color: Colors.white,
                 onPressed: value.isPlaying ? controller.pause : controller.play,
@@ -141,7 +153,7 @@ class _ControlsState extends State<_Controls> {
               ),
               Expanded(
                 child: Semantics(
-                  label: 'Position',
+                  label: context.l10n.position,
                   child: Slider(
                     value: total > 0 ? at : 0,
                     max: total > 0 ? total : 1,

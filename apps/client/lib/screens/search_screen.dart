@@ -3,14 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../api/catalogue_api.dart';
+import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
+import '../widgets/edition_cards.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/movie_poster.dart';
 import '../widgets/screen_body.dart';
 import '../widgets/velora_button.dart';
 import '../widgets/velora_search_field.dart';
 
-/// The API searches titles from this many characters.
+/// The API searches from this many characters.
 const int minSearchLength = 2;
 
 /// How long typing must pause before a search is sent.
@@ -18,7 +19,7 @@ const Duration searchDelay = Duration(milliseconds: 300);
 
 enum _Phase { idle, loading, ready, failed }
 
-/// Searches VeloraUG's own catalogue by title, as the person types.
+/// Searches VeloraUG's editions by title or VJ name, as the person types.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -36,7 +37,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String _query = '';
   _Phase _phase = _Phase.idle;
   CatalogueFailure? _failure;
-  List<MovieSummary> _movies = const [];
+  List<EditionCard> _editions = const [];
   int? _nextOffset;
   bool _loadingMore = false;
 
@@ -55,7 +56,7 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() {
         _query = query;
         _phase = _Phase.idle;
-        _movies = const [];
+        _editions = const [];
       });
       return;
     }
@@ -83,10 +84,10 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
     try {
-      final page = await api.list(query: query);
+      final page = await api.editions(query: query);
       if (!mounted || number != _searchNumber) return;
       setState(() {
-        _movies = page.movies;
+        _editions = page.editions;
         _nextOffset = page.nextOffset;
         _phase = _Phase.ready;
       });
@@ -106,13 +107,13 @@ class _SearchScreenState extends State<SearchScreen> {
     if (api == null || offset == null || _loadingMore) return;
     setState(() => _loadingMore = true);
     try {
-      final page = await api.list(query: _query, offset: offset);
+      final page = await api.editions(query: _query, offset: offset);
       if (!mounted || number != _searchNumber) return;
       setState(() {
-        final seen = {for (final movie in _movies) movie.id};
-        _movies = [
-          ..._movies,
-          ...page.movies.where((movie) => !seen.contains(movie.id)),
+        final seen = {for (final edition in _editions) edition.id};
+        _editions = [
+          ..._editions,
+          ...page.editions.where((edition) => !seen.contains(edition.id)),
         ];
         _nextOffset = page.nextOffset;
       });
@@ -125,8 +126,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return ScreenBody(
-      heading: 'Search',
+      heading: l.searchHeading,
       maxWidth: VeloraLayout.browseWidth,
       children: [
         VeloraSearchField(
@@ -136,27 +138,25 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         ...switch (_phase) {
           _Phase.idle => [
-            const EmptyState(
+            EmptyState(
               icon: Icons.manage_search,
-              title: 'Find a movie',
-              message:
-                  'Type at least $minSearchLength letters of a title to '
-                  "search VeloraUG's movies.",
+              title: l.searchIdleTitle,
+              message: l.searchIdleMessage(minSearchLength),
             ),
           ],
-          _Phase.loading => [const MovieGridSkeleton(count: 4)],
+          _Phase.loading => [const EditionGridSkeleton(count: 4)],
           _Phase.failed => [
             ErrorState(
-              title: "Couldn't search",
-              message: catalogueFailureMessage(_failure!),
+              title: l.searchFailed,
+              message: catalogueFailureMessage(l, _failure!),
               onRetry: () => _search(_query),
             ),
           ],
-          _Phase.ready when _movies.isEmpty => [
+          _Phase.ready when _editions.isEmpty => [
             EmptyState(
               icon: Icons.search_off,
-              title: 'No movies match',
-              message: 'Nothing in VeloraUG has "$_query" in its title.',
+              title: l.searchNoneTitle,
+              message: l.searchNoneMessage(_query),
             ),
           ],
           _Phase.ready => [
@@ -164,22 +164,20 @@ class _SearchScreenState extends State<SearchScreen> {
               liveRegion: true,
               child: Text(
                 _nextOffset == null
-                    ? '${_movies.length} '
-                          '${_movies.length == 1 ? 'movie' : 'movies'} '
-                          'for "$_query"'
-                    : 'Movies for "$_query"',
+                    ? l.searchResultCount(_editions.length, _query)
+                    : l.searchResultsFor(_query),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            MovieGrid(movies: _movies),
+            EditionGrid(editions: _editions),
             if (_nextOffset != null)
               Center(
                 child: VeloraButton(
-                  label: 'Show more',
+                  label: l.showMore,
                   icon: Icons.expand_more,
                   variant: VeloraButtonVariant.secondary,
                   isLoading: _loadingMore,
-                  loadingLabel: 'Loading more…',
+                  loadingLabel: l.loadingMore,
                   onPressed: _loadMore,
                 ),
               ),

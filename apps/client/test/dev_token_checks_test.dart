@@ -9,6 +9,7 @@ import 'package:veloraug/auth/oauth_client.dart';
 import 'package:veloraug/auth/oauth_config.dart';
 import 'package:veloraug/auth/token_store.dart';
 import 'package:veloraug/widgets/dev_token_checks.dart';
+import 'package:veloraug/l10n/app_localizations.dart';
 
 String _jwt(Map<String, Object?> payload, String signature) {
   String part(Object value) =>
@@ -73,6 +74,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Scaffold(
           body: SingleChildScrollView(
             child: DevTokenChecks(
@@ -141,7 +143,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: DevTokenChecks(auth: null))),
+      const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        home: Scaffold(body: DevTokenChecks(auth: null)),
+      ),
     );
 
     final button = tester.widget<OutlinedButton>(

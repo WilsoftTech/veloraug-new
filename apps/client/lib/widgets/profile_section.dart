@@ -10,6 +10,7 @@ import 'loading_placeholder.dart';
 import 'status_badge.dart';
 import 'velora_button.dart';
 import 'velora_text_field.dart';
+import '../l10n/l10n.dart';
 
 const int displayNameMaxLength = 80;
 
@@ -44,9 +45,13 @@ class _ProfileSectionState extends State<ProfileSection> {
 
   ProfileApi? _api;
   _Phase _phase = _Phase.loading;
-  String? _loadError;
-  String? _saveMessage;
-  bool _saveFailed = false;
+
+  /// Null with no API address in this build.
+  ProfileFailure? _loadFailure;
+
+  /// After saving: the failure, or null for success.
+  ProfileFailure? _saveFailure;
+  bool _saved = false;
   bool _saving = false;
   String? _savedName;
 
@@ -61,7 +66,6 @@ class _ProfileSectionState extends State<ProfileSection> {
       );
     } on FormatException {
       _phase = _Phase.failed;
-      _loadError = "This version of the app can't reach VeloraUG.";
       return;
     }
     _load();
@@ -80,7 +84,7 @@ class _ProfileSectionState extends State<ProfileSection> {
     if (_phase != _Phase.loading) {
       setState(() {
         _phase = _Phase.loading;
-        _loadError = null;
+        _loadFailure = null;
       });
     }
     try {
@@ -95,7 +99,7 @@ class _ProfileSectionState extends State<ProfileSection> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
-        _loadError = profileFailureMessage(error.failure);
+        _loadFailure = error.failure;
       });
     }
   }
@@ -107,7 +111,8 @@ class _ProfileSectionState extends State<ProfileSection> {
     final trimmed = _name.text.trim();
     setState(() {
       _saving = true;
-      _saveMessage = null;
+      _saved = false;
+      _saveFailure = null;
     });
     try {
       final profile = await api.updateDisplayName(
@@ -117,16 +122,12 @@ class _ProfileSectionState extends State<ProfileSection> {
       setState(() {
         _savedName = profile.displayName;
         _name.text = profile.displayName ?? '';
-        _saveMessage = profile.displayName == null
-            ? 'Your name was removed.'
-            : 'Saved.';
-        _saveFailed = false;
+        _saved = true;
       });
     } on ProfileException catch (error) {
       if (!mounted) return;
       setState(() {
-        _saveMessage = profileFailureMessage(error.failure);
-        _saveFailed = true;
+        _saveFailure = error.failure;
       });
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -136,7 +137,7 @@ class _ProfileSectionState extends State<ProfileSection> {
   String? _validate(String? value) {
     final trimmed = (value ?? '').trim();
     if (trimmed.characters.length > displayNameMaxLength) {
-      return 'Use $displayNameMaxLength characters or fewer.';
+      return context.l10n.nameTooLong(displayNameMaxLength);
     }
     return null;
   }
@@ -144,6 +145,7 @@ class _ProfileSectionState extends State<ProfileSection> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     return Card.outlined(
       child: Padding(
         padding: const EdgeInsets.all(VeloraSpacing.md),
@@ -152,19 +154,22 @@ class _ProfileSectionState extends State<ProfileSection> {
           children: [
             Semantics(
               header: true,
-              child: Text('Your profile', style: theme.textTheme.titleMedium),
+              child: Text(l.yourProfile, style: theme.textTheme.titleMedium),
             ),
             const SizedBox(height: VeloraSpacing.sm),
             switch (_phase) {
-              _Phase.loading => const Row(
+              _Phase.loading => Row(
                 children: [
-                  VeloraSpinner(),
-                  SizedBox(width: VeloraSpacing.sm),
-                  Expanded(child: Text('Loading your profile…')),
+                  const VeloraSpinner(),
+                  const SizedBox(width: VeloraSpacing.sm),
+                  Expanded(child: Text(l.loadingProfile)),
                 ],
               ),
               _Phase.failed => _LoadFailed(
-                message: _loadError ?? 'Something went wrong.',
+                message: switch (_loadFailure) {
+                  final failure? => profileFailureMessage(l, failure),
+                  null => l.noApiAddress,
+                },
                 onRetry: _load,
               ),
               _Phase.ready => _buildForm(theme),
@@ -176,24 +181,27 @@ class _ProfileSectionState extends State<ProfileSection> {
   }
 
   Widget _buildForm(ThemeData theme) {
-    final message = _saveMessage;
+    final l = context.l10n;
+    final failure = _saveFailure;
+    final message = failure != null
+        ? profileFailureMessage(l, failure)
+        : _saved
+        ? (_savedName == null ? l.nameRemoved : l.saved)
+        : null;
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            _savedName == null
-                ? "You haven't set a display name yet."
-                : 'Your display name is $_savedName.',
-          ),
+          Text(switch (_savedName) {
+            final name? => l.displayNameIs(name),
+            null => l.noDisplayName,
+          }),
           const SizedBox(height: VeloraSpacing.sm),
           VeloraTextField(
-            label: 'Display name',
+            label: l.displayName,
             controller: _name,
-            helperText:
-                'Up to $displayNameMaxLength characters. Leave it empty to '
-                'remove it.',
+            helperText: l.displayNameHelp(displayNameMaxLength),
             validator: _validate,
             enabled: !_saving,
             textInputAction: TextInputAction.done,
@@ -210,16 +218,18 @@ class _ProfileSectionState extends State<ProfileSection> {
                   alignment: Alignment.centerLeft,
                   child: StatusBadge(
                     label: message,
-                    tone: _saveFailed ? StatusTone.danger : StatusTone.success,
+                    tone: failure != null
+                        ? StatusTone.danger
+                        : StatusTone.success,
                   ),
                 ),
               ),
             ),
           VeloraButton(
-            label: 'Save name',
+            label: l.saveName,
             icon: Icons.save_outlined,
             isLoading: _saving,
-            loadingLabel: 'Saving…',
+            loadingLabel: l.saving,
             onPressed: _save,
           ),
         ],
@@ -253,7 +263,7 @@ class _LoadFailed extends StatelessWidget {
         ),
         const SizedBox(height: VeloraSpacing.sm),
         VeloraButton(
-          label: 'Try again',
+          label: context.l10n.tryAgain,
           icon: Icons.refresh,
           variant: VeloraButtonVariant.secondary,
           onPressed: onRetry,

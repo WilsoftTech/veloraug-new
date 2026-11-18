@@ -1,0 +1,670 @@
+{
+  "@@locale": "en",
+  "appName": "VeloraUG",
+  "@appName": {
+    "description": "The product's name. Not translated."
+  },
+  "home": "Home",
+  "@home": {
+    "description": "Navigation destination."
+  },
+  "search": "Search",
+  "@search": {
+    "description": "Navigation destination."
+  },
+  "account": "Account",
+  "@account": {
+    "description": "Navigation destination and screen heading."
+  },
+  "admin": "Admin",
+  "@admin": {
+    "description": "Navigation destination, shown to admins only."
+  },
+  "loading": "Loading…",
+  "loadingMore": "Loading more…",
+  "tryAgain": "Try again",
+  "back": "Back",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saved": "Saved.",
+  "saving": "Saving…",
+  "done": "Done",
+  "copy": "Copy",
+  "copied": "Copied.",
+  "refresh": "Refresh",
+  "remove": "Remove",
+  "required": "Required.",
+  "showMore": "Show more",
+  "seeAll": "See all",
+  "seeAllOf": "See all of {row}",
+  "@seeAllOf": {
+    "description": "Screen reader label for a row's See all.",
+    "placeholders": {
+      "row": {
+        "type": "String"
+      }
+    }
+  },
+  "busy": "VeloraUG is busy right now. Try again in a moment.",
+  "unreachable": "Couldn't reach VeloraUG. Check your connection and try again.",
+  "somethingWentWrong": "Something went wrong. Try again.",
+  "notAvailable": "This isn't available.",
+  "noApiAddress": "This version of the app can't reach VeloraUG.",
+  "signInNotAccepted": "VeloraUG didn't accept your sign-in. Sign out, then sign in again.",
+  "numberBetween": "Use a whole number from {min} to {max}.",
+  "@numberBetween": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "tooLong": "Use {max} characters or fewer.",
+  "@tooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "password": "Password",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "searchLabel": "Search titles and VJs",
+  "clearSearch": "Clear search",
+  "homeHeading": "Welcome to VeloraUG",
+  "homeIntro": "Movies and series translated into Luganda by Uganda's VJs.",
+  "catalogueNotSetUpTitle": "The catalogue isn't set up",
+  "catalogueNotSetUpMessage": "This version of the app has no address for VeloraUG's service, so it has nothing to show.",
+  "homeLoadFailed": "Couldn't load the catalogue",
+  "listLoadFailed": "Couldn't load this list",
+  "nothingYetTitle": "Nothing to watch yet",
+  "nothingHereTitle": "Nothing here yet",
+  "nothingYetMessage": "New movies and series will appear here as soon as they are added.",
+  "latest": "Latest",
+  "movies": "Movies",
+  "series": "Series",
+  "movie": "Movie",
+  "seriesBadge": "Series",
+  "@seriesBadge": {
+    "description": "A single series, as on a card or in a list of facts."
+  },
+  "inLanguage": "In {language}",
+  "@inLanguage": {
+    "description": "A row of editions in one language.",
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "loadingTitles": "Loading titles",
+  "loadingVj": "Loading the VJ",
+  "vjNotFoundTitle": "This VJ isn't available",
+  "vjNotFoundMessage": "They may have nothing published yet. Go back to find something else to watch.",
+  "vjLoadFailed": "Couldn't load this VJ",
+  "vjNoBio": "No biography yet.",
+  "loadingEdition": "Loading the title",
+  "editionNotFoundTitle": "This title isn't available",
+  "editionNotFoundMessage": "It may have been removed from VeloraUG. Go back to find something else to watch.",
+  "editionLoadFailed": "Couldn't load this title",
+  "editionLabelLink": "{label}. Opens the VJ's page.",
+  "@editionLabelLink": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "alsoKnownAs": "Original title: {title}",
+  "@alsoKnownAs": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "runtimeMinutes": "{minutes} min",
+  "@runtimeMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "runtimeHours": "{hours} h",
+  "@runtimeHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "runtimeHoursMinutes": "{hours} h {minutes} min",
+  "@runtimeHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "trailer": "Trailer",
+  "watch": "Watch",
+  "signInToWatchButton": "Sign in to watch",
+  "signInFirst": "Sign in first",
+  "notAvailableHere": "Not available here",
+  "comingSoon": "Coming soon",
+  "episodes": "Episodes",
+  "noEpisodesTitle": "No episodes yet",
+  "noEpisodesMessage": "Episodes will appear here as soon as they are added.",
+  "seasonNumber": "Season {season}",
+  "@seasonNumber": {
+    "placeholders": {
+      "season": {
+        "type": "int"
+      }
+    }
+  },
+  "episodeNumber": "Episode {episode}",
+  "@episodeNumber": {
+    "placeholders": {
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "playEpisode": "Play season {season}, episode {episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "gettingReady": "Getting the video ready",
+  "couldNotPlay": "Couldn't play this",
+  "playbackStopped": "Playback stopped. Check your connection, then try again from where you were.",
+  "episodeHeading": "{title} · S{season} E{episode}",
+  "@episodeHeading": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "nextEpisode": "Next episode",
+  "nextEpisodeOf": "Next episode: season {season}, episode {episode}",
+  "@nextEpisodeOf": {
+    "placeholders": {
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "upNext": "Up next: S{season} E{episode}",
+  "@upNext": {
+    "placeholders": {
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "loadingVideo": "Loading the video",
+  "pause": "Pause",
+  "play": "Play",
+  "position": "Position",
+  "signInToWatch": "Sign in to watch.",
+  "notReadyToWatch": "This can't be watched yet.",
+  "adminOnly": "This account isn't an admin.",
+  "searchHeading": "Search",
+  "searchIdleTitle": "Find a movie, series or VJ",
+  "searchIdleMessage": "Type at least {count} letters of a title or a VJ's name.",
+  "@searchIdleMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchFailed": "Couldn't search",
+  "searchNoneTitle": "Nothing matches",
+  "searchNoneMessage": "No title or VJ in VeloraUG matches \"{query}\".",
+  "@searchNoneMessage": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "searchResultCount": "{count, plural, =1{1 result for \"{query}\"} other{{count} results for \"{query}\"}}",
+  "@searchResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "searchResultsFor": "Results for \"{query}\"",
+  "@searchResultsFor": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "signedOutTitle": "You're signed out",
+  "signedInTitle": "You're signed in",
+  "signInNotSetUp": "Sign-in isn't set up in this version of the app.",
+  "checkingSignIn": "Checking your sign-in",
+  "takesAMoment": "This takes a moment.",
+  "signInExplained": "Sign in, or create an account, on the VeloraUG sign-in page. It opens in your browser.",
+  "signIn": "Sign in",
+  "signOut": "Sign out",
+  "waitingForSignIn": "Waiting for the sign-in page…",
+  "signingOut": "Signing out…",
+  "signedInAs": "Signed in as {email}.",
+  "@signedInAs": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "signedInOnDevice": "Your account is signed in on this device.",
+  "signInCancelled": "Sign-in was cancelled, so you're still signed out.",
+  "signInBrowserFailed": "The sign-in page couldn't open. Check that a browser is available, and on the web that pop-ups are allowed, then try again.",
+  "signInDenied": "You didn't allow VeloraUG to use your account, so you're still signed out.",
+  "signInTimedOut": "The sign-in timed out. Press Sign in to start again.",
+  "signInNetwork": "VeloraUG couldn't reach the sign-in service. Check your connection and try again.",
+  "signInUnverified": "The sign-in couldn't be verified, so it was stopped. Please try again.",
+  "signInTryAgain": "The sign-in didn't finish. Please try again.",
+  "sessionEnded": "Your sign-in has ended. Sign in again to continue.",
+  "signedOutNotice": "You're signed out.",
+  "signedOutOffline": "You're signed out on this device. VeloraUG couldn't reach the sign-in service, so the browser may still remember you. On a shared device, sign in and out again when you are online.",
+  "signedOutBrowserKept": "You're signed out on this device, but the browser sign-out didn't finish, so the browser may still remember you. On a shared device, sign in and out again.",
+  "about": "About",
+  "aboutTmdb": "Movie and series titles, descriptions and images come from TMDB, The Movie Database.",
+  "tmdbLogo": "TMDB logo",
+  "tmdbNotice": "This product uses the TMDB API but is not endorsed or certified by TMDB.",
+  "@tmdbNotice": {
+    "description": "TMDB's required wording, word for word. Keep it in English unless TMDB gives a translation."
+  },
+  "yourProfile": "Your profile",
+  "loadingProfile": "Loading your profile…",
+  "noDisplayName": "You haven't set a display name yet.",
+  "displayNameIs": "Your display name is {name}.",
+  "@displayNameIs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "displayName": "Display name",
+  "displayNameHelp": "Up to {max} characters. Leave it empty to remove it.",
+  "@displayNameHelp": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "nameTooLong": "Use {max} characters or fewer.",
+  "@nameTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "nameRemoved": "Your name was removed.",
+  "saveName": "Save name",
+  "profileSignedOut": "Sign in to see your profile.",
+  "profileInvalidName": "Use 1 to 80 characters for your name.",
+  "adminNotSetUp": "The admin screens aren't set up in this version of the app.",
+  "adminSignedOut": "Sign in as an admin to do this.",
+  "adminNotFound": "That no longer exists. Refresh to see the latest.",
+  "adminConflict": "That can't be done right now.",
+  "adminInvalid": "VeloraUG refused that.",
+  "adminBadImage": "Use a JPEG, PNG or WebP image of at most 2 MB.",
+  "adminLoadFailed": "Couldn't load this",
+  "adminDrafts": "Drafts",
+  "adminVjs": "VJs",
+  "adminSettings": "Settings",
+  "statusDraft": "Draft",
+  "statusPublished": "Published",
+  "statusHidden": "Hidden",
+  "testFilm": "Test film",
+  "noVjYet": "No VJ yet",
+  "needed": "Needed",
+  "adminDraftsIntro": "Drafts, hidden titles, and series with new episodes waiting. Each says what it still needs.",
+  "newDraft": "New draft",
+  "noDraftsTitle": "No drafts",
+  "noDraftsMessage": "Start a draft for each translated movie or series, then upload its video with the key it gives you.",
+  "stillNeeds": "Still needs: {list}",
+  "@stillNeeds": {
+    "placeholders": {
+      "list": {
+        "type": "String"
+      }
+    }
+  },
+  "episodesWaiting": "{count, plural, =1{1 episode waiting for approval} other{{count} episodes waiting for approval}}",
+  "@episodesWaiting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readyToPublish": "Ready to publish.",
+  "newDraftIntro": "Give the title as the VJ's edition is known. Details, poster and VJ credit come after the video is uploaded.",
+  "titleAsSubmitted": "Title",
+  "titleAsSubmittedHelp": "Shown to viewers. TMDB is searched with it.",
+  "language": "Language",
+  "yearOptional": "Year (optional)",
+  "season": "Season",
+  "episode": "Episode",
+  "episodeTitleOptional": "Episode title (optional)",
+  "startDraft": "Start draft",
+  "uploadKeyTitle": "Upload key",
+  "uploadKeyOnce": "Copy this key now. It is shown only once, and VeloraUG doesn't keep it.",
+  "uploadKeyExpires": "It works until {date}, for one upload.",
+  "@uploadKeyExpires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadKeyHowTo": "Upload the video with: python tools/veloraug_upload.py <file>, and paste the key when asked.",
+  "draft": "Draft",
+  "renameTitle": "Change the title",
+  "displayTitle": "Title shown to viewers",
+  "video": "Video",
+  "videosIntro": "Preview each video before confirming its VJ credit.",
+  "addEpisode": "Add episode",
+  "movieVideo": "The movie",
+  "episodeShort": "S{season} E{episode}",
+  "@episodeShort": {
+    "placeholders": {
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "approved": "Approved",
+  "waitingApproval": "Waiting for approval",
+  "fileName": "File: {name}",
+  "@fileName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "fileTags": "Tags: {tags}",
+  "@fileTags": {
+    "placeholders": {
+      "tags": {
+        "type": "String"
+      }
+    }
+  },
+  "preview": "Preview",
+  "approveEpisode": "Approve episode",
+  "episodeApproved": "Episode approved. Viewers can now watch it.",
+  "newUploadKey": "New upload key",
+  "keyLabel": "Who it's for",
+  "keyLabelHelp": "A name to tell keys apart, such as \"Owner\" or \"Better copy\".",
+  "keyLabelDefault": "Owner",
+  "keyLine": "Key \"{label}\", unused, until {date}",
+  "@keyLine": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "revoke": "Revoke",
+  "revokeKeyTitle": "Revoke this key?",
+  "revokeKeyMessage": "The key \"{label}\" will stop working at once.",
+  "@revokeKeyMessage": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "keyRevoked": "Key revoked.",
+  "videoNone": "Not uploaded",
+  "videoUploading": "Uploading",
+  "videoChecking": "Checking",
+  "videoConverting": "Converting",
+  "videoReady": "Ready",
+  "videoRefused": "Refused",
+  "videoFailed": "Failed",
+  "videoRemoved": "Removed",
+  "details": "Details",
+  "lookupWaiting": "TMDB is searched once the video is ready.",
+  "lookupClear": "TMDB found a clear match, filled in below.",
+  "lookupChoose": "TMDB found several possible titles. Choose the right one.",
+  "lookupNone": "TMDB found nothing. Search again with another title, give a TMDB ID, or type the details in.",
+  "lookupFailed": "TMDB couldn't be reached. Search again, or type the details in.",
+  "lookupChosen": "Details chosen from TMDB.",
+  "lookupManual": "Details typed in.",
+  "tmdbId": "TMDB {id}",
+  "@tmdbId": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "useThis": "Use this",
+  "searchTmdbAgain": "Search TMDB again",
+  "titleToSearch": "Title to search",
+  "titleToSearchHelp": "Without the VJ's name or words like \"translated\".",
+  "useTmdbId": "Use a TMDB ID",
+  "tmdbIdLabel": "TMDB ID",
+  "tmdbIdHelpMovie": "The number in the movie's address on themoviedb.org.",
+  "tmdbIdHelpSeries": "The number in the series' address on themoviedb.org.",
+  "typeDetails": "Type the details in",
+  "originalTitle": "Original title",
+  "runtimeOptional": "Length in minutes (optional)",
+  "genresOptional": "Genres (optional)",
+  "genresHelp": "Separated by commas, such as: Action, Drama",
+  "overviewOptional": "Description (optional)",
+  "poster": "Poster",
+  "showTmdbPosters": "Show TMDB's posters",
+  "uploadPoster": "Upload a poster",
+  "noTmdbPosters": "TMDB has no English posters for this title. Upload one instead.",
+  "choosePoster": "Use this poster",
+  "posterUploaded": "Poster uploaded and chosen.",
+  "imageTooBig": "That image is over 2 MB. Use a smaller one.",
+  "vjCredit": "VJ credit",
+  "creditIntro": "Nothing is credited until you confirm it. Preview the video first: a wrong credit is a real harm to a VJ.",
+  "creditedTo": "Credited to {name}.",
+  "@creditedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "suggestions": "Suggested from the file",
+  "noSuggestions": "The file names no known VJ. Choose one, or add a new VJ.",
+  "suggestionLine": "{name}, found in {foundIn}",
+  "@suggestionLine": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "foundIn": {
+        "type": "String"
+      }
+    }
+  },
+  "creditThisVj": "Credit this VJ",
+  "addAndCredit": "Add {name} and credit them",
+  "@addAndCredit": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chooseVj": "Choose a VJ",
+  "addNewVj": "Add a new VJ",
+  "vjName": "VJ's name",
+  "confirmCreditTitle": "Confirm the VJ credit",
+  "confirmCreditMessage": "Credit {name} for \"{title}\"? Confirm only after previewing the video.",
+  "@confirmCreditMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmCredit": "Confirm credit",
+  "missingVideo": "a ready video",
+  "missingDetails": "details, from TMDB or typed in",
+  "missingPoster": "a chosen poster",
+  "missingCredit": "a confirmed VJ credit",
+  "publishing": "Publishing",
+  "cantPublishYet": "This can't be published yet. It still needs:",
+  "publishedExplained": "Viewers can see this. New episodes wait for your approval.",
+  "publish": "Publish",
+  "publishedNow": "Published. Viewers can now see it.",
+  "hide": "Hide",
+  "hideTitle": "Hide this title?",
+  "hideMessage": "Viewers won't see it, and anyone watching it is stopped. You can publish it again later.",
+  "hiddenNow": "Hidden from viewers.",
+  "adminVjsIntro": "Every VJ, published or not. Other spellings help suggest the credit from a file's name.",
+  "addVj": "Add a VJ",
+  "editVj": "Change this VJ",
+  "noVjsTitle": "No VJs yet",
+  "noVjsMessage": "Add a VJ here, or while confirming a credit.",
+  "publishedCount": "{count, plural, =0{Nothing published} =1{1 published} other{{count} published}}",
+  "@publishedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "alsoSpelled": "Also: {names}",
+  "@alsoSpelled": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadPhoto": "Upload a photo",
+  "photoUploaded": "Photo uploaded.",
+  "photoAfterAdding": "Add the VJ first, then their photo.",
+  "vjNameHelp": "As viewers know them, such as \"VJ Junior\". Shown on posters.",
+  "otherSpellings": "Other spellings (optional)",
+  "otherSpellingsHelp": "Separated by commas, as they appear in file names.",
+  "bio": "Biography (optional)",
+  "admins": "Admins",
+  "adminsIntro": "Admins can publish titles and add or remove other admins. The last admin can't be removed.",
+  "addedOn": "Added on {date}",
+  "@addedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "addedByOn": "Added by {email} on {date}",
+  "@addedByOn": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "lastAdmin": "Last admin",
+  "adminEmail": "Email of the new admin",
+  "adminEmailHelp": "They must have signed in to VeloraUG once, and confirmed this email.",
+  "enterEmail": "Enter an email address.",
+  "addAdmin": "Add admin",
+  "adminAdded": "{email} is now an admin.",
+  "@adminAdded": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "adminRemoved": "{who} is no longer an admin.",
+  "@adminRemoved": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "removeAdminTitle": "Remove this admin?",
+  "removeAdminMessage": "{who} will no longer see the admin screens.",
+  "@removeAdminMessage": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "languages": "Languages",
+  "languagesIntro": "Editions can be in any of these. Browsing by language appears once a second language has something published.",
+  "languageCode": "Language code",
+  "languageCodeHelp": "Two or three letters, such as \"nyn\" for Runyankole.",
+  "languageCodeInvalid": "Use two or three letters.",
+  "languageName": "Language name",
+  "addLanguage": "Add language",
+  "languageAdded": "{name} added.",
+  "@languageAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
+}

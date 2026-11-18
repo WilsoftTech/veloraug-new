@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../auth/oauth_client.dart';
+import '../l10n/app_localizations.dart';
 
 /// The signed-in person's profile, from /api/v1/me.
 class Profile {
@@ -159,13 +160,12 @@ class ProfileApi {
 }
 
 /// Words for each failure. They never repeat a token or the server's text.
-String profileFailureMessage(ProfileFailure failure) => switch (failure) {
-  ProfileFailure.signedOut => 'Sign in to see your profile.',
-  ProfileFailure.refused =>
-    "VeloraUG didn't accept your sign-in. Sign out, then sign in again.",
-  ProfileFailure.busy => 'VeloraUG is busy right now. Try again in a moment.',
-  ProfileFailure.unreachable =>
-    "Couldn't reach VeloraUG. Check your connection and try again.",
-  ProfileFailure.invalidName => 'Use 1 to 80 characters for your name.',
-  ProfileFailure.unexpected => 'Something went wrong. Try again.',
-};
+String profileFailureMessage(AppLocalizations l, ProfileFailure failure) =>
+    switch (failure) {
+      ProfileFailure.signedOut => l.profileSignedOut,
+      ProfileFailure.refused => l.signInNotAccepted,
+      ProfileFailure.busy => l.busy,
+      ProfileFailure.unreachable => l.unreachable,
+      ProfileFailure.invalidName => l.profileInvalidName,
+      ProfileFailure.unexpected => l.somethingWentWrong,
+    };

@@ -250,7 +250,7 @@ def test_a_clear_match_prefills_and_the_movie_publishes(
     assert published.status_code == 200, published.text
     assert published.json()["status"] == "published"
     # Viewers see it, with its trailer saved on the source.
-    titles = [m["title"] for m in api.get("/api/v1/movies").json()["movies"]]
+    titles = [e["title"] for e in api.get("/api/v1/editions").json()["editions"]]
     assert "Fast X" in titles
     assert owner.execute(
         "select trailer_key from public.sources where tmdb_id = %s", (tmdb_id,)

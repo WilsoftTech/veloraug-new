@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
+
 /// A labelled search box with a clear control. It sends nothing itself: the
 /// caller decides what to do with the text.
 class VeloraSearchField extends StatefulWidget {
   const VeloraSearchField({
     super.key,
-    this.label = 'Search movies',
+    this.label,
     this.controller,
     this.onChanged,
     this.onSubmitted,
     this.enabled = true,
   });
 
-  final String label;
+  /// Defaults to "Search titles and VJs".
+  final String? label;
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -52,11 +55,11 @@ class _VeloraSearchFieldState extends State<VeloraSearchField> {
           onChanged: widget.onChanged,
           onSubmitted: widget.onSubmitted,
           decoration: InputDecoration(
-            labelText: widget.label,
+            labelText: widget.label ?? context.l10n.searchLabel,
             prefixIcon: const Icon(Icons.search),
             suffixIcon: showClear
                 ? IconButton(
-                    tooltip: 'Clear search',
+                    tooltip: context.l10n.clearSearch,
                     icon: const Icon(Icons.close),
                     onPressed: _clear,
                   )

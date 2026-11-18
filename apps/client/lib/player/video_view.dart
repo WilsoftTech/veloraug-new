@@ -4,7 +4,8 @@
 /// Both take a master playlist address on the media gateway, start at
 /// [VideoViewRequest.startAt], and call [VideoViewRequest.onFailed] with the
 /// position reached if playback stops with an error, such as the gateway
-/// refusing a chunk once the grant has run out.
+/// refusing a chunk once the grant has run out. They call
+/// [VideoViewRequest.onEnded] once when the video plays to its end.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -16,11 +17,15 @@ class VideoViewRequest {
     required this.url,
     required this.startAt,
     required this.onFailed,
+    this.onEnded,
   });
 
   final Uri url;
   final Duration startAt;
   final ValueChanged<Duration> onFailed;
+
+  /// For Next Episode.
+  final VoidCallback? onEnded;
 }
 
 typedef VideoViewBuilder = Widget Function(

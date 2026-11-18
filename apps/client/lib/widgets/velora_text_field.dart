@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/palette.dart';
 import '../theme/tokens.dart';
+import '../l10n/l10n.dart';
 
 /// A labelled text field. It validates inside a [Form], and an error shows an
 /// icon and words, so it doesn't rely on the red border.
@@ -26,6 +27,7 @@ class VeloraTextField extends StatelessWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.autovalidateMode = AutovalidateMode.onUserInteractionIfError,
+    this.maxLines = 1,
   });
 
   final String label;
@@ -49,6 +51,9 @@ class VeloraTextField extends StatelessWidget {
   /// By default an error appears on submit, then clears as it is corrected.
   final AutovalidateMode autovalidateMode;
 
+  /// More than one for longer text, such as a description.
+  final int maxLines;
+
   @override
   Widget build(BuildContext context) {
     return TextFormField(
@@ -56,6 +61,7 @@ class VeloraTextField extends StatelessWidget {
       focusNode: focusNode,
       enabled: enabled,
       obscureText: obscureText,
+      maxLines: obscureText ? 1 : maxLines,
       autocorrect: autocorrect,
       enableSuggestions: enableSuggestions,
       keyboardType: keyboardType,
@@ -109,7 +115,7 @@ class _FieldError extends StatelessWidget {
 class VeloraPasswordField extends StatefulWidget {
   const VeloraPasswordField({
     super.key,
-    this.label = 'Password',
+    this.label,
     this.controller,
     this.helperText,
     this.validator,
@@ -119,7 +125,8 @@ class VeloraPasswordField extends StatefulWidget {
     this.enabled = true,
   });
 
-  final String label;
+  /// Defaults to "Password".
+  final String? label;
   final TextEditingController? controller;
   final String? helperText;
   final FormFieldValidator<String>? validator;
@@ -138,7 +145,7 @@ class _VeloraPasswordFieldState extends State<VeloraPasswordField> {
   @override
   Widget build(BuildContext context) {
     return VeloraTextField(
-      label: widget.label,
+      label: widget.label ?? context.l10n.password,
       controller: widget.controller,
       helperText: widget.helperText,
       validator: widget.validator,
@@ -151,7 +158,9 @@ class _VeloraPasswordFieldState extends State<VeloraPasswordField> {
       autocorrect: false,
       enableSuggestions: false,
       suffixIcon: IconButton(
-        tooltip: _obscured ? 'Show password' : 'Hide password',
+        tooltip: _obscured
+            ? context.l10n.showPassword
+            : context.l10n.hidePassword,
         icon: Icon(
           _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
         ),

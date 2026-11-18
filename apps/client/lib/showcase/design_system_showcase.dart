@@ -12,6 +12,7 @@ import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
 import '../widgets/velora_search_field.dart';
 import '../widgets/velora_text_field.dart';
+import '../l10n/app_localizations.dart';
 
 /// Development-only catalogue of the design system. It opens only through
 /// showcaseEnabled, and everything in it is demonstration content.
@@ -28,6 +29,7 @@ class _DesignSystemShowcaseState extends State<DesignSystemShowcase> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       title: 'VeloraUG design system (development only)',
       debugShowCheckedModeBanner: false,
       theme: buildVeloraTheme(),

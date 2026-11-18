@@ -168,7 +168,7 @@ def test_without_settings_granting_answers_503():
     app = create_app(token_verifier=FakeVerifier())
     with TestClient(app) as client:
         response = client.post(
-            f"/api/v1/movies/{uuid.uuid4()}/playback", headers=as_user(uuid.uuid4())
+            f"/api/v1/items/{uuid.uuid4()}/playback", headers=as_user(uuid.uuid4())
         )
     assert response.status_code == 503
 
@@ -203,7 +203,7 @@ def new_movie(owner, *, publish=True):
 
 def grant_for(api, movie_id, user=None):
     return api.post(
-        f"/api/v1/movies/{movie_id}/playback", headers=as_user(user or uuid.uuid4())
+        f"/api/v1/items/{movie_id}/playback", headers=as_user(user or uuid.uuid4())
     )
 
 
@@ -222,7 +222,8 @@ def test_a_ready_published_movie_is_granted(api, owner, owner_url, media_url, ca
     payload = json.loads(unb64(token.split(".")[0]))
     assert payload == {"m": str(movie_id), "o": str(original), "e": NOW + 21600}
     assert body["expires_at"] == "2027-01-15T14:00:00Z"
-    # The log names the movie, never the user or the grant.
+    # The log names the item, never the user or the grant. A film from
+    # before Milestone 9 keeps its ID as its item's.
     assert str(movie_id) in caplog.text
     assert str(user) not in caplog.text and token not in caplog.text
 
@@ -233,8 +234,8 @@ def test_the_details_say_whether_a_movie_is_playable(api, owner, owner_url, medi
     ready, _ = new_movie(owner)
     ready_original(owner_url, media_url, ready)
 
-    assert api.get(f"/api/v1/movies/{waiting}").json()["playable"] is False
-    assert api.get(f"/api/v1/movies/{ready}").json()["playable"] is True
+    assert api.get(f"/api/v1/editions/{waiting}").json()["playable"] is False
+    assert api.get(f"/api/v1/editions/{ready}").json()["playable"] is True
 
 
 @needs_database
@@ -242,9 +243,9 @@ def test_signing_in_is_needed(api, owner, owner_url, media_url):
     movie_id, _ = new_movie(owner)
     ready_original(owner_url, media_url, movie_id)
 
-    assert api.post(f"/api/v1/movies/{movie_id}/playback").status_code == 401
+    assert api.post(f"/api/v1/items/{movie_id}/playback").status_code == 401
     response = api.post(
-        f"/api/v1/movies/{movie_id}/playback",
+        f"/api/v1/items/{movie_id}/playback",
         headers={"Authorization": "Bearer not-a-user"},
     )
     assert response.status_code == 401
@@ -258,7 +259,7 @@ def test_hidden_and_unknown_movies_are_404_alike(api, owner, owner_url, media_ur
     for movie_id in (hidden, uuid.uuid4()):
         response = grant_for(api, movie_id)
         assert response.status_code == 404
-        assert response.json() == {"detail": "This movie isn't available."}
+        assert response.json() == {"detail": "This isn't available."}
 
 
 @needs_database
@@ -268,7 +269,7 @@ def test_a_movie_with_nothing_ready_is_409(api, owner, owner_url, media_url):
     response = grant_for(api, movie_id)
 
     assert response.status_code == 409
-    assert response.json() == {"detail": "This movie can't be watched yet."}
+    assert response.json() == {"detail": "This can't be watched yet."}
 
 
 @needs_database

@@ -17,12 +17,16 @@ void _setScreenSize(WidgetTester tester, Size size) {
   addTearDown(tester.view.reset);
 }
 
-/// An empty catalogue, so these tests are about the shell, not movies.
+/// An empty catalogue, so these tests are about the shell, not titles.
 final _emptyCatalogue = CatalogueApi(
   baseUrl: Uri.parse('http://127.0.0.1:8000'),
   httpClient: MockClient(
-    (request) async =>
-        http.Response('{"movies": [], "next_offset": null}', 200),
+    (request) async => http.Response(
+      request.url.path == '/api/v1/editions'
+          ? '{"editions": [], "next_offset": null}'
+          : '[]',
+      200,
+    ),
   ),
 );
 
@@ -99,12 +103,12 @@ void main() {
         expect(find.text('Welcome to VeloraUG'), findsOneWidget);
 
         await _goTo(tester, 'Search');
-        expect(find.text('Find a movie'), findsOneWidget);
+        expect(find.text('Find a movie, series or VJ'), findsOneWidget);
         expect(find.text('Welcome to VeloraUG'), findsNothing);
 
         await _goTo(tester, 'Account');
         expect(find.text("You're signed out"), findsOneWidget);
-        expect(find.text('Find a movie'), findsNothing);
+        expect(find.text('Find a movie, series or VJ'), findsNothing);
 
         await _goTo(tester, 'Home');
         expect(find.text('Welcome to VeloraUG'), findsOneWidget);
@@ -129,10 +133,10 @@ void main() {
   });
 
   group('honest empty states', () {
-    testWidgets('home shows an empty catalogue and no movies', (tester) async {
+    testWidgets('home shows an empty catalogue and no titles', (tester) async {
       await _pumpApp(tester, _narrow);
 
-      expect(find.text('No movies yet'), findsOneWidget);
+      expect(find.text('Nothing to watch yet'), findsOneWidget);
       expect(find.byType(Image), findsNothing);
     });
 
@@ -143,7 +147,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
 
-      expect(find.text('No movies match'), findsOneWidget);
+      expect(find.text('Nothing matches'), findsOneWidget);
     });
 
     testWidgets('account labels the connection check as development only', (
@@ -211,7 +215,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
 
-        expect(find.text('Find a movie'), findsOneWidget);
+        expect(find.text('Find a movie, series or VJ'), findsOneWidget);
       });
     }
 
@@ -245,8 +249,8 @@ void main() {
       await _goTo(tester, 'Search');
 
       expect(
-        tester.getSemantics(find.bySemanticsLabel('Search movies')),
-        isSemantics(label: 'Search movies', isTextField: true),
+        tester.getSemantics(find.bySemanticsLabel('Search titles and VJs')),
+        isSemantics(label: 'Search titles and VJs', isTextField: true),
       );
       semantics.dispose();
     });

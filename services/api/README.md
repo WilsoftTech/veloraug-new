@@ -2,9 +2,9 @@
 
 The FastAPI backend, written in Python. It will become the trusted part of the system: the app asks it to do things, and it checks whether each request is allowed.
 
-**Today it handles sign-in, profiles and the movie catalogue.** `/api/v1/me` checks Neon Auth access tokens and reads or changes the signed-in user's profile in Neon PostgreSQL. `/api/v1/movies` lists the published movies, with details from TMDB, and needs no sign-in. It has no uploads or payments yet. The Flutter app calls it only from a [development-only connection check](../../apps/client/README.md#connect-to-the-local-api).
+**Today it handles sign-in, profiles, the VJ catalogue, the admin screens and playback.** `/api/v1/me` checks Neon Auth access tokens and reads or changes the signed-in user's profile in Neon PostgreSQL. `/api/v1/editions` lists the published VJ editions, with details from TMDB or typed in by an admin, and needs no sign-in. `/api/v1/admin/…` is for admins only. It has no payments yet.
 
-Later it will fetch movie details from TMDB, handle Pesapal payments and issue playback access. See the [roadmap](../../docs/roadmap.md).
+Pesapal passes come in Milestone 10. See the [roadmap](../../docs/roadmap.md).
 
 This page runs the API directly with Python. To run it in a container instead, see [infra/README.md](../../infra/README.md).
 
@@ -27,7 +27,7 @@ cd C:\Users\Wilsoft\veloraug\services\api
 .\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --env-file .env
 ```
 
-`--env-file .env` passes your settings, such as the database address and the TMDB token, to the API. The API never reads `.env` itself. Without the option it still starts, but movies fail with "The database isn't set up on this server", and the app says "VeloraUG is busy right now".
+`--env-file .env` passes your settings, such as the database address and the TMDB token, to the API. The API never reads `.env` itself. Without the option it still starts, but the catalogue fails with "The database isn't set up on this server", and the app says "VeloraUG is busy right now".
 
 Leave that terminal open, then open these in a browser:
 
@@ -36,7 +36,7 @@ Leave that terminal open, then open these in a browser:
 | <http://127.0.0.1:8000/health> | `{"status":"ok"}` |
 | <http://127.0.0.1:8000/api/v1> | `{"service":"veloraug-api","api_version":"v1","environment":"development"}` |
 | <http://127.0.0.1:8000/api/v1/me> | `{"detail":"Not signed in."}`, because a browser address sends no token. Without the [settings](#settings) it says sign-in or the database isn't set up |
-| <http://127.0.0.1:8000/api/v1/movies> | The published movies, as `{"movies": [...], "next_offset": null}`. Without the database it answers `503` |
+| <http://127.0.0.1:8000/api/v1/editions> | The published editions, as `{"editions": [...], "next_offset": null}`. Without the database it answers `503` |
 | <http://127.0.0.1:8000/docs> | Interactive documentation. The page loads its scripts from the internet, so it needs a connection |
 | <http://127.0.0.1:8000/openapi.json> | The same documentation as raw data |
 
@@ -400,18 +400,18 @@ It asks you to type `remove`, then marks the original `removing`. The worker del
 
 ## Playback
 
-Planned in the [playback plan](../../docs/step-08a-playback-plan.md). A signed-in viewer asks for a viewing of one movie:
+Planned in the [playback plan](../../docs/step-08a-playback-plan.md). A signed-in viewer asks for a viewing of one item: a movie edition's video, or one episode:
 
 ```text
-POST /api/v1/movies/{id}/playback      Authorization: Bearer <access token>
+POST /api/v1/items/{id}/playback      Authorization: Bearer <access token>
 
 200 {"playlist_url": "<gateway>/v1/<grant>/master.m3u8", "expires_at": "..."}
 401 not signed in   404 not published   409 nothing ready   503 busy, or not set up
 ```
 
-`GET /api/v1/movies/{id}` says `"playable": true` when there is something to watch. Any signed-in viewer may watch, until payments in Milestone 10.
+`GET /api/v1/editions/{id}` says `"playable": true` when there is something to watch. Any signed-in viewer may watch, until payments in Milestone 10.
 
-The **grant** names the movie, its ready original and an expiry, 6 hours on, signed with HMAC-SHA256 and `VELORAUG_PLAYBACK_SIGNING_KEY`. It is in the address's path, so every playlist and chunk the player fetches carries it. The media gateway, in [`services/media_gateway/`](../media_gateway/README.md), checks it and serves from private R2. Grants aren't stored, and the log names only the movie: never the viewer, the grant or the address. Anyone holding an address can watch until it expires.
+The **grant** names the item, its ready original and an expiry, 6 hours on, signed with HMAC-SHA256 and `VELORAUG_PLAYBACK_SIGNING_KEY`. It is in the address's path, so every playlist and chunk the player fetches carries it. The media gateway, in [`services/media_gateway/`](../media_gateway/README.md), checks it and serves from private R2. Grants aren't stored, and the log names only the item: never the viewer, the grant or the address. Anyone holding an address can watch until it expires.
 
 **To set it up locally,** make a key, then put the same key in `.env` here and in `services/media_gateway/.dev.vars`:
 
@@ -444,15 +444,14 @@ VELORAUG_MEDIA_GATEWAY_URL=http://127.0.0.1:8787
 - `GET /api/v1` says which service this is and which API version it serves. Future endpoints will go under `/api/v1`, so a later `v2` can exist alongside them without breaking older apps.
 - `GET /api/v1/me` returns the signed-in user's ID, from a verified [access token](#the-concepts-using-this-service-as-the-example), and their display name. The profile is created on first use. `PATCH /api/v1/me` with `{"display_name": "…"}` changes the name, from 1 to 80 characters, and `null` clears it. These are the only endpoints that need a token.
 - From Step 9D, the VJ catalogue, needing no sign-in:
-  - `GET /api/v1/editions` lists published editions, newest first, as cards: `id`, `kind`, `title`, `year`, `poster_url`, `vj_name` (for the label on the poster), `vj_slug`, `language` and `label`, such as `Luganda · VJ Junior`. Filters: `?kind=movie|series`, `?vj=` a VJ's slug, `?language=`, `?genre=` and `?q=`, which searches titles and VJ names. Paged like `/movies`.
-  - `GET /api/v1/editions/{id}` adds the source's title, `overview`, `runtime_minutes`, `genres`, `backdrop_url`, `trailer_url` (YouTube), the VJ's ID and photo, `playable`, and either `item_id`, a movie's video, or `seasons`, each with its approved episodes and their item IDs. `404` and `503` as for `/movies/{id}`.
+  - `GET /api/v1/editions` lists published editions, newest first, as cards: `id`, `kind`, `title`, `year`, `poster_url`, `vj_name` (for the label on the poster), `vj_slug`, `language` and `label`, such as `Luganda · VJ Junior`. Filters: `?kind=movie|series`, `?vj=` a VJ's slug, `?language=`, `?genre=` and `?q=`, which searches titles and VJ names. `?q=` is 2 to 80 characters, with titles that start with it first. `?limit=` is 1 to 50, 24 by default, and `next_offset` gives the next page's `?offset=`, or `null` on the last.
+  - `GET /api/v1/editions/{id}` adds the source's title, `overview`, `runtime_minutes`, `genres`, `backdrop_url`, `trailer_url` (YouTube), the VJ's ID and photo, `playable`, and either `item_id`, a movie's video, or `seasons`, each with its approved episodes and their item IDs. An edition that doesn't exist and one that isn't published both answer `404`, with the same message. `503` with `Retry-After` means its details are being fetched.
   - `GET /api/v1/vjs` lists VJs with something published; `GET /api/v1/vjs/{slug}` is a VJ's page, with their bio, movies and series.
   - `GET /api/v1/languages` lists languages with published editions.
-  - `POST /api/v1/items/{id}/playback` grants a viewing of one item, a movie's video or one episode, exactly as `/movies/{id}/playback` does. It needs a token.
-- `GET /api/v1/movies` lists published movies, newest first: `id`, `title`, `year` and `poster_url`. `?q=` searches titles, 2 to 80 characters, with titles that start with it first. `?limit=` is 1 to 50, 24 by default, and `next_offset` gives the next page's `?offset=`, or `null` on the last.
-- `GET /api/v1/movies/{id}` adds `overview`, `runtime_minutes`, `genres` and `backdrop_url`. A movie that doesn't exist and one that isn't published both answer `404`, with the same message. `503` with `Retry-After` means its details are being fetched.
+  - `POST /api/v1/items/{id}/playback` grants a viewing of one item, a movie's video or one episode, It needs a token. A film from before Milestone 9 keeps its old movie ID as its edition's and item's.
+- The Milestone 6 routes, `/api/v1/movies` and `/api/v1/movies/{id}/playback`, were removed in Step 9E, once the app used the routes above.
 
-The IDs are VeloraUG's own. TMDB's IDs and token never leave the API, and the image addresses point straight at TMDB's image server.
+The IDs are VeloraUG's own. TMDB's IDs and token never leave the API, and the image addresses point straight at TMDB's image server, or at the media gateway for images admins uploaded.
 
 FastAPI adds `/docs` and `/openapi.json` by itself.
 

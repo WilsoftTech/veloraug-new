@@ -11,9 +11,11 @@ import 'package:veloraug/widgets/status_badge.dart';
 import 'package:veloraug/widgets/velora_button.dart';
 import 'package:veloraug/widgets/velora_search_field.dart';
 import 'package:veloraug/widgets/velora_text_field.dart';
+import 'package:veloraug/l10n/app_localizations.dart';
 
 Widget _app(Widget child, {double textScale = 1, bool reducedMotion = false}) {
   return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
     theme: buildVeloraTheme(),
     builder: (context, app) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
