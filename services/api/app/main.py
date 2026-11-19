@@ -10,6 +10,8 @@ from app.auth import TokenVerifier
 from app.catalogue import Refresher
 from app.config import Settings
 from app.db import Database, DatabaseUnavailable
+from app.pass_routes import router as pass_router
+from app.pesapal import PesapalClient
 from app.playback import Granter
 from app.routes import router
 from app.tmdb import TmdbClient
@@ -27,10 +29,17 @@ def create_app(
     granter: Granter | None = None,
     editor_database: Database | None = None,
     tmdb: TmdbClient | None = None,
+    pesapal: PesapalClient | None = None,
 ) -> FastAPI:
     """Build the application. Tests pass their own settings, verifier,
-    databases, TMDB refresher and client, and playback granter."""
+    databases, TMDB refresher and client, playback granter and Pesapal."""
     settings = settings or Settings()
+    if pesapal is None and settings.pesapal_configured:
+        pesapal = PesapalClient(
+            settings.pesapal_consumer_key.get_secret_value(),
+            settings.pesapal_consumer_secret.get_secret_value(),
+            environment=settings.pesapal_environment,
+        )
     if editor_database is None and settings.editor_database_url is not None:
         editor_database = Database(
             settings.editor_database_url.get_secret_value(), max_size=2
@@ -77,6 +86,8 @@ def create_app(
             refresher.close()
         if tmdb is not None:
             tmdb.close()
+        if pesapal is not None:
+            pesapal.close()
         if database is not None:
             database.close()
         if editor_database is not None:
@@ -97,6 +108,13 @@ def create_app(
     app.state.editor_database = editor_database
     # None without a TMDB token. TMDB searches answer 503.
     app.state.tmdb = tmdb
+    # None without the Pesapal settings. Buying a pass answers 503.
+    app.state.pesapal = pesapal
+    if settings.passes_required and pesapal is None:
+        logger.warning(
+            "VELORAUG_PASSES_REQUIRED is on, but Pesapal isn't set up: "
+            "viewers without a pass can't buy one"
+        )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
@@ -117,4 +135,5 @@ def create_app(
     app.include_router(router)
     app.include_router(viewer_router)
     app.include_router(admin_router)
+    app.include_router(pass_router)
     return app

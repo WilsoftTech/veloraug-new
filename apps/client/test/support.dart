@@ -157,6 +157,25 @@ class FakeApi {
 
   bool isAdmin = false;
 
+  /// Passes, Step 10C: what's for sale, the viewer's pass, and the states a
+  /// payment goes through as it's checked. The last state repeats.
+  List<Map<String, Object?>> passPlans = [
+    {'id': 'day', 'days': 1, 'price_ugx': 2000},
+    {'id': 'week', 'days': 7, 'price_ugx': 8000},
+  ];
+  Map<String, Object?> myPass = {
+    'active': false,
+    'current_ends_at': null,
+    'ends_at': null,
+    'checking': false,
+  };
+  int checkoutStatus = 201;
+  String paymentPage = 'https://cybqa.pesapal.com/iframe/pay-1';
+  List<String> paymentStates = ['pending', 'completed'];
+  DateTime passEndsAt = DateTime.utc(2026, 11, 20, 9, 30);
+  int paymentChecks = 0;
+  final checkouts = <Map<String, Object?>>[];
+
   /// The master playlist the media gateway serves for every grant.
   String masterPlaylist = '''
 #EXTM3U
@@ -214,6 +233,36 @@ class FakeApi {
         request.url.port == 8787 &&
         path.endsWith('/master.m3u8')) {
       return http.Response(masterPlaylist, 200);
+    }
+    if (path == '/api/v1/passes/plans') return json(passPlans);
+    if (path == '/api/v1/me/pass') return json(myPass);
+    if (path == '/api/v1/passes/checkout') {
+      checkouts.add(jsonDecode(request.body) as Map<String, Object?>);
+      if (checkoutStatus != 201) return json({'detail': 'x'}, checkoutStatus);
+      return json({'payment_id': 'pay-1', 'redirect_url': paymentPage}, 201);
+    }
+    if (path == '/api/v1/passes/payments/pay-1') {
+      final state =
+          paymentStates[paymentChecks.clamp(0, paymentStates.length - 1)];
+      paymentChecks++;
+      final done = state == 'completed';
+      if (done) {
+        // The pass now lets the viewer watch.
+        grantStatus = 200;
+        myPass = {
+          'active': true,
+          'current_ends_at': passEndsAt.toIso8601String(),
+          'ends_at': passEndsAt.toIso8601String(),
+          'checking': false,
+        };
+      }
+      return json({
+        'id': 'pay-1',
+        'plan_id': 'day',
+        'amount_ugx': 2000,
+        'state': state,
+        'pass_ends_at': done ? passEndsAt.toIso8601String() : null,
+      });
     }
     if (path.endsWith('/playback')) {
       grants++;

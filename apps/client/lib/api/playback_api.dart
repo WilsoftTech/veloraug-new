@@ -85,6 +85,9 @@ enum PlaybackFailure {
   /// The API refused the token: 401.
   refused,
 
+  /// 402: passes are required, and this viewer has none running.
+  needsPass,
+
   /// 403: an admin preview, asked for by someone who isn't an admin.
   notAdmin,
 
@@ -185,6 +188,7 @@ class PlaybackApi {
     final failure = switch (response.statusCode) {
       200 => null,
       401 => PlaybackFailure.refused,
+      402 => PlaybackFailure.needsPass,
       403 => PlaybackFailure.notAdmin,
       404 => PlaybackFailure.notFound,
       409 => PlaybackFailure.notReady,
@@ -229,6 +233,7 @@ String playbackFailureMessage(AppLocalizations l, PlaybackFailure failure) =>
     switch (failure) {
       PlaybackFailure.signedOut => l.signInToWatch,
       PlaybackFailure.refused => l.signInNotAccepted,
+      PlaybackFailure.needsPass => l.passNeededMessage,
       PlaybackFailure.notAdmin => l.adminOnly,
       PlaybackFailure.notFound => l.notAvailable,
       PlaybackFailure.notReady => l.notReadyToWatch,

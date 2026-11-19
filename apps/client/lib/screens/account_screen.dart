@@ -13,6 +13,7 @@ import '../widgets/screen_body.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
 import '../l10n/l10n.dart';
+import 'pass_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -98,6 +99,9 @@ class _AccountPanel extends StatelessWidget {
           _Notice(authNoticeMessage(l, notice), isError: notice.isError),
         panel,
         if (auth.status == AuthStatus.signedIn) ...[
+          const SizedBox(height: VeloraSpacing.md),
+          // Step 10C. A new person gets a fresh section, which loads theirs.
+          PassSection(key: ValueKey('pass-${auth.email}')),
           const SizedBox(height: VeloraSpacing.md),
           // A new person gets a fresh section, which loads their profile.
           ProfileSection(key: ValueKey(auth.email), auth: auth),

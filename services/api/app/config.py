@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 from urllib.parse import unquote, urlsplit
 
@@ -42,6 +43,51 @@ class Settings(BaseSettings):
     # the Worker in services/media_gateway/. The gateway's address isn't.
     playback_signing_key: SecretStr | None = None
     media_gateway_url: str | None = None
+
+    # Passes, Step 10B. Off: any signed-in viewer may watch, as before. On:
+    # viewers who aren't admins need a running pass.
+    passes_required: bool = False
+
+    # Pesapal, Step 10B. The keys are secret. All four, or none; without
+    # them, buying a pass answers 503. The public API address is where
+    # Pesapal sends the viewer back, to /api/v1/passes/return.
+    pesapal_consumer_key: SecretStr | None = None
+    pesapal_consumer_secret: SecretStr | None = None
+    pesapal_ipn_id: str | None = None
+    pesapal_environment: Literal["sandbox", "live"] = "sandbox"
+    public_api_url: str | None = None
+
+    @field_validator("pesapal_ipn_id")
+    @classmethod
+    def require_ipn_id(cls, ipn_id: str | None) -> str | None:
+        if ipn_id is not None and not re.fullmatch(r"[0-9A-Za-z-]{8,64}", ipn_id):
+            raise ValueError(
+                "pesapal_ipn_id must be the ID register-ipn printed, such as "
+                "a1b2c3d4-..."
+            )
+        return ipn_id
+
+    @field_validator("public_api_url")
+    @classmethod
+    def require_api_origin(cls, url: str | None) -> str | None:
+        if url is None:
+            return None
+        parts = urlsplit(url)
+        loopback = parts.hostname in ("127.0.0.1", "localhost")
+        if (
+            not parts.hostname
+            or parts.scheme not in ("http", "https")
+            or (parts.scheme == "http" and not loopback)
+            or parts.path not in ("", "/")
+            or parts.query
+            or parts.fragment
+            or parts.username
+        ):
+            raise ValueError(
+                "public_api_url must look like https://host, with no path. "
+                "Plain http is allowed for 127.0.0.1 and localhost only"
+            )
+        return url.rstrip("/")
 
     @field_validator("allowed_origins")
     @classmethod
@@ -177,6 +223,15 @@ class Settings(BaseSettings):
         )
 
     @property
+    def pesapal_configured(self) -> bool:
+        return (
+            self.pesapal_consumer_key is not None
+            and self.pesapal_consumer_secret is not None
+            and self.pesapal_ipn_id is not None
+            and self.public_api_url is not None
+        )
+
+    @property
     def sign_in_configured(self) -> bool:
         return bool(
             self.neon_auth_url and self.api_resource and self.neon_auth_client_ids
@@ -203,6 +258,17 @@ class Settings(BaseSettings):
                 "Set VELORAUG_PLAYBACK_SIGNING_KEY and VELORAUG_MEDIA_GATEWAY_URL "
                 "together, or neither"
             )
+        # The keys come first: register-ipn needs only them, and prints the
+        # IPN ID. Buying a pass needs all four.
+        if (self.pesapal_consumer_key is None) != (
+            self.pesapal_consumer_secret is None
+        ):
+            raise ValueError(
+                "Set VELORAUG_PESAPAL_CONSUMER_KEY and "
+                "VELORAUG_PESAPAL_CONSUMER_SECRET together, or neither"
+            )
+        if self.pesapal_ipn_id is not None and self.pesapal_consumer_key is None:
+            raise ValueError("VELORAUG_PESAPAL_IPN_ID needs the Pesapal keys too")
         if self.environment == "production" and not self.playback_configured:
             raise ValueError(
                 "Production needs VELORAUG_PLAYBACK_SIGNING_KEY and "

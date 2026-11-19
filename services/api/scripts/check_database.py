@@ -410,7 +410,100 @@ def check_catalogue(conn: psycopg.Connection) -> list[Result]:
             and refused(
                 conn, "insert into public.languages (code, name) values ('zz', 'x')"
             )
-            and refused(conn, "select count(*) from public.admins"),
+            # Since Step 10B it may see whether its own viewer is an admin,
+            # by user ID only.
+            and refused(conn, "select email from public.admins"),
+        )
+    )
+    return results
+
+
+def check_passes(conn: psycopg.Connection) -> list[Result]:
+    """The API sees and changes only its viewer's payments and passes, can't
+    change prices, and can't make a pass without a completed payment.
+
+    These follow the Step 10B criteria in docs/step-10a-payments-plan.md.
+    """
+    tables = ("public.pass_plans", "public.payments", "public.passes")
+    flags = conn.execute(
+        """
+        select count(*) = 3 and bool_and(relrowsecurity and relforcerowsecurity)
+        from pg_class where oid = any(%s::regclass[])
+        """,
+        (list(tables),),
+    ).fetchone()[0]
+    results = [Result("RLS and forced RLS on the pass tables", flags)]
+
+    expected = {
+        "public.pass_plans": {"SELECT"},
+        "public.payments": {"SELECT", "INSERT"},
+        "public.passes": {"SELECT", "INSERT"},
+    }
+    wrong = []
+    for table, allowed in expected.items():
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
+            has = conn.execute(
+                "select has_table_privilege(%s, %s)", (table, privilege)
+            ).fetchone()[0]
+            if has != (privilege in allowed):
+                wrong.append(f"{table} {privilege}")
+    for table, column in (
+        ("public.pass_plans", "price_ugx"),
+        ("public.payments", "amount_ugx"),
+        ("public.payments", "user_id"),
+        ("public.passes", "ends_at"),
+    ):
+        if conn.execute(
+            "select has_column_privilege(%s, %s, 'UPDATE')", (table, column)
+        ).fetchone()[0]:
+            wrong.append(f"{table}.{column} UPDATE")
+    results.append(
+        Result("pass grants match the migration", not wrong, ", ".join(wrong))
+    )
+
+    viewer = uuid.uuid4()
+    with conn.transaction(force_rollback=True):
+        as_user(conn, viewer)
+        seen = conn.execute(
+            "select (select count(*) from public.payments) + "
+            "(select count(*) from public.passes)"
+        ).fetchone()[0]
+    results.append(
+        Result(
+            "a viewer sees no one else's payments or passes",
+            seen == 0,
+            f"{seen} seen",
+        )
+    )
+
+    def as_viewer(statement: str, params=()) -> bool:
+        try:
+            with conn.transaction(force_rollback=True):
+                as_user(conn, viewer)
+                conn.execute(statement, params)
+        except (errors.InsufficientPrivilege, errors.CheckViolation):
+            return True
+        return False
+
+    results.append(
+        Result(
+            "can't change prices, or make a pass without a completed payment",
+            refused(conn, "update public.pass_plans set price_ugx = 500")
+            and as_viewer(
+                """
+                insert into public.passes (user_id, payment_id, starts_at, ends_at)
+                values (%s, gen_random_uuid(), now(), now() + interval '1 day')
+                """,
+                (viewer,),
+            )
+            and as_viewer(
+                """
+                insert into public.payments (user_id, plan_id, days, amount_ugx,
+                  email)
+                values (gen_random_uuid(), 'day', 1, 500, 'a@b.c')
+                """
+            )
+            and as_viewer("delete from public.payments"),
         )
     )
     return results
@@ -575,6 +668,7 @@ def run_checks(url: str, connect=None) -> list[Result]:
         results += check_isolation(conn)
         results += check_catalogue(conn)
         results += check_uploads(conn)
+        results += check_passes(conn)
         results.append(check_prepared(conn))
     results.append(check_no_leak(url, connect))
     return results

@@ -920,5 +920,95 @@
         "type": "String"
       }
     }
+  },
+  "yourPass": "Your pass",
+  "passActiveUntil": "Your pass runs until {date}.",
+  "passQueuedUntil": "With the pass you bought next, you can watch until {date}.",
+  "noPass": "You don't have a pass.",
+  "passIntro": "A pass lets you watch everything on VeloraUG until it ends. You pay on Pesapal's page, by mobile money or card.",
+  "passChecking": "A payment is still being checked. It shows here once it has gone through.",
+  "passCouldNotLoad": "Couldn't check your pass.",
+  "buyAPass": "Buy a pass",
+  "buyAnotherPass": "Buy another pass",
+  "choosePass": "Choose a pass",
+  "passDay": "1 day",
+  "passWeek": "1 week",
+  "passMonth": "1 month",
+  "passDays": "{days} days",
+  "passPrice": "UGX {amount}",
+  "noPassesForSale": "No passes are for sale right now.",
+  "phoneForPayment": "Phone number",
+  "phoneForPaymentHelp": "Pesapal needs a phone number or an email for your payment.",
+  "phoneNotValid": "Enter a phone number, such as 0772 123 456.",
+  "payWithPesapal": "Pay with Pesapal",
+  "startingPayment": "Starting your payment",
+  "finishPaying": "Finish paying on Pesapal",
+  "finishPayingHelp": "Pesapal's page has opened in a new tab or in your browser. Come back here once you've paid: this page checks by itself.",
+  "openPesapalAgain": "Open Pesapal again",
+  "checkAgain": "Check again",
+  "checkingPayment": "Checking your payment",
+  "paymentFailedTitle": "That payment didn't go through",
+  "paymentFailedHelp": "You can try another way to pay on Pesapal's page, or choose a pass again.",
+  "paymentGivenUp": "This payment wasn't completed. Choose a pass to try again.",
+  "stillWaitingTitle": "Still waiting for Pesapal",
+  "stillWaitingHelp": "We haven't heard from Pesapal yet. If you paid, your pass shows on the Account tab once it has been checked.",
+  "passReadyTitle": "Your pass is ready",
+  "passReadyUntil": "You can watch until {date}.",
+  "carryOnWatching": "Carry on watching",
+  "passNotForSale": "This pass isn't for sale any more. Choose another.",
+  "paymentsUnavailable": "Payments aren't available right now. Try again in a few minutes.",
+  "passSignInNeeded": "Sign in to buy a pass.",
+  "couldNotOpenPesapal": "Couldn't open Pesapal's page. Use Open Pesapal again.",
+  "passNeededTitle": "You need a pass to watch",
+  "passNeededMessage": "Buy a pass to watch everything on VeloraUG.",
+  "passEndedTitle": "Your pass has ended",
+  "passEndedMessage": "Buy another pass to carry on from where you were.",
+  "passPrices": "Pass prices",
+  "passPricesIntro": "Prices are in Uganda shillings. Leave one empty to stop selling that pass.",
+  "priceUgx": "Price for {pass} (UGX)",
+  "priceNotValid": "Enter a whole number from 500 to 10,000,000, or leave it empty.",
+  "savePrices": "Save prices",
+  "pricesSaved": "Prices saved.",
+  "@passActiveUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@passQueuedUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@passReadyUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@passDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@passPrice": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@priceUgx": {
+    "placeholders": {
+      "pass": {
+        "type": "String"
+      }
+    }
   }
 }

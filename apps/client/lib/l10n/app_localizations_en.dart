@@ -1375,4 +1375,173 @@ class AppLocalizationsEn extends AppLocalizations {
   String qualityNow(String quality) {
     return 'Quality: $quality';
   }
+
+  @override
+  String get yourPass => 'Your pass';
+
+  @override
+  String passActiveUntil(String date) {
+    return 'Your pass runs until $date.';
+  }
+
+  @override
+  String passQueuedUntil(String date) {
+    return 'With the pass you bought next, you can watch until $date.';
+  }
+
+  @override
+  String get noPass => 'You don\'t have a pass.';
+
+  @override
+  String get passIntro =>
+      'A pass lets you watch everything on VeloraUG until it ends. You pay on Pesapal\'s page, by mobile money or card.';
+
+  @override
+  String get passChecking =>
+      'A payment is still being checked. It shows here once it has gone through.';
+
+  @override
+  String get passCouldNotLoad => 'Couldn\'t check your pass.';
+
+  @override
+  String get buyAPass => 'Buy a pass';
+
+  @override
+  String get buyAnotherPass => 'Buy another pass';
+
+  @override
+  String get choosePass => 'Choose a pass';
+
+  @override
+  String get passDay => '1 day';
+
+  @override
+  String get passWeek => '1 week';
+
+  @override
+  String get passMonth => '1 month';
+
+  @override
+  String passDays(int days) {
+    return '$days days';
+  }
+
+  @override
+  String passPrice(String amount) {
+    return 'UGX $amount';
+  }
+
+  @override
+  String get noPassesForSale => 'No passes are for sale right now.';
+
+  @override
+  String get phoneForPayment => 'Phone number';
+
+  @override
+  String get phoneForPaymentHelp =>
+      'Pesapal needs a phone number or an email for your payment.';
+
+  @override
+  String get phoneNotValid => 'Enter a phone number, such as 0772 123 456.';
+
+  @override
+  String get payWithPesapal => 'Pay with Pesapal';
+
+  @override
+  String get startingPayment => 'Starting your payment';
+
+  @override
+  String get finishPaying => 'Finish paying on Pesapal';
+
+  @override
+  String get finishPayingHelp =>
+      'Pesapal\'s page has opened in a new tab or in your browser. Come back here once you\'ve paid: this page checks by itself.';
+
+  @override
+  String get openPesapalAgain => 'Open Pesapal again';
+
+  @override
+  String get checkAgain => 'Check again';
+
+  @override
+  String get checkingPayment => 'Checking your payment';
+
+  @override
+  String get paymentFailedTitle => 'That payment didn\'t go through';
+
+  @override
+  String get paymentFailedHelp =>
+      'You can try another way to pay on Pesapal\'s page, or choose a pass again.';
+
+  @override
+  String get paymentGivenUp =>
+      'This payment wasn\'t completed. Choose a pass to try again.';
+
+  @override
+  String get stillWaitingTitle => 'Still waiting for Pesapal';
+
+  @override
+  String get stillWaitingHelp =>
+      'We haven\'t heard from Pesapal yet. If you paid, your pass shows on the Account tab once it has been checked.';
+
+  @override
+  String get passReadyTitle => 'Your pass is ready';
+
+  @override
+  String passReadyUntil(String date) {
+    return 'You can watch until $date.';
+  }
+
+  @override
+  String get carryOnWatching => 'Carry on watching';
+
+  @override
+  String get passNotForSale =>
+      'This pass isn\'t for sale any more. Choose another.';
+
+  @override
+  String get paymentsUnavailable =>
+      'Payments aren\'t available right now. Try again in a few minutes.';
+
+  @override
+  String get passSignInNeeded => 'Sign in to buy a pass.';
+
+  @override
+  String get couldNotOpenPesapal =>
+      'Couldn\'t open Pesapal\'s page. Use Open Pesapal again.';
+
+  @override
+  String get passNeededTitle => 'You need a pass to watch';
+
+  @override
+  String get passNeededMessage => 'Buy a pass to watch everything on VeloraUG.';
+
+  @override
+  String get passEndedTitle => 'Your pass has ended';
+
+  @override
+  String get passEndedMessage =>
+      'Buy another pass to carry on from where you were.';
+
+  @override
+  String get passPrices => 'Pass prices';
+
+  @override
+  String get passPricesIntro =>
+      'Prices are in Uganda shillings. Leave one empty to stop selling that pass.';
+
+  @override
+  String priceUgx(String pass) {
+    return 'Price for $pass (UGX)';
+  }
+
+  @override
+  String get priceNotValid =>
+      'Enter a whole number from 500 to 10,000,000, or leave it empty.';
+
+  @override
+  String get savePrices => 'Save prices';
+
+  @override
+  String get pricesSaved => 'Prices saved.';
 }

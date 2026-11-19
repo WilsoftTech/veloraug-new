@@ -128,11 +128,13 @@ VeloraUG streams **Luganda-translated movies and series by Ugandan VJs**, browse
 
 ### Milestone 10: Payments
 
-Prepaid **daily, weekly and monthly catalogue passes**, through Pesapal. Prices are still open. Pay per title and automatic renewal come later. A playback grant will expire no later than the viewer's pass: see [the plan's look ahead](step-09a-vj-catalogue-plan.md#7-looking-ahead-to-milestone-10-passes).
+Prepaid **daily, weekly and monthly catalogue passes**, through Pesapal. Planned in the [payments plan](step-10a-payments-plan.md), **not yet approved**: written and built on 19 November 2026 at the owner's request to implement Milestone 10. Prices are set by an admin in Settings. Pay per title and automatic renewal come later. Passes are switched on with `VELORAUG_PASSES_REQUIRED`, off by default.
 
-- [ ] Plan passes, payment confirmation and expiry
-- [ ] One pass in Pesapal's sandbox: payment confirmed by the backend, playback allowed, then refused when the pass expires
-- [ ] Grants capped at the pass's end, and the player showing "Your pass has ended"
+- [x] 10A: Plan passes, payment confirmation and expiry (awaiting the owner's approval)
+- [x] 10B: Migration `0006`, the Pesapal API 3.0 client, the pass routes, grants capped at the pass's end and 402 without one, and admin prices (automated tests, with Pesapal faked)
+- [x] 10C: The app: Your pass on the Account tab, buying through Pesapal's page, the player's "You need a pass" and "Your pass has ended", and pass prices in admin Settings (widget tests, with the API faked)
+- [x] 10D: The [Step 10E run sheet](step-10e-runbook.md) and the docs
+- [ ] 10E: One pass in Pesapal's sandbox: payment confirmed by the backend, playback allowed, then refused when the pass expires. Needs the owner: migration `0006` on Neon, sandbox keys, and the run sheet
 
 ### Milestone 11: Pilot deployment
 - [ ] Build and run ARM64 images on Oracle with Docker Compose, using a separate Compose file from the local one

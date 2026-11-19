@@ -225,7 +225,8 @@ def test_each_quality_is_sized_from_the_original(probe, expected):
     assert bitrates(probe) == expected
     rates = list(bitrates(probe).values())
     # Lowest first, and each a real step down from the next.
-    assert all(low <= high * 0.6 or low == 400_000 for low, high in zip(rates, rates[1:]))
+    steps = zip(rates, rates[1:], strict=False)
+    assert all(low <= high * 0.6 or low == 400_000 for low, high in steps)
 
 
 def test_one_command_makes_every_quality_with_shared_keyframes():

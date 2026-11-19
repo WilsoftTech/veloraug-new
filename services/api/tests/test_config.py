@@ -171,3 +171,52 @@ def test_a_blank_tmdb_token_is_refused_without_quoting_it():
 
 def test_the_tmdb_token_is_optional():
     assert Settings().tmdb_read_access_token is None
+
+
+# --- Pesapal and passes, Step 10B ---------------------------------------------
+
+
+def test_passes_are_off_and_pesapal_unset_by_default():
+    settings = Settings()
+
+    assert settings.passes_required is False
+    assert settings.pesapal_configured is False
+    assert settings.pesapal_environment == "sandbox"
+
+
+def test_pesapal_is_configured_with_its_keys_ipn_and_public_address():
+    settings = Settings(
+        pesapal_consumer_key="key",
+        pesapal_consumer_secret="secret",
+        pesapal_ipn_id="a1b2c3d4-0000-1111-2222-333344445555",
+        public_api_url="https://api.example.com/",
+    )
+
+    assert settings.pesapal_configured is True
+    assert settings.public_api_url == "https://api.example.com"
+
+
+def test_register_ipn_needs_only_the_keys():
+    settings = Settings(pesapal_consumer_key="key", pesapal_consumer_secret="secret")
+
+    assert settings.pesapal_configured is False
+
+
+@pytest.mark.parametrize(
+    "given",
+    [
+        {"pesapal_consumer_key": "key"},
+        {"pesapal_ipn_id": "a1b2c3d4-0000"},
+        {
+            "pesapal_consumer_key": "key",
+            "pesapal_consumer_secret": "secret",
+            "pesapal_ipn_id": "not an id!",
+        },
+        {"public_api_url": "http://api.example.com"},
+        {"public_api_url": "https://api.example.com/api"},
+        {"pesapal_environment": "test"},
+    ],
+)
+def test_incomplete_or_unsafe_pesapal_settings_are_refused(given):
+    with pytest.raises(ValidationError):
+        Settings(**given)

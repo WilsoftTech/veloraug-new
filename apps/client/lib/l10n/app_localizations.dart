@@ -2349,6 +2349,294 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Quality: {quality}'**
   String qualityNow(String quality);
+
+  /// No description provided for @yourPass.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pass'**
+  String get yourPass;
+
+  /// No description provided for @passActiveUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pass runs until {date}.'**
+  String passActiveUntil(String date);
+
+  /// No description provided for @passQueuedUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'With the pass you bought next, you can watch until {date}.'**
+  String passQueuedUntil(String date);
+
+  /// No description provided for @noPass.
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have a pass.'**
+  String get noPass;
+
+  /// No description provided for @passIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'A pass lets you watch everything on VeloraUG until it ends. You pay on Pesapal\'s page, by mobile money or card.'**
+  String get passIntro;
+
+  /// No description provided for @passChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'A payment is still being checked. It shows here once it has gone through.'**
+  String get passChecking;
+
+  /// No description provided for @passCouldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check your pass.'**
+  String get passCouldNotLoad;
+
+  /// No description provided for @buyAPass.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy a pass'**
+  String get buyAPass;
+
+  /// No description provided for @buyAnotherPass.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy another pass'**
+  String get buyAnotherPass;
+
+  /// No description provided for @choosePass.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a pass'**
+  String get choosePass;
+
+  /// No description provided for @passDay.
+  ///
+  /// In en, this message translates to:
+  /// **'1 day'**
+  String get passDay;
+
+  /// No description provided for @passWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'1 week'**
+  String get passWeek;
+
+  /// No description provided for @passMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'1 month'**
+  String get passMonth;
+
+  /// No description provided for @passDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days'**
+  String passDays(int days);
+
+  /// No description provided for @passPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'UGX {amount}'**
+  String passPrice(String amount);
+
+  /// No description provided for @noPassesForSale.
+  ///
+  /// In en, this message translates to:
+  /// **'No passes are for sale right now.'**
+  String get noPassesForSale;
+
+  /// No description provided for @phoneForPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number'**
+  String get phoneForPayment;
+
+  /// No description provided for @phoneForPaymentHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal needs a phone number or an email for your payment.'**
+  String get phoneForPaymentHelp;
+
+  /// No description provided for @phoneNotValid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a phone number, such as 0772 123 456.'**
+  String get phoneNotValid;
+
+  /// No description provided for @payWithPesapal.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay with Pesapal'**
+  String get payWithPesapal;
+
+  /// No description provided for @startingPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting your payment'**
+  String get startingPayment;
+
+  /// No description provided for @finishPaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish paying on Pesapal'**
+  String get finishPaying;
+
+  /// No description provided for @finishPayingHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal\'s page has opened in a new tab or in your browser. Come back here once you\'ve paid: this page checks by itself.'**
+  String get finishPayingHelp;
+
+  /// No description provided for @openPesapalAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Pesapal again'**
+  String get openPesapalAgain;
+
+  /// No description provided for @checkAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get checkAgain;
+
+  /// No description provided for @checkingPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your payment'**
+  String get checkingPayment;
+
+  /// No description provided for @paymentFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'That payment didn\'t go through'**
+  String get paymentFailedTitle;
+
+  /// No description provided for @paymentFailedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'You can try another way to pay on Pesapal\'s page, or choose a pass again.'**
+  String get paymentFailedHelp;
+
+  /// No description provided for @paymentGivenUp.
+  ///
+  /// In en, this message translates to:
+  /// **'This payment wasn\'t completed. Choose a pass to try again.'**
+  String get paymentGivenUp;
+
+  /// No description provided for @stillWaitingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Still waiting for Pesapal'**
+  String get stillWaitingTitle;
+
+  /// No description provided for @stillWaitingHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'We haven\'t heard from Pesapal yet. If you paid, your pass shows on the Account tab once it has been checked.'**
+  String get stillWaitingHelp;
+
+  /// No description provided for @passReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pass is ready'**
+  String get passReadyTitle;
+
+  /// No description provided for @passReadyUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'You can watch until {date}.'**
+  String passReadyUntil(String date);
+
+  /// No description provided for @carryOnWatching.
+  ///
+  /// In en, this message translates to:
+  /// **'Carry on watching'**
+  String get carryOnWatching;
+
+  /// No description provided for @passNotForSale.
+  ///
+  /// In en, this message translates to:
+  /// **'This pass isn\'t for sale any more. Choose another.'**
+  String get passNotForSale;
+
+  /// No description provided for @paymentsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments aren\'t available right now. Try again in a few minutes.'**
+  String get paymentsUnavailable;
+
+  /// No description provided for @passSignInNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to buy a pass.'**
+  String get passSignInNeeded;
+
+  /// No description provided for @couldNotOpenPesapal.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open Pesapal\'s page. Use Open Pesapal again.'**
+  String get couldNotOpenPesapal;
+
+  /// No description provided for @passNeededTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You need a pass to watch'**
+  String get passNeededTitle;
+
+  /// No description provided for @passNeededMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy a pass to watch everything on VeloraUG.'**
+  String get passNeededMessage;
+
+  /// No description provided for @passEndedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pass has ended'**
+  String get passEndedTitle;
+
+  /// No description provided for @passEndedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy another pass to carry on from where you were.'**
+  String get passEndedMessage;
+
+  /// No description provided for @passPrices.
+  ///
+  /// In en, this message translates to:
+  /// **'Pass prices'**
+  String get passPrices;
+
+  /// No description provided for @passPricesIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices are in Uganda shillings. Leave one empty to stop selling that pass.'**
+  String get passPricesIntro;
+
+  /// No description provided for @priceUgx.
+  ///
+  /// In en, this message translates to:
+  /// **'Price for {pass} (UGX)'**
+  String priceUgx(String pass);
+
+  /// No description provided for @priceNotValid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number from 500 to 10,000,000, or leave it empty.'**
+  String get priceNotValid;
+
+  /// No description provided for @savePrices.
+  ///
+  /// In en, this message translates to:
+  /// **'Save prices'**
+  String get savePrices;
+
+  /// No description provided for @pricesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices saved.'**
+  String get pricesSaved;
 }
 
 class _AppLocalizationsDelegate

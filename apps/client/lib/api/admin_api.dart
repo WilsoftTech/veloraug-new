@@ -228,6 +228,16 @@ class AdminLanguage {
   final String name;
 }
 
+/// A pass and its price, Step 10C. No price: not for sale.
+class AdminPassPlan {
+  const AdminPassPlan({required this.id, required this.days, this.priceUgx});
+
+  /// day, week or month.
+  final String id;
+  final int days;
+  final int? priceUgx;
+}
+
 class AdminEntry {
   const AdminEntry({
     required this.userId,
@@ -588,6 +598,20 @@ class AdminApi {
 
   Future<void> addLanguage(String code, String name) async {
     await _send('POST', '/languages', {'code': code, 'name': name});
+  }
+
+  Future<List<AdminPassPlan>> passPlans() async => [
+    for (final row in _rows(await _send('GET', '/pass-plans')))
+      AdminPassPlan(
+        id: _need<String>(row['id']),
+        days: _need<int>(row['days']),
+        priceUgx: _maybe<int>(row['price_ugx']),
+      ),
+  ];
+
+  /// Whole shillings, or null to stop selling the pass.
+  Future<void> setPassPrice(String planId, int? priceUgx) async {
+    await _send('PATCH', '/pass-plans/${_id(planId)}', {'price_ugx': priceUgx});
   }
 
   Future<List<AdminEntry>> admins() async => [

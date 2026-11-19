@@ -6,7 +6,7 @@ docs/step-09a-vj-catalogue-plan.md, section 5. The routes from Milestone 6,
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -23,7 +23,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints
 from starlette.background import BackgroundTask
 
-from app import playback, viewer
+from app import passes, playback, viewer
 from app.auth import VerifiedUser, current_user
 from app.db import Database
 from app.images import ImageUrls
@@ -35,6 +35,7 @@ playback_logger = logging.getLogger("veloraug.playback")
 
 NOT_AVAILABLE = "This isn't available."
 NOT_READY = "This can't be watched yet."
+NEEDS_PASS = "You need a pass to watch."
 DETAILS_PENDING = "These details aren't available right now."
 YOUTUBE = "https://www.youtube.com/watch?v="
 
@@ -316,6 +317,7 @@ def granter(request: Request) -> Granter:
     "/items/{item_id}/playback",
     responses={
         401: {"description": "Not signed in."},
+        402: {"description": NEEDS_PASS},
         404: {"description": NOT_AVAILABLE},
         409: {"description": NOT_READY},
         503: {"description": "Busy, or playback isn't set up."},
@@ -323,20 +325,33 @@ def granter(request: Request) -> Granter:
 )
 def grant_playback(
     item_id: UUID,
+    request: Request,
     user: Annotated[VerifiedUser, Depends(current_user)],
     db: AppDatabase,
     granter: Annotated[Granter, Depends(granter)],
 ) -> PlaybackOut:
     """A playback address for one movie edition's video, or one episode, for
-    6 hours. Any signed-in viewer may watch, until passes in Milestone 10."""
+    6 hours. With passes required, Step 10B, a viewer who isn't an admin
+    needs a running pass, and the address ends no later than the pass."""
+    until = None
     with db.as_user(user.user_id) as conn:
         visible = viewer.playable_item(conn, item_id)
         original = playback.ready_original(conn, item_id) if visible else None
+        if (
+            visible
+            and original is not None
+            and request.app.state.settings.passes_required
+            and not passes.is_admin(conn, user.user_id)
+        ):
+            now = datetime.now(UTC)
+            until = passes.pass_status(conn, user.user_id, now).current_ends_at
+            if until is None:
+                raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, NEEDS_PASS)
     if not visible:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_AVAILABLE)
     if original is None:
         raise HTTPException(status.HTTP_409_CONFLICT, NOT_READY)
-    grant = granter.grant(item_id, original)
+    grant = granter.grant(item_id, original, until=until)
     # The item only: never the user, the grant or the address.
     playback_logger.info("Playback granted for item %s", item_id)
     return PlaybackOut(playlist_url=grant.playlist_url, expires_at=grant.expires_at)

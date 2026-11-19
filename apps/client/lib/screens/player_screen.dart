@@ -8,6 +8,7 @@ import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/velora_button.dart';
+import 'pass_screen.dart';
 
 enum _Phase { granting, playing, failed }
 
@@ -67,6 +68,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late String _itemId = widget.itemId;
   PlaybackGrant? _grant;
   String? _message;
+
+  /// The failure is a missing or ended pass, Step 10C.
+  bool _needsPass = false;
+  bool _passEnded = false;
   Duration _position = Duration.zero;
   bool _started = false;
   bool _ended = false;
@@ -138,8 +143,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
       });
     } on PlaybackException catch (error) {
       if (itemId != _itemId) return;
+      if (error.failure == PlaybackFailure.needsPass) {
+        _showNeedsPass(ended: renewal || _grant != null);
+        return;
+      }
       _showFailure(playbackFailureMessage(l, error.failure));
     }
+  }
+
+  /// No pass, or it ended mid-film, Step 10C: offers one, and carries on
+  /// from the same moment once it's bought.
+  void _showNeedsPass({required bool ended}) {
+    if (!mounted) return;
+    final l = context.l10n;
+    setState(() {
+      _needsPass = true;
+      _passEnded = ended;
+      _message = ended ? l.passEndedMessage : l.passNeededMessage;
+      _phase = _Phase.failed;
+    });
+  }
+
+  Future<void> _buyPass() async {
+    final bought = await BuyPassScreen.open(context);
+    if (!bought || !mounted) return;
+    _position = _playedTo;
+    await _fetchGrant();
   }
 
   void _chooseQuality(VideoQuality? quality) {
@@ -206,6 +235,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showFailure(String message) {
     if (!mounted) return;
     setState(() {
+      _needsPass = false;
       _message = message;
       _phase = _Phase.failed;
     });
@@ -289,11 +319,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 constraints: const BoxConstraints(
                   maxWidth: VeloraLayout.readingWidth,
                 ),
-                child: ErrorState(
-                  title: l.couldNotPlay,
-                  message: _message!,
-                  onRetry: _fetchGrant,
-                ),
+                child: _needsPass
+                    ? ErrorState(
+                        icon: Icons.confirmation_number_outlined,
+                        title: _passEnded
+                            ? l.passEndedTitle
+                            : l.passNeededTitle,
+                        message: _message!,
+                        onRetry: _buyPass,
+                        retryLabel: l.buyAPass,
+                      )
+                    : ErrorState(
+                        title: l.couldNotPlay,
+                        message: _message!,
+                        onRetry: _fetchGrant,
+                      ),
               ),
             ),
           ),

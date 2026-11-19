@@ -61,8 +61,14 @@ class Granter:
         self._gateway = gateway_url.rstrip("/")
         self._clock = clock
 
-    def grant(self, item_id: UUID, original_id: UUID) -> Playback:
+    def grant(
+        self, item_id: UUID, original_id: UUID, *, until: datetime | None = None
+    ) -> Playback:
+        """A grant for GRANT_SECONDS, or until `until` if that's sooner: the
+        end of the viewer's pass, Step 10B."""
         expires = int(self._clock()) + GRANT_SECONDS
+        if until is not None:
+            expires = min(expires, int(until.timestamp()))
         token = sign_grant(
             self._key, item_id=item_id, original_id=original_id, expires=expires
         )

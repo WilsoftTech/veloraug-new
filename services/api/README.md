@@ -88,6 +88,7 @@ The password is for that container only, which only this computer can reach. Por
 | `app/media_worker.py` | A separate program: checks uploads and converts them to HLS. See [convert uploads](#convert-uploads) |
 | `app/media_publisher.py` | Publishes converted originals to R2, and removes them. See [publish to R2](#publish-to-r2) |
 | `app/playback.py` | Signs playback grants for the media gateway. See [playback](#playback) |
+| `app/passes.py`, `app/pass_routes.py`, `app/pesapal.py` | Passes and their payments from Step 10B, and the Pesapal API 3.0 client. See [passes](#passes) |
 | `migrations/` | Alembic and the hand-written SQL migrations. Not in the image |
 | `alembic.ini` | Alembic's settings. It holds no connection string |
 | `scripts/` | The owner's scripts: [create the API's role](#2-create-the-apis-role), [check the database](#4-check-it) [manage the catalogue](#catalogue) and [upload keys](#upload-keys), and check the media role. Not in the image |
@@ -104,7 +105,7 @@ An **application factory** is a function that builds the app when called. It let
 
 ## Settings
 
-Only `VELORAUG_DATABASE_URL`, `VELORAUG_EDITOR_DATABASE_URL`, `VELORAUG_TMDB_READ_ACCESS_TOKEN` and `VELORAUG_PLAYBACK_SIGNING_KEY` are secret. The defaults suit local development, without sign-in or a database.
+Only `VELORAUG_DATABASE_URL`, `VELORAUG_EDITOR_DATABASE_URL`, `VELORAUG_TMDB_READ_ACCESS_TOKEN`, `VELORAUG_PLAYBACK_SIGNING_KEY` and the two Pesapal keys are secret. The defaults suit local development, without sign-in or a database.
 
 | Environment variable | Default | Meaning |
 | --- | --- | --- |
@@ -118,6 +119,11 @@ Only `VELORAUG_DATABASE_URL`, `VELORAUG_EDITOR_DATABASE_URL`, `VELORAUG_TMDB_REA
 | `VELORAUG_TMDB_READ_ACCESS_TOKEN` | None | **Secret.** TMDB's API Read Access Token. Used from Step 6B by [the catalogue script](#catalogue), by the API from Step 6C, and by the admin routes' TMDB searches from Step 9C |
 | `VELORAUG_PLAYBACK_SIGNING_KEY` | None | **Secret.** Signs playback grants. The media gateway's `PLAYBACK_SIGNING_KEY` must be the same. At least 32 characters. See [playback](#playback) |
 | `VELORAUG_MEDIA_GATEWAY_URL` | None | The media gateway's address, such as `http://127.0.0.1:8787` locally. `https`, except for `127.0.0.1` and `localhost` |
+| `VELORAUG_PASSES_REQUIRED` | `false` | When `true`, viewers who aren't admins need a running pass to watch. See [passes](#passes) |
+| `VELORAUG_PESAPAL_CONSUMER_KEY`, `VELORAUG_PESAPAL_CONSUMER_SECRET` | None | **Secret.** Pesapal's API 3.0 keys. Together, or neither |
+| `VELORAUG_PESAPAL_ENVIRONMENT` | `sandbox` | `sandbox` or `live` |
+| `VELORAUG_PESAPAL_IPN_ID` | None | The notification address's ID, from `register-ipn`. Needs the keys |
+| `VELORAUG_PUBLIC_API_URL` | None | This API's own address, where Pesapal sends viewers back. Without it and the three above, buying a pass answers `503` |
 
 The three sign-in settings go together: set all three or none. Without them, or without the database, `/api/v1/me` answers `503`. The two playback settings go together too, and without them granting playback answers `503`. Their values for the development branch are in your Git-ignored `services/api/.env`, which Docker Compose passes to the container.
 
@@ -130,7 +136,7 @@ $env:VELORAUG_ALLOWED_ORIGINS = '["http://localhost:8765","http://localhost:9000
 To run directly with Python, with sign-in and the database, load the settings from `.env` into that terminal first. This prints nothing:
 
 ```powershell
-Get-Content .env | Where-Object { $_ -match '^VELORAUG_(NEON_AUTH_URL|API_RESOURCE|NEON_AUTH_CLIENT_IDS|DATABASE_URL|EDITOR_DATABASE_URL|TMDB_READ_ACCESS_TOKEN|PLAYBACK_SIGNING_KEY|MEDIA_GATEWAY_URL)=' } | ForEach-Object { $name, $value = $_ -split '=', 2; Set-Item "env:$name" $value.Trim('"') }
+Get-Content .env | Where-Object { $_ -match '^VELORAUG_(NEON_AUTH_URL|API_RESOURCE|NEON_AUTH_CLIENT_IDS|DATABASE_URL|EDITOR_DATABASE_URL|TMDB_READ_ACCESS_TOKEN|PLAYBACK_SIGNING_KEY|MEDIA_GATEWAY_URL|PASSES_REQUIRED|PESAPAL_CONSUMER_KEY|PESAPAL_CONSUMER_SECRET|PESAPAL_ENVIRONMENT|PESAPAL_IPN_ID|PUBLIC_API_URL)=' } | ForEach-Object { $name, $value = $_ -split '=', 2; Set-Item "env:$name" $value.Trim('"') }
 ```
 
 The app refuses to start if a setting is invalid, such as an unknown environment, the wildcard `*`, an origin with a trailing slash, or a database URL for another role. Its error messages never quote a value.
@@ -174,13 +180,14 @@ It never shows the password. Running it again gives the role a new password and 
 .\.venv\Scripts\python.exe -m alembic current
 ```
 
-`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0005 (head)`:
+`upgrade head --sql` needs no connection: it prints the SQL so you can read it first. The other two each ask for the owner string. The upgrade runs in one transaction, so a failure changes nothing. `current` should then show `0006 (head)`:
 
 - `0001` adds profiles.
 - `0002` adds the first catalogue, of TMDB films.
 - `0003` adds upload keys, originals, their qualities and the `veloraug_media` role, without a login yet.
 - `0004` lets the API see which published movies have a ready original.
 - `0005` replaces the catalogue with the VJ catalogue: languages, VJs, source titles, editions, playable items, TMDB candidates and admins, and the `veloraug_editor` role, without a login yet. Today's films move across as test editions **with the same IDs**, so their videos in R2, their grants and their unused keys keep working. See the [VJ catalogue plan](../../docs/step-09a-vj-catalogue-plan.md#1-database).
+- `0006` adds pass prices, payments and passes. The API sees and changes only the signed-in viewer's own, and a trigger refuses a pass without a matching completed payment. See the [payments plan](../../docs/step-10a-payments-plan.md#1-database).
 
 ### 4. Check it
 
@@ -414,7 +421,7 @@ POST /api/v1/items/{id}/playback      Authorization: Bearer <access token>
 401 not signed in   404 not published   409 nothing ready   503 busy, or not set up
 ```
 
-`GET /api/v1/editions/{id}` says `"playable": true` when there is something to watch. Any signed-in viewer may watch, until payments in Milestone 10.
+`GET /api/v1/editions/{id}` says `"playable": true` when there is something to watch. Any signed-in viewer may watch, unless [passes](#passes) are required: then `402` without one.
 
 The **grant** names the item, its ready original and an expiry, 6 hours on, signed with HMAC-SHA256 and `VELORAUG_PLAYBACK_SIGNING_KEY`. It is in the address's path, so every playlist and chunk the player fetches carries it. The media gateway, in [`services/media_gateway/`](../media_gateway/README.md), checks it and serves from private R2. Grants aren't stored, and the log names only the item: never the viewer, the grant or the address. Anyone holding an address can watch until it expires.
 
@@ -432,6 +439,33 @@ VELORAUG_MEDIA_GATEWAY_URL=http://127.0.0.1:8787
 **Changing the key** ends every grant at once. The app then asks for new ones by itself. Do this if the key may have leaked, in both places together.
 
 `services/media_gateway/test/grant-vector.json` is one grant, with a test-only key, that both this service's tests and the gateway's check, so the two can't drift apart.
+
+## Passes
+
+Planned in the [payments plan](../../docs/step-10a-payments-plan.md). Day, week and month passes, paid on Pesapal's own page. An admin sets the prices in the app, under **Admin → Settings → Pass prices**. A pass with no price isn't for sale.
+
+```text
+GET  /api/v1/passes/plans              the passes for sale, no sign-in
+GET  /api/v1/me/pass                   the viewer's pass; checks their unfinished payments first
+POST /api/v1/passes/checkout           {"plan_id": "day", "email": "..."} or "phone": "0772..."
+                                       201 {"payment_id", "redirect_url"}: Pesapal's page
+GET  /api/v1/passes/payments/{id}      that payment, checked with Pesapal if it isn't settled
+GET  /api/v1/passes/return             Pesapal sends the viewer here: a short page
+GET  /api/v1/passes/ipn                Pesapal's notification: checks, then answers its JSON
+GET, PATCH /api/v1/admin/pass-plans    the prices, for admins
+```
+
+**Only Pesapal's status decides.** The return and the notification never say whether a payment went through: each only makes the API ask Pesapal, with its keys, through `GetTransactionStatus`. A pass is made only for `COMPLETED`, with this payment's reference, its exact amount and UGX. The database refuses any pass that doesn't match a completed payment of the same viewer and length. A new pass starts when the last one ends. A reversed payment ends its pass.
+
+With `VELORAUG_PASSES_REQUIRED=true`, a grant ends no later than the viewer's pass, and without one the grant route answers `402`. Admins never need a pass.
+
+**To set it up,** put the two Pesapal keys in `.env` and start the API, then register the notification address once per environment, from the API's container:
+
+```powershell
+docker compose -f ..\..\infra\compose.local.yaml exec api python -m app.pesapal register-ipn http://127.0.0.1:8000/api/v1/passes/ipn
+```
+
+Paste the ID it prints into `.env` as `VELORAUG_PESAPAL_IPN_ID`, with `VELORAUG_PUBLIC_API_URL=http://127.0.0.1:8000`, and restart. Locally Pesapal can't reach the notification address; the app's own checks confirm payments instead. Once the API is public, in Milestone 11, register its public address. The [Step 10E run sheet](../../docs/step-10e-runbook.md) walks through a sandbox payment.
 
 ## The concepts, using this service as the example
 
