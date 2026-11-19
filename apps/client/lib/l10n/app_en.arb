@@ -908,5 +908,17 @@
   "removeAgain": "Remove again",
   "openDraft": "Open draft",
   "removeUploadTitle": "Remove this upload?",
-  "removeUploadMessage": "It stops, and the part uploaded is deleted from the server. Its draft stays in Drafts."
+  "removeUploadMessage": "It stops, and the part uploaded is deleted from the server. Its draft stays in Drafts.",
+  "quality": "Quality",
+  "qualityAuto": "Auto",
+  "qualityAutoHelp": "Changes with your connection",
+  "qualityHd": "HD",
+  "qualityNow": "Quality: {quality}",
+  "@qualityNow": {
+    "placeholders": {
+      "quality": {
+        "type": "String"
+      }
+    }
+  }
 }

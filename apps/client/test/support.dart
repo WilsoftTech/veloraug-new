@@ -157,6 +157,20 @@ class FakeApi {
 
   bool isAdmin = false;
 
+  /// The master playlist the media gateway serves for every grant.
+  String masterPlaylist = '''
+#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-STREAM-INF:BANDWIDTH=1088017,RESOLUTION=640x266
+360p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1854833,RESOLUTION=854x356
+480p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=3582027,RESOLUTION=1280x534
+720p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=3829844,RESOLUTION=1920x800
+1080p/index.m3u8
+''';
+
   /// Admin answers, by "METHOD /path" after /api/v1/admin.
   final admin = <String, Answer>{};
 
@@ -195,6 +209,11 @@ class FakeApi {
       final answer = admin[key];
       if (answer == null) return json({'detail': 'Not found'}, 404);
       return answer(request);
+    }
+    if (request.url.host == '127.0.0.1' &&
+        request.url.port == 8787 &&
+        path.endsWith('/master.m3u8')) {
+      return http.Response(masterPlaylist, 200);
     }
     if (path.endsWith('/playback')) {
       grants++;

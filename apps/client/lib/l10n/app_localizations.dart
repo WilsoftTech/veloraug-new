@@ -2319,6 +2319,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'It stops, and the part uploaded is deleted from the server. Its draft stays in Drafts.'**
   String get removeUploadMessage;
+
+  /// No description provided for @quality.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get quality;
+
+  /// No description provided for @qualityAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get qualityAuto;
+
+  /// No description provided for @qualityAutoHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes with your connection'**
+  String get qualityAutoHelp;
+
+  /// No description provided for @qualityHd.
+  ///
+  /// In en, this message translates to:
+  /// **'HD'**
+  String get qualityHd;
+
+  /// No description provided for @qualityNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality: {quality}'**
+  String qualityNow(String quality);
 }
 
 class _AppLocalizationsDelegate

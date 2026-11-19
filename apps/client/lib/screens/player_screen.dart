@@ -18,6 +18,11 @@ enum _Phase { granting, playing, failed }
 /// about to, a new grant is fetched by itself, and playback carries on from
 /// the same moment. Any other stop offers Try again, from the same moment.
 ///
+/// The gear in the bar chooses the quality, as on YouTube: Auto, which
+/// follows the connection, or one quality held whatever the connection.
+/// Changing it carries on from the same moment. The choice is kept for the
+/// next episode, and until the app is closed.
+///
 /// For an episode, [episodes] is the series edition's episodes in order.
 /// Next Episode offers the next one, in the same edition, so the same VJ:
 /// in the bar at any time, and in the middle of the screen when an episode
@@ -49,6 +54,10 @@ class PlayerScreen extends StatefulWidget {
   /// A grant this close to its end counts as run out.
   static const Duration expiryMargin = Duration(minutes: 1);
 
+  /// The quality last chosen, by its height, or null for Auto. Kept while
+  /// the app runs, for every film and episode.
+  static int? chosenHeight;
+
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
@@ -61,6 +70,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Duration _position = Duration.zero;
   bool _started = false;
   bool _ended = false;
+
+  /// What this video comes in, from its master playlist. Empty until read,
+  /// or if it can't be: then only Auto is offered.
+  List<VideoQuality> _qualities = const [];
+
+  /// Where playback has got to, as the video reports it.
+  Duration _playedTo = Duration.zero;
+
+  /// The quality chosen, if this video has it. Otherwise Auto.
+  VideoQuality? get _quality {
+    final height = PlayerScreen.chosenHeight;
+    if (height == null) return null;
+    for (final quality in _qualities) {
+      if (quality.height == height) return quality;
+    }
+    return null;
+  }
 
   /// Renewing by itself happens once per grant, so a gateway that refuses a
   /// fresh grant can't cause a loop.
@@ -98,8 +124,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     try {
       final grant = await api.grant(itemId, preview: widget.preview);
       if (!mounted || itemId != _itemId) return;
+      // Read before playing, so a quality chosen before applies from the
+      // first frame. A renewed grant is the same video.
+      final qualities = renewal && _qualities.isNotEmpty
+          ? _qualities
+          : await api.qualities(grant);
+      if (!mounted || itemId != _itemId) return;
       setState(() {
         _grant = grant;
+        _qualities = qualities;
         _renewedThisGrant = renewal;
         _phase = _Phase.playing;
       });
@@ -107,6 +140,67 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (itemId != _itemId) return;
       _showFailure(playbackFailureMessage(l, error.failure));
     }
+  }
+
+  void _chooseQuality(VideoQuality? quality) {
+    if (quality == _quality) return;
+    setState(() {
+      PlayerScreen.chosenHeight = quality?.height;
+      _position = _playedTo;
+    });
+  }
+
+  Future<void> _openQualities() async {
+    final l = context.l10n;
+    final current = _quality;
+    final chosen = await showModalBottomSheet<_QualityChoice>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: VeloraSpacing.md,
+                ),
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    l.quality,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ),
+              RadioGroup<_QualityChoice>(
+                groupValue: _QualityChoice(current),
+                onChanged: (choice) => Navigator.of(context).pop(choice),
+                child: Column(
+                  children: [
+                    RadioListTile<_QualityChoice>(
+                      value: const _QualityChoice(null),
+                      title: Text(l.qualityAuto),
+                      subtitle: Text(l.qualityAutoHelp),
+                    ),
+                    for (final quality in _qualities)
+                      RadioListTile<_QualityChoice>(
+                        value: _QualityChoice(quality),
+                        title: Text(quality.label),
+                        subtitle: quality.height >= 720
+                            ? Text(l.qualityHd)
+                            : null,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (chosen != null && mounted) _chooseQuality(chosen.quality);
   }
 
   void _showFailure(String message) {
@@ -119,6 +213,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _playbackFailed(Duration position) {
     _position = position;
+    _playedTo = position;
     final grant = _grant;
     final runOut =
         grant != null &&
@@ -144,6 +239,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _itemId = next.itemId;
       _grant = null;
       _position = Duration.zero;
+      _playedTo = Duration.zero;
+      _qualities = const [];
       _ended = false;
     });
     _fetchGrant();
@@ -163,6 +260,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          if (_phase == _Phase.playing && _qualities.isNotEmpty)
+            IconButton(
+              tooltip: l.qualityNow(_quality?.label ?? l.qualityAuto),
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: _openQualities,
+            ),
           if (next != null)
             IconButton(
               tooltip: l.nextEpisodeOf(next.season, next.episode),
@@ -200,10 +303,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: widget.viewBuilder(
                   context,
                   VideoViewRequest(
-                    url: grant!.playlistUrl,
+                    url: switch (_quality) {
+                      final quality? => grant!.qualityUrl(quality),
+                      null => grant!.playlistUrl,
+                    },
                     startAt: _position,
                     onFailed: _playbackFailed,
                     onEnded: _playbackEnded,
+                    onProgress: (at) => _playedTo = at,
                   ),
                 ),
               ),
@@ -240,4 +347,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
     );
   }
+}
+
+/// A choice in the quality menu. Null is Auto.
+class _QualityChoice {
+  const _QualityChoice(this.quality);
+
+  final VideoQuality? quality;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _QualityChoice && other.quality == quality;
+
+  @override
+  int get hashCode => quality.hashCode;
 }

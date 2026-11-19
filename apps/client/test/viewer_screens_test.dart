@@ -365,9 +365,124 @@ void main() {
         '$gateway/v1/grant-1.sig/master.m3u8',
       );
       expect(video.requests.last.startAt, Duration.zero);
-      expect(api.requests.single.url.path, '/api/v1/items/movie-item/playback');
+      expect(api.requests.first.url.path, '/api/v1/items/movie-item/playback');
+      // The master playlist is read for its qualities, without the token.
+      expect(api.requests.last.url.path, '/v1/grant-1.sig/master.m3u8');
+      expect(api.requests.last.headers['Authorization'], isNull);
       // A movie has no next episode.
       expect(find.byIcon(Icons.skip_next), findsNothing);
+    });
+
+    group('quality', () {
+      setUp(() => PlayerScreen.chosenHeight = null);
+      tearDown(() => PlayerScreen.chosenHeight = null);
+
+      Future<void> choose(
+        WidgetTester tester,
+        String current,
+        String to,
+      ) async {
+        await tester.tap(find.byTooltip('Quality: $current'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(to));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('the gear lists Auto and each quality, highest first', (
+        tester,
+      ) async {
+        await pumpPlayer(tester, FakeApi(), itemId: 'movie-item');
+
+        await tester.tap(find.byTooltip('Quality: Auto'));
+        await tester.pumpAndSettle();
+
+        final labels = ['Auto', '1080p', '720p', '480p', '360p'];
+        final ys = [
+          for (final label in labels) tester.getTopLeft(find.text(label)).dy,
+        ];
+        expect(ys, [...ys]..sort());
+        expect(find.text('Changes with your connection'), findsOneWidget);
+        expect(find.text('HD'), findsNWidgets(2));
+      });
+
+      testWidgets('a quality plays from the same moment, and Auto goes back', (
+        tester,
+      ) async {
+        final api = FakeApi();
+        final video = await pumpPlayer(tester, api, itemId: 'movie-item');
+
+        video.requests.last.onProgress!(const Duration(minutes: 12));
+        await choose(tester, 'Auto', '480p');
+
+        expect(
+          video.requests.last.url.toString(),
+          '$gateway/v1/grant-1.sig/480p/index.m3u8',
+        );
+        expect(video.requests.last.startAt, const Duration(minutes: 12));
+        expect(find.byTooltip('Quality: 480p'), findsOneWidget);
+        // The same grant: switching asks the API for nothing.
+        expect(api.grants, 1);
+
+        video.requests.last.onProgress!(const Duration(minutes: 20));
+        await choose(tester, '480p', 'Auto');
+
+        expect(
+          video.requests.last.url.toString(),
+          '$gateway/v1/grant-1.sig/master.m3u8',
+        );
+        expect(video.requests.last.startAt, const Duration(minutes: 20));
+      });
+
+      testWidgets('the choice is kept for the next episode and a new grant', (
+        tester,
+      ) async {
+        final api = FakeApi()..expiresAt = DateTime.utc(2026, 1, 1, 6);
+        var now = DateTime.utc(2026, 1, 1, 1);
+        final video = await pumpPlayer(
+          tester,
+          api,
+          episodes: episodes,
+          clock: () => now,
+        );
+        await choose(tester, 'Auto', '720p');
+
+        now = DateTime.utc(2026, 1, 1, 6, 0, 5);
+        video.requests.last.onFailed(const Duration(minutes: 40));
+        await tester.pumpAndSettle();
+        expect(
+          video.requests.last.url.toString(),
+          '$gateway/v1/grant-2.sig/720p/index.m3u8',
+        );
+        expect(video.requests.last.startAt, const Duration(minutes: 40));
+
+        await tester.tap(find.byTooltip('Next episode: season 1, episode 2'));
+        await tester.pumpAndSettle();
+        expect(
+          video.requests.last.url.toString(),
+          '$gateway/v1/grant-3.sig/720p/index.m3u8',
+        );
+        expect(video.requests.last.startAt, Duration.zero);
+      });
+
+      testWidgets('a quality this video lacks falls back to Auto', (
+        tester,
+      ) async {
+        PlayerScreen.chosenHeight = 1440;
+        final video = await pumpPlayer(tester, FakeApi(), itemId: 'movie-item');
+
+        expect(video.requests.last.url.path, endsWith('/master.m3u8'));
+        expect(find.byTooltip('Quality: Auto'), findsOneWidget);
+      });
+
+      testWidgets('without readable qualities, there is no gear', (
+        tester,
+      ) async {
+        final api = FakeApi()..masterPlaylist = 'not a playlist';
+        final video = await pumpPlayer(tester, api, itemId: 'movie-item');
+
+        expect(find.byIcon(Icons.settings_outlined), findsNothing);
+        expect(video.requests.last.url.path, endsWith('/master.m3u8'));
+      });
     });
 
     testWidgets('at the end of an episode, Next Episode plays the next', (

@@ -81,6 +81,15 @@ class _WebVideoViewState extends State<_WebVideoView> {
       ..style.height = '100%'
       ..style.backgroundColor = 'black'
       ..addEventListener(
+        'timeupdate',
+        ((web.Event _) {
+          if (!mounted) return;
+          widget.request.onProgress?.call(
+            Duration(milliseconds: (_video.currentTime * 1000).round()),
+          );
+        }).toJS,
+      )
+      ..addEventListener(
         'ended',
         ((web.Event _) {
           if (_ended || !mounted) return;

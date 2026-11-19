@@ -279,6 +279,8 @@ A grant lasts 6 hours. If playback stops once it has run out, the app gets a new
 
 **Next Episode.** For a series, the bar has a **Next episode** button, and when an episode ends, **Up next** offers it in the middle of the screen. It is the next number in the same season, then the first episode of the next season, always in the same edition, so with the same VJ. Episodes with nothing ready are skipped. Each episode gets its own grant.
 
+**Quality.** The gear in the bar chooses the quality, as on YouTube: **Auto**, the default, which follows the connection, or one of the qualities the film was made in, such as 1080p or 480p, held whatever the connection. The app reads them from the master playlist on the media gateway, with no token, and accepts only a playlist one folder down under the same grant. Choosing one plays that quality's own playlist from the same moment, on the web and on Android, without asking the API again. The choice is kept for the next episode and a renewed grant, until the app is closed. Without a readable master playlist, there is no gear and Auto plays.
+
 **To run it locally,** the API needs its [playback settings](../../services/api/README.md#playback), and the media gateway must be running: see [its README](../../services/media_gateway/README.md#run-it-locally). In Chrome, add `"--dart-define=MEDIA_BASE_URL=http://127.0.0.1:8787"` to the run command. On a phone, also forward the gateway's port:
 
 ```powershell

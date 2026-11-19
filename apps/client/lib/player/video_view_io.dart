@@ -51,7 +51,12 @@ class _NativeVideoViewState extends State<_NativeVideoView> {
     final value = _controller.value;
     if (value.hasError) {
       _fail();
-    } else if (value.isCompleted && !_ended && mounted) {
+      return;
+    }
+    if (_ready && value.position > Duration.zero) {
+      widget.request.onProgress?.call(value.position);
+    }
+    if (value.isCompleted && !_ended && mounted) {
       _ended = true;
       widget.request.onEnded?.call();
     }

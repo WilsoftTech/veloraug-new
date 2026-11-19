@@ -1358,4 +1358,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get removeUploadMessage =>
       'It stops, and the part uploaded is deleted from the server. Its draft stays in Drafts.';
+
+  @override
+  String get quality => 'Quality';
+
+  @override
+  String get qualityAuto => 'Auto';
+
+  @override
+  String get qualityAutoHelp => 'Changes with your connection';
+
+  @override
+  String get qualityHd => 'HD';
+
+  @override
+  String qualityNow(String quality) {
+    return 'Quality: $quality';
+  }
 }

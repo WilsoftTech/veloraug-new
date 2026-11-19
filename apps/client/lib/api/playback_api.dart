@@ -14,6 +14,68 @@ class PlaybackGrant {
 
   final Uri playlistUrl;
   final DateTime expiresAt;
+
+  /// One quality's own playlist, beside the master playlist, under the same
+  /// grant.
+  Uri qualityUrl(VideoQuality quality) => playlistUrl.resolve(quality.path);
+}
+
+/// One quality of a video, from its master playlist: "720p" and so on.
+class VideoQuality {
+  const VideoQuality({
+    required this.label,
+    required this.height,
+    required this.path,
+  });
+
+  /// Shown in the quality menu, such as "720p".
+  final String label;
+
+  /// The picture's height, for sorting.
+  final int height;
+
+  /// Its playlist, beside the master playlist, such as "720p/index.m3u8".
+  final String path;
+
+  @override
+  bool operator ==(Object other) => other is VideoQuality && other.path == path;
+
+  @override
+  int get hashCode => path.hashCode;
+}
+
+/// A quality's playlist: one folder down, nothing else. Anything else in a
+/// master playlist is ignored, so it can't point the player elsewhere.
+final RegExp _qualityPath = RegExp(r'^[A-Za-z0-9_-]{1,32}/index\.m3u8$');
+
+/// The qualities a master playlist offers, highest first. Each is named by
+/// its folder when that is like "720p", as the media worker names them.
+List<VideoQuality> parseMasterPlaylist(String text) {
+  final found = <String, VideoQuality>{};
+  int? height;
+  for (final raw in const LineSplitter().convert(text)) {
+    final line = raw.trim();
+    if (line.startsWith('#EXT-X-STREAM-INF:')) {
+      final size = RegExp(r'RESOLUTION=(\d+)x(\d+)').firstMatch(line);
+      height = size == null ? null : int.parse(size[2]!);
+      continue;
+    }
+    if (line.isEmpty || line.startsWith('#')) continue;
+    if (_qualityPath.hasMatch(line)) {
+      final folder = line.split('/').first;
+      final named = RegExp(r'^(\d{3,4})p$').firstMatch(folder);
+      final lines = named == null ? height : int.parse(named[1]!);
+      if (lines != null) {
+        found[line] = VideoQuality(
+          label: named == null ? '${lines}p' : folder,
+          height: lines,
+          path: line,
+        );
+      }
+    }
+    height = null;
+  }
+  return found.values.toList()..sort((a, b) => b.height.compareTo(a.height));
 }
 
 enum PlaybackFailure {
@@ -73,6 +135,20 @@ class PlaybackApi {
 
   /// Long enough for a database that has scaled to zero to wake.
   final Duration timeout;
+
+  /// The qualities [grant]'s video comes in, read from its master playlist
+  /// on the media gateway. Empty when they can't be read: the player then
+  /// offers only the automatic choice.
+  Future<List<VideoQuality>> qualities(PlaybackGrant grant) async {
+    if (!_onGateway(grant.playlistUrl)) return const [];
+    try {
+      final response = await httpClient.get(grant.playlistUrl).timeout(timeout);
+      if (response.statusCode != 200) return const [];
+      return parseMasterPlaylist(utf8.decode(response.bodyBytes));
+    } on Exception {
+      return const [];
+    }
+  }
 
   /// A viewer's grant for a published item. With [preview], an admin's
   /// grant for any item with a ready video, published or not.
