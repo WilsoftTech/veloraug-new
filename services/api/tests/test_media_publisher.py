@@ -263,8 +263,10 @@ def test_publishing_uploads_everything_in_order_and_marks_it_ready(
 
     prefix = f"movies/{movie}/{original_id}"
     keys = bucket.order
-    assert len(keys) == 2 * 5 + 2
-    assert keys[-2:] == [f"{prefix}/master.m3u8", f"originals/{original_id}"]
+    assert len(keys) == 2 * 5 + 1
+    assert keys[-1] == f"{prefix}/master.m3u8"
+    # The original isn't kept in R2: the owner keeps their own copy.
+    assert not any(k.startswith("originals/") for k in keys)
     for quality in ("360p", "720p"):
         playlist = keys.index(f"{prefix}/{quality}/index.m3u8")
         chunks = [
@@ -277,11 +279,6 @@ def test_publishing_uploads_everything_in_order_and_marks_it_ready(
         "STANDARD",
     )
     assert bucket.objects[f"{prefix}/master.m3u8"][1] == "application/vnd.apple.mpegurl"
-    assert bucket.objects[f"originals/{original_id}"][1:] == (
-        "application/octet-stream",
-        None,
-        "STANDARD_IA",
-    )
     assert state_of(owner_url, original_id) == ("ready", None)
     heights = [(h, w, b) for h, w, b, _ in qualities_of(owner_url, original_id)]
     assert heights == [(360, 640, 895245), (720, 1280, 2914299)]

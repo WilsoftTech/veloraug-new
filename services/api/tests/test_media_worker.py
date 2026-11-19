@@ -171,26 +171,61 @@ def test_the_original_bitrate_is_read_from_the_video_track_or_the_file():
     assert parse_probe(probe_json()).video_bps is None
 
 
-def test_no_quality_gets_more_bitrate_than_the_original():
-    film = Probe(1920, 800, 5118.0, "h264", "mp3", video_bps=2_100_000)
+def bitrates(probe: Probe) -> dict[str, int]:
+    return {r.name: r.video_bps for r in ladder(probe)}
 
-    assert {r.name: r.video_bps for r in ladder(film)} == {
+
+def test_a_typical_vj_file_gets_three_qualities_sized_from_it():
+    # Baby John 2: 1920×800 at about 2.4 Mbit/s of video.
+    film = Probe(1920, 800, 4493.0, "h264", "mp3", video_bps=2_400_000)
+
+    # No quality above the original's bitrate, 720p well below 1080p, and no
+    # 480p, which would be nearly the size of 360p.
+    assert bitrates(film) == {
         "360p": 800_000,
-        "480p": 1_400_000,
-        "720p": 2_100_000,
-        "1080p": 2_100_000,
+        "720p": 1_440_000,
+        "1080p": 2_400_000,
     }
     command = " ".join(ffmpeg_command(Path("/x"), ladder(film), has_audio=True))
-    assert "-b:v:3 2100000" in command
-    assert "-b:v:0 800000" in command
+    assert "-maxrate:v:2 2400000" in command
+    assert "-maxrate:v:0 800000" in command
+    assert "split=3" in command
 
 
-def test_a_rich_original_keeps_the_full_ladder_and_a_poor_one_a_floor():
-    rich = Probe(1920, 1080, 60.0, "h264", "aac", video_bps=12_000_000)
-    assert [r.video_bps for r in ladder(rich)] == [r.video_bps for r in LADDER]
-
-    poor = Probe(1280, 720, 60.0, "h264", "aac", video_bps=150_000)
-    assert {r.video_bps for r in ladder(poor)} == {400_000}
+@pytest.mark.parametrize(
+    ("probe", "expected"),
+    [
+        # Rich enough for the full table: nothing changes.
+        (
+            Probe(1920, 1080, 60.0, "h264", "aac", video_bps=12_000_000),
+            {"360p": 800_000, "480p": 1_400_000, "720p": 2_800_000, "1080p": 5_000_000},
+        ),
+        (
+            Probe(1920, 1080, 60.0, "h264", "aac", video_bps=4_000_000),
+            {"360p": 800_000, "480p": 1_400_000, "720p": 2_400_000, "1080p": 4_000_000},
+        ),
+        # A 720p file at 1.5 Mbit/s: 480p would be too close to 360p.
+        (
+            Probe(1280, 720, 60.0, "h264", "aac", video_bps=1_500_000),
+            {"360p": 800_000, "720p": 1_500_000},
+        ),
+        # Very small originals: one quality, never below the floor.
+        (
+            Probe(1280, 720, 60.0, "h264", "aac", video_bps=150_000),
+            {"720p": 400_000},
+        ),
+        (
+            Probe(1920, 1080, 60.0, "h264", "aac", video_bps=700_000),
+            {"360p": 420_000, "1080p": 700_000},
+        ),
+        (Probe(640, 360, 60.0, "h264", "aac", video_bps=500_000), {"360p": 500_000}),
+    ],
+)
+def test_each_quality_is_sized_from_the_original(probe, expected):
+    assert bitrates(probe) == expected
+    rates = list(bitrates(probe).values())
+    # Lowest first, and each a real step down from the next.
+    assert all(low <= high * 0.6 or low == 400_000 for low, high in zip(rates, rates[1:]))
 
 
 def test_one_command_makes_every_quality_with_shared_keyframes():
@@ -209,7 +244,11 @@ def test_one_command_makes_every_quality_with_shared_keyframes():
     assert command[command.index("-var_stream_map") + 1] == (
         "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p"
     )
-    assert command[command.index("-b:v:3") + 1] == "5000000"
+    # Capped quality: CRF, with each quality's bitrate as its ceiling.
+    assert command[command.index("-crf") + 1] == "23"
+    assert command[command.index("-maxrate:v:3") + 1] == "5000000"
+    assert command[command.index("-bufsize:v:3") + 1] == "10000000"
+    assert not any(c.startswith("-b:v") for c in command)
 
 
 def test_a_silent_film_gets_qualities_without_sound():

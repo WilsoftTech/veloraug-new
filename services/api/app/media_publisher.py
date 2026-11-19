@@ -2,16 +2,20 @@
 
 The media worker calls this once an original is converted and 'publishing'.
 Every chunk is uploaded first, then each quality's playlist, then the master
-playlist, so no playlist ever names a file that isn't there yet. The original
-itself goes to R2's Infrequent Access storage. Every object's size is checked
-in R2 before the original is marked 'ready'. Only then are the local copies
-deleted. See "R2" in docs/step-07a-uploads-plan.md.
+playlist, so no playlist ever names a file that isn't there yet. Every
+object's size is checked in R2 before the original is marked 'ready'. Only
+then are the local copies deleted. See "R2" in docs/step-07a-uploads-plan.md.
+
+Until 19 November 2026 the original itself also went to R2, in Infrequent
+Access, under originals/. It no longer does: the owner keeps their own copy,
+which saves about a third of each film's storage. Removing an original still
+deletes anything left under originals/.
 
 Paths in R2 use VeloraUG's IDs only:
 
     movies/<item id>/<original id>/master.m3u8
     movies/<item id>/<original id>/<quality>/index.m3u8, init_N.mp4, seg_*.m4s
-    originals/<original id>
+    originals/<original id>   (published before 19 November 2026 only)
 """
 
 import logging
@@ -37,7 +41,6 @@ CONTENT_TYPES = {
 }
 # Every path includes the original's ID, so a published file never changes.
 IMMUTABLE = "max-age=31536000, immutable"
-ORIGINAL_TYPE = "application/octet-stream"
 
 
 class PublishError(Exception):
@@ -290,7 +293,8 @@ class Publisher:
             CONTENT_TYPES[".m3u8"],
             cache_control=IMMUTABLE,
         )
-        send(source, f"originals/{original_id}", ORIGINAL_TYPE, infrequent=True)
+        # Since 19 November 2026 the original isn't sent: the owner keeps
+        # their own copy, and 1080p is close enough to convert again from.
 
         for key, expected in sent.items():
             found = self.store.size(key)
