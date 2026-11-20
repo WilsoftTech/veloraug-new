@@ -26,6 +26,8 @@ needs_database = pytest.mark.skipif(
 
 API_DIR = Path(__file__).resolve().parent.parent
 DATABASE = "veloraug_test"
+# Production's stand-in, for tests/test_copy_to_production.py.
+SECOND_DATABASE = "veloraug_test_prod"
 OWNER = "veloraug_test_owner"
 OWNER_PASSWORD = "local-test-owner-password"
 APP_PASSWORD = "local-test-app-password"
@@ -50,6 +52,8 @@ def owner_query(owner_url, query, params=()):
 def create_test_database() -> str:
     """A fresh veloraug_test database, set up as Neon is. Its owner's URL."""
     with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
+        # The roles below can't go while either database uses them.
+        admin.execute(f"drop database if exists {SECOND_DATABASE} with (force)")
         admin.execute(f"drop database if exists {DATABASE} with (force)")
         admin.execute("drop role if exists veloraug_app")
         admin.execute("drop role if exists veloraug_media")

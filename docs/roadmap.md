@@ -137,6 +137,13 @@ Prepaid **daily, weekly and monthly catalogue passes**, through Pesapal. Planned
 - [ ] 10E: One pass in Pesapal's sandbox: payment confirmed by the backend, playback allowed, then refused when the pass expires. Needs the owner: migration `0006` on Neon, sandbox keys, and the run sheet
 
 ### Milestone 11: Pilot deployment
+
+Planned in the [pilot deployment plan](step-11a-pilot-deployment-plan.md), **approved on 20 November 2026** with every recommendation accepted: `veloraug.com`, Oracle Pay As You Go, films copied from development, 10 to 30 invited viewers with passes off, app ID `com.veloraug.app`, a direct APK, and Brevo or Resend for email.
+
+- [x] 11B, in part (20 November 2026): `veloraug.com` bought; the Oracle server running in Frankfurt with 4 cores and 24 GB (gate P1 passed), updated, with Docker, and set up by `infra/server-setup.sh`. Still to do: grow the disk to 200 GB, the deploy key on GitHub, and gate P2 (images build and tests pass on the server).
+- [ ] 11C: written and tested on this PC: [`infra/compose.prod.yaml`](../infra/compose.prod.yaml), [`infra/deploy.sh`](../infra/deploy.sh), `/docs` off in production. Still to do on the server: the settings files, the tunnel, and the 11C criteria.
+- [ ] 11F: the copy command, [`copy_to_production.py`](../services/api/scripts/copy_to_production.py), written and tested between two local databases. Run once production's database and bucket exist (11D, 11E).
+
 - [ ] Build and run ARM64 images on Oracle with Docker Compose, using a separate Compose file from the local one
 - [ ] Publish the web app on Cloudflare Pages
 - [ ] Set up production Neon Auth, sign-in pages, custom email and the production Android link

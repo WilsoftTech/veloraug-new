@@ -1,6 +1,6 @@
 # Infrastructure
 
-Docker configuration for running the services. Today it holds a **local development** setup for the API, and, behind the `uploads` profile, tusd and the upload hooks from Step 7C and the media worker from Step 7D. Plain `up` starts only the API. The upload services are described in the [API README](../services/api/README.md#start-the-upload-services). Nothing has been deployed.
+Docker configuration for running the services. [`compose.local.yaml`](compose.local.yaml) is for development on this PC: the API, and, behind the `uploads` profile, tusd, the upload hooks and the media worker. [`compose.prod.yaml`](compose.prod.yaml) is for the Oracle server, Milestone 11: see [Production](#production) and the [pilot deployment plan](../docs/step-11a-pilot-deployment-plan.md).
 
 ## Run the API in Docker
 
@@ -65,31 +65,71 @@ This is why Uvicorn binds to `0.0.0.0` inside the container: traffic arrives fro
 
 **Health check.** Every 10 seconds, Docker runs a short Python command inside the container that requests `/health`. An HTTP error or no response counts as a failure, and `ps` shows `(unhealthy)` after 3 failures in a row. As with `/health` itself, `healthy` only means the process is answering.
 
-## This is not a production setup
+## Production
 
-The address `127.0.0.1` is for local development only. **Do not use `compose.local.yaml` on the Oracle server:** it would keep the API unreachable from outside that server, and the deployment needs decisions this file doesn't make.
+One Oracle server, ARM64, Ubuntu 24.04, in Frankfurt, runs [`compose.prod.yaml`](compose.prod.yaml): the API, the upload hooks, tusd, the media worker and a Cloudflare Tunnel. **No port is published.** The tunnel connects outwards to Cloudflare, which sends `api.veloraug.com` to `http://api:8000` and `upload.veloraug.com` to `http://tusd:8080`. Only SSH answers on the server's own address. Images are built on the server, so they are ARM64 without cross-building.
 
-Still missing before any deployment, among other things:
+**Never use `compose.local.yaml` on the server, or `compose.prod.yaml` on this PC.**
 
-- An ARM64 image that has been built and run
-- HTTPS, and a decision on how traffic reaches the API
-- Production settings, including allowed origins and whether `/docs` stays public
-- Secret handling, logging, restart behaviour and resource limits
+### On the server
+
+| Path | What |
+| --- | --- |
+| `/opt/veloraug/repo` | The Git checkout of `main`, cloned with a read-only deploy key |
+| `/opt/veloraug/env/*.env` | The settings, mode 600, readable by `ubuntu` only. Never in Git. Keep a copy in your password manager |
+| `/opt/veloraug/uploads` | tusd's files, owned by 1000:1000, the IDs tusd and the media worker run as |
+| `/opt/veloraug/output` | Converting |
+| `/opt/veloraug/deployed-commit` | The commit last deployed, written by `deploy.sh` |
+
+[`server-setup.sh`](server-setup.sh) makes all of these once. It's safe to run again: it never overwrites a settings file.
+
+### The settings files
+
+Each container gets only the files it needs. Every value is production's own: never copy development's keys, which are separate on purpose.
+
+| File | Read by | What goes in it |
+| --- | --- | --- |
+| `api.env` | `api` | As [`services/api/.env.example`](../services/api/.env.example), with production values: `VELORAUG_ALLOWED_ORIGINS=["https://app.veloraug.com"]`, the default branch's Neon Auth URL and client IDs, `veloraug_app`'s and `veloraug_editor`'s pooled connections to the default branch, the production signing key, `VELORAUG_MEDIA_GATEWAY_URL=https://media.veloraug.com`, `VELORAUG_PUBLIC_API_URL=https://api.veloraug.com`, `VELORAUG_PASSES_REQUIRED=false`. `VELORAUG_ENVIRONMENT=production` is set by the Compose file |
+| `media.env` | `media-hooks`, `media-worker` | `VELORAUG_MEDIA_DATABASE_URL`: `veloraug_media`'s pooled connection to the default branch |
+| `r2.env` | `media-worker` | `VELORAUG_R2_ENDPOINT`, `VELORAUG_R2_BUCKET=veloraug`, and a key pair that can write that bucket only |
+| `tunnel.env` | `cloudflared` | `TUNNEL_TOKEN=`, from the tunnel's page in the Cloudflare dashboard |
+
+To edit one: `nano /opt/veloraug/env/api.env`, then deploy again. Paste values in the editor on the server, never in a chat or a message.
+
+### Deploy
+
+Over SSH, from this PC:
+
+```powershell
+ssh -i $HOME\.ssh\veloraug_server.key ubuntu@130.61.208.54
+bash /opt/veloraug/repo/infra/deploy.sh
+```
+
+[`deploy.sh`](deploy.sh) checks the settings files, pulls `main`, builds, restarts what changed, waits for the API to be healthy and checks `https://api.veloraug.com/health` through the tunnel. It never runs migrations. If the pull brings a new migration, it stops before restarting anything: run the migration on production from your own terminal, as for development, then run `deploy.sh --migrated`. `--no-pull` rebuilds what is already checked out.
+
+| Task | Command, on the server, in `/opt/veloraug/repo` |
+| --- | --- |
+| Status and health | `docker compose -f infra/compose.prod.yaml ps` |
+| An API's logs | `docker compose -f infra/compose.prod.yaml logs --tail 100 api` |
+| Follow the worker | `docker compose -f infra/compose.prod.yaml logs -f media-worker` |
+| Restart one service | `docker compose -f infra/compose.prod.yaml restart api` |
+| Disk space | `df -h /` |
+
+Logs are rotated by Docker: five files of 20 MB per service. Every service restarts by itself, after a crash or a reboot.
+
+### Copy films to production
+
+[`copy_to_production.py`](../services/api/scripts/copy_to_production.py), Step 11F, copies each published, non-test edition from development to production: its rows with the same IDs, and its files inside R2 from `veloraug-dev` to `veloraug`, without downloading them. It is run on this PC, from `services/api`, with both **owner** connections (direct, not pooled) set in the terminal only:
+
+```powershell
+$env:VELORAUG_COPY_FROM_DATABASE_URL = Read-Host "Development owner connection"
+$env:VELORAUG_COPY_TO_DATABASE_URL = Read-Host "Production owner connection"
+.\.venv\Scripts\python.exe scripts\copy_to_production.py           # lists only
+.\.venv\Scripts\python.exe scripts\copy_to_production.py --apply   # copies
+```
+
+The R2 keys in `services/api/.env.r2` must be able to read `veloraug-dev` and write `veloraug` for the copy. It refuses the same database twice, and databases at different migrations. Each film's files are checked by size before its rows are added, and a film already on production is skipped, so it can be run again safely.
 
 ## Oracle images must support ARM64
 
-The production server uses an ARM64 processor. This Windows machine's Docker engine reports `linux/amd64`, so an image built here is **not** the right type for production.
-
-The Dockerfile and Compose file deliberately name no processor type, so Docker builds for whichever machine runs them. Don't add `platform: linux/amd64` to shared configuration.
-
-Every production image must have an ARM64 build, including base images and our own. For the API, the base image and all pinned Python packages are available for ARM64, but **no ARM64 image has been built or run**. See the [Step 4B report](../docs/step-04b-report.md#arm64-checked-not-run). FFmpeg and tusd need checking too.
-
-## Planned
-
-| Planned item | Purpose |
-| --- | --- |
-| Oracle Docker Compose file | Runs the API, media worker and tusd on the Oracle server |
-| Dockerfiles or build notes | Build the images for the other services |
-| Cloudflare Worker deployment notes | Protected media delivery. The code and its configuration will live in [`services/media_gateway/`](../services/media_gateway/README.md) |
-| Cloudflare Pages notes | Hosting for the Flutter web build |
-| `.env.example` | Variable names with fake values, created when a service first reads a `.env` file |
+The server is ARM64; this PC's Docker builds `linux/amd64`. The Dockerfiles and Compose files name no processor type, so each machine builds for itself. Don't add `platform: linux/amd64` to shared configuration. tusd `v2.10.1` and cloudflared `2026.11.1` have ARM64 images, checked on the server on 20 November 2026. Whether our own images build and pass the tests there is gate P2.

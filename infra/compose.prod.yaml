@@ -1,0 +1,156 @@
+# Production, on the Oracle server only. Not for this PC: see infra/README.md
+# and docs/step-11a-pilot-deployment-plan.md.
+#
+# Run through infra/deploy.sh, from /opt/veloraug/repo. Nothing here publishes
+# a port: the only way in from the internet is the Cloudflare Tunnel, which
+# connects outwards to Cloudflare.
+#
+#   api.veloraug.com     -> http://api:8000      (set in the tunnel's dashboard)
+#   upload.veloraug.com  -> http://tusd:8080
+#
+# Secrets live in /opt/veloraug/env/*.env, mode 600, never in Git. Each
+# container gets only the files it needs.
+name: veloraug
+
+x-logging: &logging
+  # Docker's own log files, rotated: about 14 days at pilot traffic.
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  api:
+    build:
+      context: ../services/api
+    image: veloraug-api:prod
+    env_file:
+      - path: /opt/veloraug/env/api.env
+        required: true
+    # The API's own checks refuse to start production without sign-in, the
+    # database and playback, so a missing setting stops here, loudly.
+    environment:
+      VELORAUG_ENVIRONMENT: production
+    networks: [edge]
+    restart: always
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # The upload hooks, as veloraug_media. Only tusd can reach them.
+  media-hooks:
+    build:
+      context: ../services/api
+    image: veloraug-api:prod
+    command:
+      - python
+      - -m
+      - uvicorn
+      - app.media_hooks:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-access-log
+    env_file:
+      - path: /opt/veloraug/env/media.env
+        required: true
+    networks: [uploads]
+    restart: always
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Receives uploads, resumably, through the tunnel. The image has ARM64
+  # builds, checked on the server.
+  tusd:
+    image: tusproject/tusd:v2.10.1
+    # tusd's own user. The media worker runs as the same IDs, so it can read
+    # and delete what tusd writes. /opt/veloraug/uploads belongs to 1000:1000.
+    user: "1000:1000"
+    command:
+      - -host=0.0.0.0
+      - -port=8080
+      - -base-path=/files/
+      - -upload-dir=/srv/tusd-data
+      - -max-size=53687091200
+      # Behind Cloudflare: upload addresses use the https host the browser
+      # used, not tusd's own http address.
+      - -behind-proxy
+      - -disable-download
+      - -hooks-http=http://media-hooks:8000/tusd
+      - -hooks-enabled-events=pre-create,post-finish,pre-terminate
+      # Only the production web app may upload from a browser.
+      - -cors-allow-origin=^https://app\.veloraug\.com$$
+      - -cors-allow-headers=Upload-Key
+      - -hooks-http-retry=0
+      - -show-greeting=false
+      - -expose-metrics=false
+    volumes:
+      - /opt/veloraug/uploads:/srv/tusd-data
+    networks: [edge, uploads]
+    restart: always
+    logging: *logging
+    depends_on:
+      media-hooks:
+        condition: service_healthy
+
+  # Converts each upload and publishes it to the production bucket. No ports.
+  media-worker:
+    build:
+      context: ../services/api
+      dockerfile: Dockerfile.worker
+    image: veloraug-media-worker:prod
+    user: "1000:1000"
+    env_file:
+      - path: /opt/veloraug/env/media.env
+        required: true
+      - path: /opt/veloraug/env/r2.env
+        required: true
+    volumes:
+      - /opt/veloraug/uploads:/srv/uploads
+      - /opt/veloraug/output:/srv/output
+    networks: [uploads]
+    restart: always
+    logging: *logging
+    # Leaves one core's worth for the API while a film converts.
+    cpus: 3
+
+  # The Cloudflare Tunnel. The token says which tunnel this is; the public
+  # hostnames are set in the Cloudflare dashboard.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.1
+    command: ["tunnel", "--no-autoupdate", "run"]
+    env_file:
+      # TUNNEL_TOKEN=...
+      - path: /opt/veloraug/env/tunnel.env
+        required: true
+    networks: [edge]
+    restart: always
+    logging: *logging
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  # What the tunnel reaches: the API and tusd.
+  edge: {}
+  # tusd, its hooks and the worker. The API isn't on it.
+  uploads: {}

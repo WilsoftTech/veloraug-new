@@ -1,4 +1,4 @@
-# Local development image for the media worker. Not production-ready.
+# The media worker's image, used locally and on the server.
 # The API's code and packages, plus FFmpeg from Debian. See "Uploads" in
 # README.md and docs/step-07a-uploads-plan.md.
 FROM python:3.13-slim-trixie

@@ -35,6 +35,10 @@ def test_service_info_reports_the_configured_environment():
     client = TestClient(create_app(settings))
 
     assert client.get("/api/v1").json()["environment"] == "production"
+    # Production has no documentation pages.
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert client.get(path).status_code == 404
+    assert client.get("/health").status_code == 200
 
 
 def test_docs_page_is_served(client):

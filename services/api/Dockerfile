@@ -1,4 +1,5 @@
-# Local development image for the API. Not production-ready.
+# The API's image, used locally (infra/compose.local.yaml) and on the server
+# (infra/compose.prod.yaml).
 # No platform is set, so Docker builds for the machine it runs on.
 FROM python:3.13-slim-trixie
 

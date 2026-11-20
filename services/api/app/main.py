@@ -93,7 +93,17 @@ def create_app(
         if editor_database is not None:
             editor_database.close()
 
-    app = FastAPI(title="VeloraUG API", version="0.1.0", lifespan=lifespan)
+    # Production has no documentation pages: decision 7 of
+    # docs/step-11a-pilot-deployment-plan.md. Development keeps them.
+    production = settings.environment == "production"
+    app = FastAPI(
+        title="VeloraUG API",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url=None if production else "/docs",
+        redoc_url=None if production else "/redoc",
+        openapi_url=None if production else "/openapi.json",
+    )
     app.state.settings = settings
     # None when sign-in or the database isn't configured. Only development
     # allows that, and the routes that need them answer 503.
