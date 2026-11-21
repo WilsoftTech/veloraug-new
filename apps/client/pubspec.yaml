@@ -28,6 +28,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter:
+  # Android builds the development app unless `--flavor prod` is given.
+  default-flavor: dev
   # Generates AppLocalizations from lib/l10n/app_en.arb. See l10n.yaml.
   generate: true
   uses-material-design: true

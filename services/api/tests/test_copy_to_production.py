@@ -4,6 +4,7 @@ test databases and an in-memory stand-in for the two buckets.
 The database tests need a local Postgres: see tests/db_support.py.
 """
 
+import threading
 import uuid
 
 import psycopg
@@ -35,14 +36,16 @@ class FakeFiles:
         self.buckets: dict[str, dict[str, int]] = {"dev": {}, "prod": {}}
         self.copies = 0
         self.broken: set[str] = set()
+        self.lock = threading.Lock()
 
     def list(self, bucket, prefix):
         return {k: s for k, s in self.buckets[bucket].items() if k.startswith(prefix)}
 
     def copy(self, from_bucket, to_bucket, key):
-        self.copies += 1
-        size = self.buckets[from_bucket][key]
-        self.buckets[to_bucket][key] = size - 1 if key in self.broken else size
+        with self.lock:
+            self.copies += 1
+            size = self.buckets[from_bucket][key]
+            self.buckets[to_bucket][key] = size - 1 if key in self.broken else size
 
 
 # --- Without a database --------------------------------------------------------
@@ -301,6 +304,25 @@ def test_a_file_that_arrives_wrong_adds_no_rows(dbs):
         run(source, target, files)
 
     assert target.execute("select count(*) from public.editions").fetchone() == (0,)
+
+
+@needs_database
+def test_a_stopped_copy_resumes_with_the_missing_files(dbs):
+    source, target = dbs
+    files = FakeFiles()
+    add_film(source, files)
+    dev = files.buckets["dev"]
+    # A stopped run left two files whole and one cut short.
+    whole = sorted(k for k in dev if not k.endswith(".ts"))[:2]
+    files.buckets["prod"] = {k: dev[k] for k in whole}
+    segment = next(k for k in dev if k.endswith(".ts"))
+    files.buckets["prod"][segment] = dev[segment] - 1
+
+    report = run(source, target, files)
+
+    assert len(report.copied) == 1
+    assert files.copies == len(dev) - 2
+    assert files.buckets["prod"] == dev
 
 
 @needs_database

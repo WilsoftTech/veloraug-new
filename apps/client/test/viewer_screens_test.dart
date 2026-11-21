@@ -658,7 +658,12 @@ void main() {
     await goTo(tester, 'Account');
 
     final l = AppLocalizationsEn();
-    expect(find.text('About'), findsOneWidget);
+    // Folded away until Credits is tapped.
+    expect(find.text(l.tmdbNotice), findsNothing);
+    await tester.ensureVisible(find.text('Credits'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Credits'));
+    await tester.pumpAndSettle();
     expect(find.text(l.tmdbNotice), findsOneWidget);
     expect(
       l.tmdbNotice,

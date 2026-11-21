@@ -306,7 +306,7 @@
   "signedOutNotice": "You're signed out.",
   "signedOutOffline": "You're signed out on this device. VeloraUG couldn't reach the sign-in service, so the browser may still remember you. On a shared device, sign in and out again when you are online.",
   "signedOutBrowserKept": "You're signed out on this device, but the browser sign-out didn't finish, so the browser may still remember you. On a shared device, sign in and out again.",
-  "about": "About",
+  "credits": "Credits",
   "aboutTmdb": "Movie and series titles, descriptions and images come from TMDB, The Movie Database.",
   "tmdbLogo": "TMDB logo",
   "tmdbNotice": "This product uses the TMDB API but is not endorsed or certified by TMDB.",

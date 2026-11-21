@@ -826,11 +826,11 @@ abstract class AppLocalizations {
   /// **'You\'re signed out on this device, but the browser sign-out didn\'t finish, so the browser may still remember you. On a shared device, sign in and out again.'**
   String get signedOutBrowserKept;
 
-  /// No description provided for @about.
+  /// No description provided for @credits.
   ///
   /// In en, this message translates to:
-  /// **'About'**
-  String get about;
+  /// **'Credits'**
+  String get credits;
 
   /// No description provided for @aboutTmdb.
   ///

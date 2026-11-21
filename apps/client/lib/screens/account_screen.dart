@@ -187,7 +187,8 @@ class _DevToolsHeading extends StatelessWidget {
 const String tmdbLogoAsset = 'assets/brand/tmdb_logo.png';
 
 /// Credits. TMDB's terms ask for its notice in an "About" or "Credits"
-/// section, less prominent than VeloraUG's own brand, in every build.
+/// section, less prominent than VeloraUG's own brand, in every build. It is
+/// folded away, closed, at the foot of Account: one tap shows it.
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
 
@@ -197,17 +198,24 @@ class AboutSection extends StatelessWidget {
     final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.only(top: VeloraSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: VeloraSpacing.xs,
-        children: [
-          Semantics(
-            header: true,
-            child: Text(l.about, style: theme.textTheme.titleLarge),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: VeloraSpacing.sm),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        title: Text(
+          l.credits,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
+        ),
+        children: [
           Text(l.aboutTmdb, style: theme.textTheme.bodyMedium),
+          const SizedBox(height: VeloraSpacing.xs),
           // Small, so it stays less prominent than VeloraUG's own brand.
           Image.asset(tmdbLogoAsset, height: 16, semanticLabel: l.tmdbLogo),
+          const SizedBox(height: VeloraSpacing.xs),
           Text(
             // The wording TMDB's terms and FAQ ask for, word for word.
             l.tmdbNotice,

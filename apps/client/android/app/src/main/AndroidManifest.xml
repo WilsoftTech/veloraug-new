@@ -33,9 +33,8 @@
         </activity>
         <!-- Receives the sign-in result. The address must match the one
              registered on the Neon Android client, and assetlinks.json on this
-             host must list this package and its signing certificate. This is
-             the development host: a production host and certificate are needed
-             before release. -->
+             host must list this package and its signing certificate. The host
+             is the flavor's authHost, in app/build.gradle.kts. -->
         <activity
             android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
             android:exported="true"
@@ -46,7 +45,7 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
                     android:scheme="https"
-                    android:host="veloraug-auth-dev.pages.dev"
+                    android:host="${authHost}"
                     android:path="/auth/callback/android"/>
             </intent-filter>
         </activity>

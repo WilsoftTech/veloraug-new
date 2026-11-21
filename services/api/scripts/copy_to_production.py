@@ -27,13 +27,14 @@ For each published edition that isn't a test and isn't on production yet:
 
 An edition already on production is skipped, so running it again copies
 nothing twice. If a run stops between the files and the rows, the next run
-copies those files again, harmlessly, and then the rows.
+copies only the files that aren't there whole, and then the rows.
 """
 
 import argparse
 import os
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -53,6 +54,8 @@ TO_URL = "VELORAUG_COPY_TO_DATABASE_URL"
 # R2 copies one object of up to 5 GB in one request. Qualities' segments are
 # a few MB each; anything bigger means something unexpected is in the folder.
 MAX_COPY_BYTES = 5 * 1024**3
+# botocore keeps 10 connections per client, so no more at once than that.
+COPY_WORKERS = 10
 
 
 class CopyError(Exception):
@@ -281,7 +284,11 @@ def copy_rows(conn, found: Edition) -> None:
 
 
 def copy_files(
-    files: Files, from_bucket: str, to_bucket: str, found: Edition
+    files: Files,
+    from_bucket: str,
+    to_bucket: str,
+    found: Edition,
+    say: Callable[[str], None] = print,
 ) -> tuple[int, int]:
     """Copies the edition's files, then checks each one's size on
     production. The number of files, and their bytes."""
@@ -299,11 +306,27 @@ def copy_files(
     too_big = [k for k, size in wanted.items() if size > MAX_COPY_BYTES]
     if too_big:
         raise CopyError(f"{too_big[0]} is over 5 GB, which this can't copy")
-    for key in sorted(wanted):
-        files.copy(from_bucket, to_bucket, key)
-    copied: dict[str, int] = {}
-    for prefix in found.folders() + found.images():
-        copied.update(files.list(to_bucket, prefix))
+
+    def on_production() -> dict[str, int]:
+        there: dict[str, int] = {}
+        for prefix in found.folders() + found.images():
+            there.update(files.list(to_bucket, prefix))
+        return there
+
+    # Files left by a stopped run, whole, aren't copied again.
+    there = on_production()
+    todo = sorted(k for k, size in wanted.items() if there.get(k) != size)
+    say(
+        f"copying {found.title}: {len(todo)} of {len(wanted)} files, "
+        f"{sum(wanted[k] for k in todo) / 1024**3:.2f} GB"
+    )
+    # R2 copies each file itself; several at once save the round trips.
+    with ThreadPoolExecutor(max_workers=COPY_WORKERS) as pool:
+        for future in [
+            pool.submit(files.copy, from_bucket, to_bucket, key) for key in todo
+        ]:
+            future.result()
+    copied = on_production()
     wrong = [k for k, size in wanted.items() if copied.get(k) != size]
     if wrong:
         raise CopyError(
@@ -349,7 +372,7 @@ def copy_to_production(
             say(f"would copy {name}: {len(found.items)} item(s){extra}")
             report.copied.append(name)
             continue
-        count, size = copy_files(files, from_bucket, to_bucket, found)
+        count, size = copy_files(files, from_bucket, to_bucket, found, say)
         with target.transaction():
             copy_rows(target, found)
         report.copied.append(name)
@@ -394,10 +417,13 @@ def main() -> int:
         files = R2Files(R2Store(settings).client)
 
     with (
-        psycopg.connect(from_url) as source,
+        psycopg.connect(from_url, autocommit=True) as source,
         psycopg.connect(to_url, autocommit=True) as target,
     ):
-        source.read_only = True
+        # Autocommit, so no transaction stays open on development while a
+        # film's files copy for minutes: Neon ends a connection left idle in
+        # a transaction for 5 minutes. Every statement is still read-only.
+        source.execute("set default_transaction_read_only = on")
         try:
             report = copy_to_production(
                 source,

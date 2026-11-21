@@ -442,7 +442,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'You\'re signed out on this device, but the browser sign-out didn\'t finish, so the browser may still remember you. On a shared device, sign in and out again.';
 
   @override
-  String get about => 'About';
+  String get credits => 'Credits';
 
   @override
   String get aboutTmdb =>

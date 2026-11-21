@@ -176,7 +176,32 @@ It opens only in a debug build with that setting. Release builds leave it out ev
 
 ## Android application ID
 
-`com.example.veloraug` is Flutter's default, used for local development only. **The production application ID is undecided.** Choose it before the first store release, because it cannot change afterwards.
+Android has two flavors, set in [`android/app/build.gradle.kts`](android/app/build.gradle.kts):
+
+| Flavor | App ID | Sign-in host | Signed with |
+| --- | --- | --- | --- |
+| `dev`, the default | `com.example.veloraug` | `veloraug-auth-dev.pages.dev` | the debug key |
+| `prod`, with `--flavor prod` | `com.veloraug.app`, which can never change | `auth.veloraug.com` | the release key only |
+
+Plain `flutter run` and `flutter build apk` build `dev`, as before, now named `app-dev-*.apk`.
+
+### Production release (Step 11G)
+
+**Once, the release key.** The owner runs [`make-release-key.ps1`](android/make-release-key.ps1). It asks for a password, hidden, makes the keystore in `$HOME\veloraug-keys\` and the Git-ignored `android\key.properties`, and prints the certificate's SHA-256 fingerprint. That fingerprint, which is public, goes in [`assetlinks.prod.json`](../auth_pages/assetlinks.prod.json), and the sign-in pages are deployed again. **Back up the keystore and its password off this PC.** Every update must be signed with the same key.
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\apps\client\android
+powershell -ExecutionPolicy Bypass -File .\make-release-key.ps1
+```
+
+**Each release.** Raise `version` in `pubspec.yaml` first. Without `key.properties`, a `prod` build stops rather than using the debug key.
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\apps\client
+flutter build apk --release --flavor prod --dart-define-from-file=dart_defines.prod.json
+```
+
+The APK is `build\app\outputs\flutter-apk\app-prod-release.apk`.
 
 ## Android build warnings
 
