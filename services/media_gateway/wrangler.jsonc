@@ -19,5 +19,17 @@
   "vars": {
     // The web app's origins, separated by commas. Android sends none.
     "ALLOWED_ORIGINS": "http://localhost:8765"
+  },
+  "env": {
+    // Production, Step 11D: `npx wrangler deploy --env production`. Its own
+    // Worker, bucket and signing key, on media.veloraug.com only.
+    "production": {
+      "name": "veloraug-media",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [{ "pattern": "media.veloraug.com", "custom_domain": true }],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "veloraug" }],
+      "vars": { "ALLOWED_ORIGINS": "https://app.veloraug.com" }
+    }
   }
 }

@@ -1,6 +1,7 @@
 # Environment files: never commit real values. Sanitized examples are allowed.
 .env
 .env.*
+*.env
 !.env.example
 .dev.vars
 .dev.vars.*
