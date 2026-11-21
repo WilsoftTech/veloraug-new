@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:veloraug/admin/uploads/upload_queue.dart';
 import 'package:veloraug/api/admin_api.dart';
 import 'package:veloraug/api/catalogue_api.dart';
+import 'package:veloraug/api/device_store.dart';
 import 'package:veloraug/api/playback_api.dart';
 import 'package:veloraug/app.dart';
 import 'package:veloraug/auth/auth_controller.dart';
@@ -160,8 +161,9 @@ class FakeApi {
   /// Passes, Step 10C: what's for sale, the viewer's pass, and the states a
   /// payment goes through as it's checked. The last state repeats.
   List<Map<String, Object?>> passPlans = [
-    {'id': 'day', 'days': 1, 'price_ugx': 2000},
-    {'id': 'week', 'days': 7, 'price_ugx': 8000},
+    plan('velora_start', 'Velora Start', 6000, 7, 1),
+    plan('velora_prime', 'Velora Prime', 18000, 30, 1, featured: true),
+    plan('velora_max', 'Velora Max', 150000, 365, 3),
   ];
   Map<String, Object?> myPass = {
     'active': false,
@@ -175,6 +177,28 @@ class FakeApi {
   DateTime passEndsAt = DateTime.utc(2026, 11, 20, 9, 30);
   int paymentChecks = 0;
   final checkouts = <Map<String, Object?>>[];
+
+  /// Milestone 10: the viewer's devices, payments, what is playing, and
+  /// what the grant route says about this device.
+  List<Map<String, Object?>> devices = [];
+  int devicesAllowed = 1;
+  bool devicesOverLimit = false;
+  List<Map<String, Object?>> payments = [];
+  List<Map<String, Object?>> playing = [];
+  final deviceRegistrations = <http.Request>[];
+  final removedDevices = <String>[];
+  final stoppedSessions = <String>[];
+
+  /// The grant route's body when it refuses, such as a device_limit.
+  Map<String, Object?>? grantRefusal;
+
+  /// With passes required: grants carry a session and a heartbeat.
+  bool sessions = false;
+  int heartbeatStatus = 200;
+  int heartbeats = 0;
+
+  /// The device header sent with each grant request.
+  final grantDevices = <String?>[];
 
   /// The master playlist the media gateway serves for every grant.
   String masterPlaylist = '''
@@ -235,6 +259,38 @@ class FakeApi {
       return http.Response(masterPlaylist, 200);
     }
     if (path == '/api/v1/passes/plans') return json(passPlans);
+    if (path == '/api/v1/me/payments') return json(payments);
+    if (path == '/api/v1/me/devices' && request.method == 'GET') {
+      return json({
+        'devices': devices,
+        'allowed': devicesAllowed,
+        'streams_allowed': devicesAllowed,
+        'over_limit': devicesOverLimit,
+      });
+    }
+    if (path == '/api/v1/me/devices' && request.method == 'POST') {
+      deviceRegistrations.add(request);
+      return json({
+        'device': {'id': deviceId, 'label': 'Phone', 'current': true},
+        'credential': deviceCredential,
+      }, 201);
+    }
+    if (path.startsWith('/api/v1/me/devices/') && request.method == 'DELETE') {
+      removedDevices.add(request.url.pathSegments.last);
+      devices.removeWhere((d) => d['id'] == request.url.pathSegments.last);
+      return http.Response('', 204);
+    }
+    if (path.endsWith('/heartbeat')) {
+      heartbeats++;
+      return json({'live': heartbeatStatus == 200}, heartbeatStatus);
+    }
+    if (path == '/api/v1/me/playback-sessions') return json(playing);
+    if (path.startsWith('/api/v1/me/playback-sessions/') &&
+        request.method == 'DELETE') {
+      stoppedSessions.add(request.url.pathSegments.last);
+      grantRefusal = null;
+      return http.Response('', 204);
+    }
     if (path == '/api/v1/me/pass') return json(myPass);
     if (path == '/api/v1/passes/checkout') {
       checkouts.add(jsonDecode(request.body) as Map<String, Object?>);
@@ -258,8 +314,9 @@ class FakeApi {
       }
       return json({
         'id': 'pay-1',
-        'plan_id': 'day',
-        'amount_ugx': 2000,
+        'plan_id': 'velora_start',
+        'plan_name': 'Velora Start',
+        'amount_ugx': 6000,
         'state': state,
         'pass_ends_at': done ? passEndsAt.toIso8601String() : null,
       });
@@ -267,10 +324,16 @@ class FakeApi {
     if (path.endsWith('/playback')) {
       grants++;
       granted.add(request.url.pathSegments[3]);
+      grantDevices.add(request.headers['X-Velora-Device']);
+      if (grantRefusal case final refusal?) {
+        return json(refusal, grantStatus);
+      }
       if (grantStatus != 200) return json({}, grantStatus);
       return json({
         'playlist_url': '$gateway/v1/grant-$grants.sig/master.m3u8',
         'expires_at': expiresAt.toIso8601String(),
+        if (sessions) 'session_id': 'session-$grants',
+        if (sessions) 'heartbeat_seconds': 60,
       });
     }
     if (catalogueStatus case final status?) {
@@ -318,11 +381,15 @@ class FakeApi {
     httpClient: client,
   );
 
+  /// This test's device credential, kept between screens.
+  final deviceStore = MemoryDeviceStore();
+
   PlaybackApi playback(AuthController auth) => PlaybackApi(
     baseUrl: Uri.parse(apiBase),
     mediaBaseUrl: Uri.parse(gateway),
     httpClient: client,
     accessToken: auth.accessToken,
+    deviceStore: deviceStore,
   );
 
   AdminApi adminApi(AuthController auth) => AdminApi(
@@ -377,3 +444,26 @@ class FakeVideo {
     return Text('playing ${request.url.pathSegments[1]}');
   }
 }
+
+/// One plan as GET /api/v1/passes/plans answers it.
+Map<String, Object?> plan(
+  String id,
+  String name,
+  int price,
+  int days,
+  int devices, {
+  bool featured = false,
+}) => {
+  'id': id,
+  'display_name': name,
+  'description': null,
+  'price_ugx': price,
+  'days': days,
+  'max_devices': devices,
+  'max_streams': devices,
+  'featured': featured,
+};
+
+const deviceId = '3c9e0d4f-1b2a-4c5d-8e6f-7a8b9c0d1e2f';
+const deviceCredential =
+    '$deviceId.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';

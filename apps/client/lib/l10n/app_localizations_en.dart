@@ -1544,4 +1544,401 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pricesSaved => 'Prices saved.';
+
+  @override
+  String get choosePlanTitle => 'Choose your plan';
+
+  @override
+  String get choosePlanIntro =>
+      'Every plan unlocks the whole VeloraUG catalogue. Pay once on Pesapal\'s secure page with MTN Mobile Money, Airtel Money or a card. Nothing renews by itself.';
+
+  @override
+  String get mostPopular => 'Most popular';
+
+  @override
+  String planDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String planDevices(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count registered devices',
+      one: '1 registered device',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String planStreams(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count screens at a time',
+      one: '1 screen at a time',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get planBenefitCatalogue => 'Every published movie and series';
+
+  @override
+  String get planBenefitPlatforms => 'Watch on the web and on Android';
+
+  @override
+  String get planBenefitNoRenewal => 'No automatic renewal';
+
+  @override
+  String payPlan(String price) {
+    return 'Pay $price';
+  }
+
+  @override
+  String planCardLabel(String plan, String price, String duration) {
+    return '$plan, $price, $duration';
+  }
+
+  @override
+  String get planQueuedNote =>
+      'You have a plan running. A new one starts when it ends, so you keep every day you paid for.';
+
+  @override
+  String get paymentSecureNote =>
+      'VeloraUG never sees your mobile money PIN or card number.';
+
+  @override
+  String get tooManyAttempts =>
+      'Too many attempts. Wait a moment and try again.';
+
+  @override
+  String get myMembership => 'My membership';
+
+  @override
+  String get membershipActive => 'Active';
+
+  @override
+  String get membershipNone => 'No active plan';
+
+  @override
+  String get membershipNoneHelp =>
+      'Choose a plan to start watching everything on VeloraUG.';
+
+  @override
+  String get membershipChecking => 'Payment being checked';
+
+  @override
+  String membershipStarted(String date) {
+    return 'Started $date';
+  }
+
+  @override
+  String membershipExpires(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String timeLeftDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days left',
+      one: '1 day left',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String timeLeftHours(int hours) {
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours hours left',
+      one: '1 hour left',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String timeLeftMinutes(int minutes) {
+    String _temp0 = intl.Intl.pluralLogic(
+      minutes,
+      locale: localeName,
+      other: '$minutes minutes left',
+      one: '1 minute left',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String membershipQueued(String plan, String date) {
+    return 'Next: $plan, from $date';
+  }
+
+  @override
+  String get renewPlan => 'Renew';
+
+  @override
+  String get changePlan => 'Change plan';
+
+  @override
+  String get choosePlan => 'Choose a plan';
+
+  @override
+  String get myDevices => 'My devices';
+
+  @override
+  String devicesAllowance(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Your plan allows $count registered devices.',
+      one: 'Your plan allows 1 registered device.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get devicesNone =>
+      'No devices yet. A device registers itself the first time it plays.';
+
+  @override
+  String devicesOverLimit(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Your plan now allows $count devices. Remove the ones you no longer use to keep watching.',
+      one: 'Your plan now allows 1 device. Remove the ones you no longer use to keep watching.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get devicesPolicy =>
+      'Removing a device frees its place at once. To stop sharing, up to 3 replacement devices can be added every 30 days.';
+
+  @override
+  String get thisDevice => 'This device';
+
+  @override
+  String lastActive(String date) {
+    return 'Last active $date';
+  }
+
+  @override
+  String get removeDevice => 'Remove';
+
+  @override
+  String get removeDeviceTitle => 'Remove this device?';
+
+  @override
+  String removeDeviceMessage(String device) {
+    return '$device stops playing within a minute. It can register again later, as a new device.';
+  }
+
+  @override
+  String get deviceRemovedNotice => 'Device removed.';
+
+  @override
+  String get renameDevice => 'Rename';
+
+  @override
+  String get deviceName => 'Device name';
+
+  @override
+  String get deviceRenamed => 'Name saved.';
+
+  @override
+  String get platformWeb => 'Web browser';
+
+  @override
+  String get platformAndroid => 'Android';
+
+  @override
+  String get platformOther => 'Other device';
+
+  @override
+  String get devicesCouldNotLoad => 'Couldn\'t load your devices.';
+
+  @override
+  String get playingNow => 'Playing now';
+
+  @override
+  String playingOn(String device, String time) {
+    return 'On $device since $time';
+  }
+
+  @override
+  String get stopPlayback => 'Stop';
+
+  @override
+  String sessionStoppedNotice(String device) {
+    return 'Playback stopped on $device.';
+  }
+
+  @override
+  String get paymentsHeading => 'Payments';
+
+  @override
+  String get paymentsNone => 'No payments yet.';
+
+  @override
+  String get paymentsCouldNotLoad => 'Couldn\'t load your payments.';
+
+  @override
+  String get paymentStateCompleted => 'Paid';
+
+  @override
+  String get paymentStatePending => 'Being checked';
+
+  @override
+  String get paymentStateFailed => 'Failed';
+
+  @override
+  String get paymentStateReversed => 'Reversed';
+
+  @override
+  String get paymentStateAbandoned => 'Not completed';
+
+  @override
+  String paymentReference(String reference) {
+    return 'Ref. $reference';
+  }
+
+  @override
+  String get deviceLimitTitle => 'Device limit reached';
+
+  @override
+  String get deviceLimitMessage =>
+      'Every device your plan allows is registered. Remove one you no longer use, then try again.';
+
+  @override
+  String get manageDevices => 'Manage devices';
+
+  @override
+  String get streamLimitTitle => 'Playing on another device';
+
+  @override
+  String get streamLimitMessage =>
+      'Every screen your plan allows is in use. Stop playback on another device to watch here.';
+
+  @override
+  String stopOnDeviceAndWatch(String device) {
+    return 'Stop on $device and watch here';
+  }
+
+  @override
+  String get deviceSwitchLimitMessage =>
+      'This account has added too many new devices in the last 30 days. Keep watching on a registered device, or contact VeloraUG support.';
+
+  @override
+  String get sessionEndedTitle => 'Playback stopped';
+
+  @override
+  String get sessionEndedMessage =>
+      'Playback was stopped from another device, or this device was removed.';
+
+  @override
+  String get watchHereAgain => 'Watch here again';
+
+  @override
+  String get adminSubscriptions => 'Subscriptions';
+
+  @override
+  String get adminOverview => 'Overview';
+
+  @override
+  String get metricActiveSubscribers => 'Active subscribers';
+
+  @override
+  String get metricRevenue => 'Revenue, last 30 days';
+
+  @override
+  String get metricFailed => 'Failed, last 30 days';
+
+  @override
+  String get metricReversed => 'Reversed, last 30 days';
+
+  @override
+  String get metricPending => 'Being checked now';
+
+  @override
+  String get metricDevices => 'Registered devices';
+
+  @override
+  String get metricPlaying => 'Playing now';
+
+  @override
+  String get adminPlans => 'Plans';
+
+  @override
+  String get adminPlansIntro =>
+      'Prices are in whole Uganda shillings. A change applies to new payments only: what was already bought keeps its price, length and devices. Every change is recorded.';
+
+  @override
+  String get planOnSale => 'On sale';
+
+  @override
+  String get planFeatured => 'Featured';
+
+  @override
+  String get planLegacy => 'Legacy pass, kept for history';
+
+  @override
+  String planSummary(String duration, String devices) {
+    return '$duration · $devices';
+  }
+
+  @override
+  String get savePlan => 'Save';
+
+  @override
+  String planSaved(String plan) {
+    return '$plan saved.';
+  }
+
+  @override
+  String get adminPayments => 'Payments';
+
+  @override
+  String get paymentsFilterAll => 'All';
+
+  @override
+  String get adminSubscribers => 'Active subscribers';
+
+  @override
+  String get subscribersNone => 'No one has an active plan.';
+
+  @override
+  String subscriberLine(String plan, String date, String devices) {
+    return '$plan until $date · $devices';
+  }
+
+  @override
+  String get adminDevicesOf => 'Devices';
+
+  @override
+  String adminRemoveDeviceMessage(String device) {
+    return '$device stops playing within a minute. The account holder can register it again.';
+  }
+
+  @override
+  String get priceHistory => 'Price history';
+
+  @override
+  String priceChange(String plan, String from, String to) {
+    return '$plan: $from to $to';
+  }
+
+  @override
+  String get noPrice => 'no price';
 }

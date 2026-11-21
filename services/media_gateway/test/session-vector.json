@@ -1,0 +1,11 @@
+{
+  "_comment": "Milestone 10 session grants and gateway checks. Checked by services/api/tests/test_devices.py and services/media_gateway/test/sessions.test.ts. Test-only key.",
+  "key": "test-only-key-never-used-anywhere-real-0123456789",
+  "movie_id": "2f0c1d6e-8a4b-4c3d-9e5f-0a1b2c3d4e5f",
+  "original_id": "7d9e8f10-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+  "session_id": "3c9e0d4f-1b2a-4c5d-8e6f-7a8b9c0d1e2f",
+  "expires": 1893456000,
+  "grant": "eyJtIjoiMmYwYzFkNmUtOGE0Yi00YzNkLTllNWYtMGExYjJjM2Q0ZTVmIiwibyI6IjdkOWU4ZjEwLTFhMmItNGMzZC04ZTRmLTVhNmI3YzhkOWUwZiIsImUiOjE4OTM0NTYwMDAsInMiOiIzYzllMGQ0Zi0xYjJhLTRjNWQtOGU2Zi03YThiOWMwZDFlMmYifQ.eHcHtsBVGDHcnDiT2eMySzfP_eBquHZmc4AFNPLcd78",
+  "check_expires": 1893456060,
+  "check": "1893456060.0tDpmX8TeABblCuXdsb9LAZtpx_L3zBhbml8YDAjr14"
+}

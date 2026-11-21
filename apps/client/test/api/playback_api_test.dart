@@ -135,4 +135,95 @@ void main() {
       expect(message, isNotEmpty);
     }
   });
+
+  group('Milestone 10', () {
+    http.Response refusal(int status, Map<String, Object?> detail) =>
+        http.Response(jsonEncode({'detail': detail}), status);
+
+    for (final (status, code, failure) in [
+      (409, 'device_limit', PlaybackFailure.deviceLimit),
+      (409, 'stream_limit', PlaybackFailure.streamLimit),
+      (429, 'device_switch_limit', PlaybackFailure.deviceSwitchLimit),
+      (429, null, PlaybackFailure.tooMany),
+    ]) {
+      test('$status $code is ${failure.name}', () async {
+        final api = _api(
+          (_) => refusal(status, {'code': ?code, 'message': 'x'}),
+        );
+        expect(await _failure(api), failure);
+      });
+    }
+
+    test('a stream limit says what is playing elsewhere', () async {
+      final api = _api(
+        (_) => refusal(409, {
+          'code': 'stream_limit',
+          'limit': 2,
+          'sessions': [
+            {
+              'id': 's1',
+              'device_label': 'TV',
+              'started_at': '2026-11-20T10:00:00Z',
+            },
+          ],
+        }),
+      );
+      try {
+        await api.grant('item-1');
+        fail('no failure');
+      } on PlaybackException catch (error) {
+        expect(error.limit, 2);
+        expect(error.sessions.single.deviceLabel, 'TV');
+      }
+    });
+
+    test('a session grant carries its session and heartbeat', () async {
+      final api = _api(
+        (_) => http.Response(
+          jsonEncode({
+            'playlist_url': _playlist,
+            'expires_at': '2026-11-12T22:00:00Z',
+            'session_id': 'session-1',
+            'heartbeat_seconds': 60,
+          }),
+          200,
+        ),
+      );
+      final grant = await api.grant('item-1');
+      expect(grant.sessionId, 'session-1');
+      expect(grant.heartbeat, const Duration(seconds: 60));
+    });
+
+    test('a malformed device credential is never stored or sent', () async {
+      final sent = <String?>[];
+      final api = _api((request) {
+        sent.add(request.headers['X-Velora-Device']);
+        if (request.url.path == '/api/v1/me/devices') {
+          return http.Response(jsonEncode({'credential': 'evil'}), 201);
+        }
+        return refusal(403, {'code': 'device_required'});
+      });
+      expect(await _failure(api), PlaybackFailure.unexpected);
+      expect(await api.deviceStore.read(), isNull);
+      expect(sent, everyElement(isNull));
+    });
+
+    for (final (status, result) in [
+      (200, HeartbeatResult.live),
+      (402, HeartbeatResult.passEnded),
+      (403, HeartbeatResult.deviceRemoved),
+      (410, HeartbeatResult.ended),
+      (503, HeartbeatResult.unknown),
+    ]) {
+      test('a heartbeat answered $status is ${result.name}', () async {
+        final api = _api((_) => http.Response('{}', status));
+        expect(await api.heartbeat('s1'), result);
+      });
+    }
+
+    test('a heartbeat with no answer is unknown, never an error', () async {
+      final api = _api((_) => throw http.ClientException('offline'));
+      expect(await api.heartbeat('s1'), HeartbeatResult.unknown);
+    });
+  });
 }

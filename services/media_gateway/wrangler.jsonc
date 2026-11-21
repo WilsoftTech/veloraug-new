@@ -18,7 +18,10 @@
   ],
   "vars": {
     // The web app's origins, separated by commas. Android sends none.
-    "ALLOWED_ORIGINS": "http://localhost:8765"
+    "ALLOWED_ORIGINS": "http://localhost:8765",
+    // The API, asked whether a session-bound grant is still live
+    // (Milestone 10). Not secret.
+    "API_URL": "http://127.0.0.1:8000"
   },
   "env": {
     // Production, Step 11D: `npx wrangler deploy --env production`. Its own
@@ -29,7 +32,10 @@
       "preview_urls": false,
       "routes": [{ "pattern": "media.veloraug.com", "custom_domain": true }],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "veloraug" }],
-      "vars": { "ALLOWED_ORIGINS": "https://app.veloraug.com" }
+      "vars": {
+        "ALLOWED_ORIGINS": "https://app.veloraug.com",
+        "API_URL": "https://api.veloraug.com"
+      }
     }
   }
 }

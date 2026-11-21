@@ -451,7 +451,9 @@ def check_passes(conn: psycopg.Connection) -> list[Result]:
         ("public.pass_plans", "price_ugx"),
         ("public.payments", "amount_ugx"),
         ("public.payments", "user_id"),
-        ("public.passes", "ends_at"),
+        ("public.payments", "max_devices"),
+        ("public.passes", "plan_id"),
+        ("public.passes", "max_devices"),
     ):
         if conn.execute(
             "select has_column_privilege(%s, %s, 'UPDATE')", (table, column)
@@ -491,8 +493,10 @@ def check_passes(conn: psycopg.Connection) -> list[Result]:
             refused(conn, "update public.pass_plans set price_ugx = 500")
             and as_viewer(
                 """
-                insert into public.passes (user_id, payment_id, starts_at, ends_at)
-                values (%s, gen_random_uuid(), now(), now() + interval '1 day')
+                insert into public.passes (user_id, payment_id, starts_at, ends_at,
+                  plan_id, max_devices, max_streams)
+                values (%s, gen_random_uuid(), now(), now() + interval '1 day',
+                  'velora_start', 1, 1)
                 """,
                 (viewer,),
             )
@@ -506,6 +510,113 @@ def check_passes(conn: psycopg.Connection) -> list[Result]:
             and as_viewer("delete from public.payments"),
         )
     )
+    return results
+
+
+TIERS = {
+    "velora_start": (7, 1),
+    "velora_flex": (14, 1),
+    "velora_prime": (30, 1),
+    "velora_duo": (90, 2),
+    "velora_pro": (180, 2),
+    "velora_max": (365, 3),
+}
+
+
+def check_subscriptions(conn: psycopg.Connection) -> list[Result]:
+    """Milestone 10: the six tiers, and devices and playback sessions seen
+    and changed only by their own viewer, three at most.
+
+    These follow migration 0007 and docs/step-10a-payments-plan.md.
+    """
+    tables = ("public.devices", "public.playback_sessions", "public.plan_changes")
+    flags = conn.execute(
+        """
+        select count(*) = 3 and bool_and(relrowsecurity and relforcerowsecurity)
+        from pg_class where oid = any(%s::regclass[])
+        """,
+        (list(tables),),
+    ).fetchone()[0]
+    results = [Result("RLS and forced RLS on devices, sessions, plan changes", flags)]
+
+    plans = {
+        row[0]: (row[1], row[2])
+        for row in conn.execute(
+            "select id, days, max_devices from public.pass_plans where not legacy"
+        ).fetchall()
+    }
+    results.append(
+        Result(
+            "the six tiers, with their days and devices",
+            plans == TIERS,
+            ", ".join(sorted(set(plans) ^ set(TIERS))),
+        )
+    )
+
+    expected = {
+        "public.devices": {"SELECT", "INSERT"},
+        "public.playback_sessions": {"SELECT", "INSERT"},
+        "public.plan_changes": set(),
+    }
+    wrong = []
+    for table, allowed in expected.items():
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
+            has = conn.execute(
+                "select has_table_privilege(%s, %s)", (table, privilege)
+            ).fetchone()[0]
+            if has != (privilege in allowed):
+                wrong.append(f"{table} {privilege}")
+    for table, column in (
+        ("public.devices", "secret_hash"),
+        ("public.devices", "user_id"),
+        ("public.playback_sessions", "pass_id"),
+        ("public.playback_sessions", "user_id"),
+    ):
+        if conn.execute(
+            "select has_column_privilege(%s, %s, 'UPDATE')", (table, column)
+        ).fetchone()[0]:
+            wrong.append(f"{table}.{column} UPDATE")
+    results.append(
+        Result(
+            "device and session grants match the migration", not wrong, ", ".join(wrong)
+        )
+    )
+
+    viewer = uuid.uuid4()
+    with conn.transaction(force_rollback=True):
+        as_user(conn, viewer)
+        seen = conn.execute(
+            "select (select count(*) from public.devices) + "
+            "(select count(*) from public.playback_sessions)"
+        ).fetchone()[0]
+        unknown = conn.execute(
+            "select count(*) from public.playback_session_status("
+            "gen_random_uuid(), 180)"
+        ).fetchone()[0]
+    results.append(
+        Result(
+            "a viewer sees no one else's devices or sessions",
+            seen == 0 and unknown == 0,
+            f"{seen} seen",
+        )
+    )
+
+    fourth_refused = False
+    try:
+        with conn.transaction(force_rollback=True):
+            as_user(conn, viewer)
+            for _ in range(4):
+                conn.execute(
+                    """
+                    insert into public.devices (user_id, secret_hash, label, platform)
+                    values (%s, sha256(gen_random_uuid()::text::bytea), 'Check',
+                      'web')
+                    """,
+                    (viewer,),
+                )
+    except errors.CheckViolation:
+        fourth_refused = True
+    results.append(Result("a fourth device is refused", fourth_refused))
     return results
 
 
@@ -669,6 +780,7 @@ def run_checks(url: str, connect=None) -> list[Result]:
         results += check_catalogue(conn)
         results += check_uploads(conn)
         results += check_passes(conn)
+        results += check_subscriptions(conn)
         results.append(check_prepared(conn))
     results.append(check_no_leak(url, connect))
     return results

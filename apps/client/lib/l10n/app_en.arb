@@ -1010,5 +1010,296 @@
         "type": "String"
       }
     }
-  }
+  },
+  "choosePlanTitle": "Choose your plan",
+  "choosePlanIntro": "Every plan unlocks the whole VeloraUG catalogue. Pay once on Pesapal's secure page with MTN Mobile Money, Airtel Money or a card. Nothing renews by itself.",
+  "mostPopular": "Most popular",
+  "planDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@planDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "planDevices": "{count, plural, =1{1 registered device} other{{count} registered devices}}",
+  "@planDevices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "planStreams": "{count, plural, =1{1 screen at a time} other{{count} screens at a time}}",
+  "@planStreams": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "planBenefitCatalogue": "Every published movie and series",
+  "planBenefitPlatforms": "Watch on the web and on Android",
+  "planBenefitNoRenewal": "No automatic renewal",
+  "payPlan": "Pay {price}",
+  "@payPlan": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "planCardLabel": "{plan}, {price}, {duration}",
+  "@planCardLabel": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "planQueuedNote": "You have a plan running. A new one starts when it ends, so you keep every day you paid for.",
+  "paymentSecureNote": "VeloraUG never sees your mobile money PIN or card number.",
+  "tooManyAttempts": "Too many attempts. Wait a moment and try again.",
+  "myMembership": "My membership",
+  "membershipActive": "Active",
+  "membershipNone": "No active plan",
+  "membershipNoneHelp": "Choose a plan to start watching everything on VeloraUG.",
+  "membershipChecking": "Payment being checked",
+  "membershipStarted": "Started {date}",
+  "@membershipStarted": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "membershipExpires": "Expires {date}",
+  "@membershipExpires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "timeLeftDays": "{days, plural, =1{1 day left} other{{days} days left}}",
+  "@timeLeftDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "timeLeftHours": "{hours, plural, =1{1 hour left} other{{hours} hours left}}",
+  "@timeLeftHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "timeLeftMinutes": "{minutes, plural, =1{1 minute left} other{{minutes} minutes left}}",
+  "@timeLeftMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "membershipQueued": "Next: {plan}, from {date}",
+  "@membershipQueued": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "renewPlan": "Renew",
+  "changePlan": "Change plan",
+  "choosePlan": "Choose a plan",
+  "myDevices": "My devices",
+  "devicesAllowance": "{count, plural, =1{Your plan allows 1 registered device.} other{Your plan allows {count} registered devices.}}",
+  "@devicesAllowance": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "devicesNone": "No devices yet. A device registers itself the first time it plays.",
+  "devicesOverLimit": "{count, plural, =1{Your plan now allows 1 device. Remove the ones you no longer use to keep watching.} other{Your plan now allows {count} devices. Remove the ones you no longer use to keep watching.}}",
+  "@devicesOverLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "devicesPolicy": "Removing a device frees its place at once. To stop sharing, up to 3 replacement devices can be added every 30 days.",
+  "thisDevice": "This device",
+  "lastActive": "Last active {date}",
+  "@lastActive": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "removeDevice": "Remove",
+  "removeDeviceTitle": "Remove this device?",
+  "removeDeviceMessage": "{device} stops playing within a minute. It can register again later, as a new device.",
+  "@removeDeviceMessage": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceRemovedNotice": "Device removed.",
+  "renameDevice": "Rename",
+  "deviceName": "Device name",
+  "deviceRenamed": "Name saved.",
+  "platformWeb": "Web browser",
+  "platformAndroid": "Android",
+  "platformOther": "Other device",
+  "devicesCouldNotLoad": "Couldn't load your devices.",
+  "playingNow": "Playing now",
+  "playingOn": "On {device} since {time}",
+  "@playingOn": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "stopPlayback": "Stop",
+  "sessionStoppedNotice": "Playback stopped on {device}.",
+  "@sessionStoppedNotice": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentsHeading": "Payments",
+  "paymentsNone": "No payments yet.",
+  "paymentsCouldNotLoad": "Couldn't load your payments.",
+  "paymentStateCompleted": "Paid",
+  "paymentStatePending": "Being checked",
+  "paymentStateFailed": "Failed",
+  "paymentStateReversed": "Reversed",
+  "paymentStateAbandoned": "Not completed",
+  "paymentReference": "Ref. {reference}",
+  "@paymentReference": {
+    "placeholders": {
+      "reference": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceLimitTitle": "Device limit reached",
+  "deviceLimitMessage": "Every device your plan allows is registered. Remove one you no longer use, then try again.",
+  "manageDevices": "Manage devices",
+  "streamLimitTitle": "Playing on another device",
+  "streamLimitMessage": "Every screen your plan allows is in use. Stop playback on another device to watch here.",
+  "stopOnDeviceAndWatch": "Stop on {device} and watch here",
+  "@stopOnDeviceAndWatch": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceSwitchLimitMessage": "This account has added too many new devices in the last 30 days. Keep watching on a registered device, or contact VeloraUG support.",
+  "sessionEndedTitle": "Playback stopped",
+  "sessionEndedMessage": "Playback was stopped from another device, or this device was removed.",
+  "watchHereAgain": "Watch here again",
+  "adminSubscriptions": "Subscriptions",
+  "adminOverview": "Overview",
+  "metricActiveSubscribers": "Active subscribers",
+  "metricRevenue": "Revenue, last 30 days",
+  "metricFailed": "Failed, last 30 days",
+  "metricReversed": "Reversed, last 30 days",
+  "metricPending": "Being checked now",
+  "metricDevices": "Registered devices",
+  "metricPlaying": "Playing now",
+  "adminPlans": "Plans",
+  "adminPlansIntro": "Prices are in whole Uganda shillings. A change applies to new payments only: what was already bought keeps its price, length and devices. Every change is recorded.",
+  "planOnSale": "On sale",
+  "planFeatured": "Featured",
+  "planLegacy": "Legacy pass, kept for history",
+  "planSummary": "{duration} · {devices}",
+  "@planSummary": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      },
+      "devices": {
+        "type": "String"
+      }
+    }
+  },
+  "savePlan": "Save",
+  "planSaved": "{plan} saved.",
+  "@planSaved": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "adminPayments": "Payments",
+  "paymentsFilterAll": "All",
+  "adminSubscribers": "Active subscribers",
+  "subscribersNone": "No one has an active plan.",
+  "subscriberLine": "{plan} until {date} · {devices}",
+  "@subscriberLine": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "devices": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDevicesOf": "Devices",
+  "adminRemoveDeviceMessage": "{device} stops playing within a minute. The account holder can register it again.",
+  "@adminRemoveDeviceMessage": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "priceHistory": "Price history",
+  "priceChange": "{plan}: {from} to {to}",
+  "@priceChange": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "noPrice": "no price"
 }

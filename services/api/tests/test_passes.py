@@ -1,4 +1,7 @@
 """Passes and payments, Step 10B, on a real Postgres with Pesapal faked.
+Since Milestone 10 they run on the six tiers: Velora Start (7 days, UGX
+6,000) stands in for Step 10B's day pass, Velora Flex (14 days, 10,000) for
+its week, and Velora Prime for its month.
 
 Skipped without a local test Postgres: see tests/db_support.py.
 """
@@ -7,6 +10,7 @@ import base64
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from importlib import import_module
 
 import psycopg
 import pytest
@@ -22,6 +26,8 @@ from tests.test_database import FakeVerifier, as_user
 from tests.test_pesapal import FakePesapal
 from tests.test_viewer import GATEWAY, KEY, catalogue, owner  # noqa: F401
 
+TIERS = import_module("migrations.versions.0007_subscriptions").TIERS
+
 PUBLIC_API = "http://127.0.0.1:8000"
 
 
@@ -36,17 +42,31 @@ def settings(**changes) -> Settings:
     return Settings(**(given | changes))
 
 
+def clear_billing(conn) -> None:
+    """No payments, passes, devices or sessions, and the six tiers as
+    migration 0007 seeds them."""
+    conn.execute("delete from public.playback_sessions")
+    conn.execute("delete from public.devices")
+    conn.execute("delete from public.passes")
+    conn.execute("delete from public.payments")
+    conn.execute("update public.pass_plans set featured = false")
+    for i, _, price, *_, featured, _ in TIERS:
+        conn.execute(
+            "update public.pass_plans set price_ugx = %s, for_sale = true, "
+            "featured = %s where id = %s",
+            (price, featured, i),
+        )
+    conn.execute(
+        "update public.pass_plans set price_ugx = null, for_sale = false where legacy"
+    )
+    conn.execute("delete from public.plan_changes")
+
+
 @pytest.fixture
 def prices(owner):  # noqa: F811
-    owner.execute("delete from public.passes")
-    owner.execute("delete from public.payments")
-    owner.execute("update public.pass_plans set price_ugx = null")
-    owner.execute("update public.pass_plans set price_ugx = 2000 where id = 'day'")
-    owner.execute("update public.pass_plans set price_ugx = 8000 where id = 'week'")
+    clear_billing(owner)
     yield owner
-    owner.execute("delete from public.passes")
-    owner.execute("delete from public.payments")
-    owner.execute("update public.pass_plans set price_ugx = null")
+    clear_billing(owner)
 
 
 @pytest.fixture
@@ -71,7 +91,7 @@ def api(app_url, fake, prices):
         yield client
 
 
-def buy(api, user, plan="day", **body):
+def buy(api, user, plan="velora_start", **body):
     response = api.post(
         "/api/v1/passes/checkout",
         json={"plan_id": plan, "email": "viewer@example.com", **body},
@@ -85,7 +105,7 @@ def tracking_of(fake, payment_id):
     return next(t for t, o in fake.orders.items() if o["id"] == payment_id)
 
 
-def pay(api, fake, user, plan="day", code=COMPLETED):
+def pay(api, fake, user, plan="velora_start", code=COMPLETED):
     """Buys a pass, has Pesapal report `code`, and checks as the app does."""
     payment = buy(api, user, plan)
     fake.statuses[tracking_of(fake, payment["payment_id"])] = code
@@ -102,8 +122,27 @@ def my_pass(api, user):
     return response.json()
 
 
-def grant(api, item_id, user):
-    return api.post(f"/api/v1/items/{item_id}/playback", headers=as_user(user))
+_DEVICES: dict[uuid.UUID, str] = {}
+
+
+def device_of(api, user) -> str:
+    """The user's one registered device's credential, registered once."""
+    if user not in _DEVICES:
+        response = api.post(
+            "/api/v1/me/devices",
+            json={"label": "Test phone", "platform": "android"},
+            headers=as_user(user),
+        )
+        assert response.status_code == 201, response.text
+        _DEVICES[user] = response.json()["credential"]
+    return _DEVICES[user]
+
+
+def grant(api, item_id, user, *, device: bool = True):
+    headers = as_user(user)
+    if device:
+        headers["X-Velora-Device"] = device_of(api, user)
+    return api.post(f"/api/v1/items/{item_id}/playback", headers=headers)
 
 
 def expiry(response) -> datetime:
@@ -114,14 +153,18 @@ def expiry(response) -> datetime:
 
 
 @needs_database
-def test_only_passes_with_a_price_are_for_sale(api):
-    assert api.get("/api/v1/passes/plans").json() == [
-        {"id": "day", "days": 1, "price_ugx": 2000},
-        {"id": "week", "days": 7, "price_ugx": 8000},
-    ]
+def test_only_plans_on_sale_are_listed(api, prices):
+    listed = api.get("/api/v1/passes/plans").json()
+    assert [p["id"] for p in listed] == [t[0] for t in TIERS]
+    prices.execute(
+        "update public.pass_plans set for_sale = false, featured = false "
+        "where id = 'velora_prime'"
+    )
+    listed = api.get("/api/v1/passes/plans").json()
+    assert "velora_prime" not in [p["id"] for p in listed]
     response = api.post(
         "/api/v1/passes/checkout",
-        json={"plan_id": "month", "email": "a@b.c"},
+        json={"plan_id": "velora_prime", "email": "a@b.c"},
         headers=as_user(uuid.uuid4()),
     )
     assert response.status_code == 409
@@ -135,16 +178,20 @@ def test_admins_set_prices_and_viewers_cant(app_url, editor_url, fake, prices):
     try:
         with TestClient(make_api(app_url, fake, editor_url)) as api:
             changed = api.patch(
-                "/api/v1/admin/pass-plans/month",
+                "/api/v1/admin/pass-plans/velora_prime",
                 json={"price_ugx": 25000},
                 headers=as_user(admin),
             )
-            assert changed.json() == {"id": "month", "days": 30, "price_ugx": 25000}
+            assert changed.status_code == 200, changed.text
+            assert changed.json()["price_ugx"] == 25000
+            assert changed.json()["days"] == 30
             listed = api.get("/api/v1/admin/pass-plans", headers=as_user(admin))
-            assert [p["price_ugx"] for p in listed.json()] == [2000, 8000, 25000]
+            by_id = {p["id"]: p["price_ugx"] for p in listed.json()}
+            assert by_id["velora_prime"] == 25000
+            assert by_id["velora_start"] == 6000
             assert (
                 api.patch(
-                    "/api/v1/admin/pass-plans/day",
+                    "/api/v1/admin/pass-plans/velora_start",
                     json={"price_ugx": 100},
                     headers=as_user(admin),
                 ).status_code
@@ -152,7 +199,7 @@ def test_admins_set_prices_and_viewers_cant(app_url, editor_url, fake, prices):
             )
             assert (
                 api.patch(
-                    "/api/v1/admin/pass-plans/day",
+                    "/api/v1/admin/pass-plans/velora_start",
                     json={"price_ugx": None},
                     headers=as_user(uuid.uuid4()),
                 ).status_code
@@ -169,11 +216,11 @@ def test_admins_set_prices_and_viewers_cant(app_url, editor_url, fake, prices):
 def test_checkout_sends_the_order_and_answers_pesapals_page(api, fake, prices):
     user = uuid.uuid4()
 
-    started = buy(api, user, "week", email=None, phone="0772 123 456")
+    started = buy(api, user, "velora_flex", email=None, phone="0772 123 456")
 
     assert started["redirect_url"].startswith("https://cybqa.pesapal.com/")
     sent = fake.orders[tracking_of(fake, started["payment_id"])]
-    assert sent["amount"] == 8000
+    assert sent["amount"] == 10000
     assert sent["currency"] == "UGX"
     assert sent["callback_url"] == f"{PUBLIC_API}/api/v1/passes/return"
     assert sent["notification_id"] == "ipn-1234-5678"
@@ -182,20 +229,22 @@ def test_checkout_sends_the_order_and_answers_pesapals_page(api, fake, prices):
         "select state, amount_ugx, days from public.payments where id = %s",
         (started["payment_id"],),
     ).fetchone()
-    assert (state, amount, days) == ("pending", 8000, 7)
+    assert (state, amount, days) == ("pending", 10000, 14)
 
 
 @needs_database
 def test_a_checkout_needs_an_email_or_phone_and_pesapal(api, fake):
     user = uuid.uuid4()
     response = api.post(
-        "/api/v1/passes/checkout", json={"plan_id": "day"}, headers=as_user(user)
+        "/api/v1/passes/checkout",
+        json={"plan_id": "velora_start"},
+        headers=as_user(user),
     )
     assert response.status_code == 422
     assert (
         api.post(
             "/api/v1/passes/checkout",
-            json={"plan_id": "day", "phone": "12"},
+            json={"plan_id": "velora_start", "phone": "12"},
             headers=as_user(user),
         ).status_code
         == 422
@@ -204,7 +253,7 @@ def test_a_checkout_needs_an_email_or_phone_and_pesapal(api, fake):
     fake.down = True
     response = api.post(
         "/api/v1/passes/checkout",
-        json={"plan_id": "day", "email": "a@b.c"},
+        json={"plan_id": "velora_start", "email": "a@b.c"},
         headers=as_user(user),
     )
     assert response.status_code == 503
@@ -212,7 +261,7 @@ def test_a_checkout_needs_an_email_or_phone_and_pesapal(api, fake):
     fake.refuse_orders = True
     response = api.post(
         "/api/v1/passes/checkout",
-        json={"plan_id": "day", "email": "a@b.c"},
+        json={"plan_id": "velora_start", "email": "a@b.c"},
         headers=as_user(user),
     )
     assert response.status_code == 502
@@ -229,7 +278,7 @@ def test_without_pesapal_buying_answers_503(app_url, prices):
     with TestClient(app) as api:
         response = api.post(
             "/api/v1/passes/checkout",
-            json={"plan_id": "day", "email": "a@b.c"},
+            json={"plan_id": "velora_start", "email": "a@b.c"},
             headers=as_user(uuid.uuid4()),
         )
     assert response.status_code == 503
@@ -243,11 +292,11 @@ def test_a_completed_payment_makes_one_pass(api, fake, prices):
     user = uuid.uuid4()
     before = datetime.now(UTC)
 
-    paid = pay(api, fake, user, "week")
+    paid = pay(api, fake, user, "velora_flex")
 
     assert paid["state"] == "completed"
     ends = datetime.fromisoformat(paid["pass_ends_at"])
-    assert timedelta(days=7) <= ends - before < timedelta(days=7, minutes=1)
+    assert timedelta(days=14) <= ends - before < timedelta(days=14, minutes=1)
     # Seen again, by the app and by a notification: still one pass.
     api.get(f"/api/v1/passes/payments/{paid['id']}", headers=as_user(user))
     api.get(
@@ -282,7 +331,8 @@ def test_not_paid_yet_then_failed_then_paid(api, fake, prices):
 
 
 @pytest.mark.parametrize(
-    ("amount", "currency"), [(1999.0, "UGX"), (2000.0, "KES"), (2000.5, "USD")]
+    ("amount", "currency"),
+    [(5999.0, "UGX"), (6000.0, "KES"), (6000.5, "UGX"), (6000.5, "USD")],
 )
 @needs_database
 def test_a_wrong_amount_or_currency_makes_no_pass(api, fake, prices, amount, currency):
@@ -375,16 +425,16 @@ def test_the_account_tab_finds_a_payment_completed_while_away(api, fake, prices)
 @needs_database
 def test_a_pass_bought_early_starts_when_the_last_ends(api, fake, prices):
     user = uuid.uuid4()
-    first = pay(api, fake, user, "day")
-    second = pay(api, fake, user, "week")
+    first = pay(api, fake, user, "velora_start")
+    second = pay(api, fake, user, "velora_flex")
 
     first_end = datetime.fromisoformat(first["pass_ends_at"])
     assert datetime.fromisoformat(second["pass_ends_at"]) == first_end + timedelta(
-        days=7
+        days=14
     )
     found = my_pass(api, user)
     assert datetime.fromisoformat(found["current_ends_at"]) == first_end
-    assert datetime.fromisoformat(found["ends_at"]) == first_end + timedelta(days=7)
+    assert datetime.fromisoformat(found["ends_at"]) == first_end + timedelta(days=14)
 
 
 @needs_database
@@ -452,20 +502,20 @@ def claims(response):
 
 @needs_database
 def test_without_a_pass_playback_answers_402(api, catalogue):  # noqa: F811
-    response = grant(api, catalogue["movie"].item_id, uuid.uuid4())
+    response = grant(api, catalogue["movie"].item_id, uuid.uuid4(), device=False)
 
     assert response.status_code == 402
     assert response.json()["detail"] == "You need a pass to watch."
     # A film that can't be watched anyway says so first.
-    assert grant(api, uuid.uuid4(), uuid.uuid4()).status_code == 404
+    assert grant(api, uuid.uuid4(), uuid.uuid4(), device=False).status_code == 404
 
 
 @needs_database
 def test_a_grant_ends_no_later_than_the_pass(api, fake, prices, catalogue):  # noqa: F811
     user = uuid.uuid4()
-    pay(api, fake, user, "day")
-    prices.execute("update public.passes set ends_at = now() + interval '2 hours'")
-    prices.execute("update public.passes set starts_at = ends_at - interval '1 day'")
+    pay(api, fake, user, "velora_start")
+    prices.execute("update public.passes set ends_at = now() + interval '20 minutes'")
+    prices.execute("update public.passes set starts_at = ends_at - interval '7 days'")
 
     response = grant(api, catalogue["movie"].item_id, user)
 
@@ -477,20 +527,21 @@ def test_a_grant_ends_no_later_than_the_pass(api, fake, prices, catalogue):  # n
     # Once it has ended, the renewal is refused.
     prices.execute(
         "update public.passes set ends_at = now() - interval '1 minute', "
-        "starts_at = now() - interval '1 day 1 minute'"
+        "starts_at = now() - interval '7 days 1 minute'"
     )
     assert grant(api, catalogue["movie"].item_id, user).status_code == 402
 
 
 @needs_database
-def test_a_long_pass_still_gets_six_hour_grants(api, fake, prices, catalogue):  # noqa: F811
+def test_a_long_pass_gets_one_hour_session_grants(api, fake, prices, catalogue):  # noqa: F811
     user = uuid.uuid4()
-    pay(api, fake, user, "week")
+    pay(api, fake, user, "velora_flex")
 
     response = grant(api, catalogue["movie"].item_id, user)
 
     left = expiry(response) - datetime.now(UTC)
-    assert timedelta(hours=5, minutes=59) < left <= timedelta(hours=6)
+    assert timedelta(minutes=59) < left <= timedelta(hours=1)
+    assert claims(response)["s"] == response.json()["session_id"]
 
 
 @needs_database
@@ -500,10 +551,15 @@ def test_admins_and_passes_off_need_no_pass(app_url, fake, prices, catalogue):  
     prices.execute("insert into public.admins (user_id) values (%s)", (admin,))
     try:
         with TestClient(make_api(app_url, fake)) as api:
-            assert grant(api, catalogue["movie"].item_id, admin).status_code == 200
-        with TestClient(make_api(app_url, fake, passes_required=False)) as api:
-            response = grant(api, catalogue["movie"].item_id, uuid.uuid4())
+            response = grant(api, catalogue["movie"].item_id, admin, device=False)
             assert response.status_code == 200
+            assert "s" not in claims(response)
+        with TestClient(make_api(app_url, fake, passes_required=False)) as api:
+            response = grant(
+                api, catalogue["movie"].item_id, uuid.uuid4(), device=False
+            )
+            assert response.status_code == 200
+            assert "s" not in claims(response)
     finally:
         clear_admins(prices)
 
@@ -518,18 +574,22 @@ def test_the_database_refuses_passes_that_dont_match_a_payment(app_url, prices):
         conn.execute("select set_config('app.user_id', %s, false)", (str(user),))
         (pending,) = conn.execute(
             """
-            insert into public.payments (user_id, plan_id, days, amount_ugx, email)
-            values (%s, 'day', 1, 2000, 'a@b.c') returning id
+            insert into public.payments (user_id, plan_id, days, amount_ugx, email,
+              plan_name, max_devices, max_streams)
+            values (%s, 'velora_start', 7, 6000, 'a@b.c', 'Velora Start', 1, 1)
+            returning id
             """,
             (user,),
         ).fetchone()
         conn.commit()
-        for payment, days in ((pending, 1),):
+        for payment, days in ((pending, 7),):
             with pytest.raises(psycopg.errors.CheckViolation):
                 conn.execute(
                     """
-                    insert into public.passes (user_id, payment_id, starts_at, ends_at)
-                    values (%s, %s, now(), now() + make_interval(days => %s))
+                    insert into public.passes (user_id, payment_id, starts_at, ends_at,
+                      plan_id, max_devices, max_streams)
+                    values (%s, %s, now(), now() + make_interval(days => %s),
+                      'velora_start', 1, 1)
                     """,
                     (user, payment, days),
                 )
@@ -544,8 +604,10 @@ def test_the_database_refuses_passes_that_dont_match_a_payment(app_url, prices):
         with pytest.raises(psycopg.errors.CheckViolation):
             conn.execute(
                 """
-                insert into public.passes (user_id, payment_id, starts_at, ends_at)
-                values (%s, %s, now(), now() + interval '30 days')
+                insert into public.passes (user_id, payment_id, starts_at, ends_at,
+                  plan_id, max_devices, max_streams)
+                values (%s, %s, now(), now() + interval '30 days',
+                  'velora_start', 1, 1)
                 """,
                 (user, pending),
             )

@@ -457,7 +457,7 @@ GET, PATCH /api/v1/admin/pass-plans    the prices, for admins
 
 **Only Pesapal's status decides.** The return and the notification never say whether a payment went through: each only makes the API ask Pesapal, with its keys, through `GetTransactionStatus`. A pass is made only for `COMPLETED`, with this payment's reference, its exact amount and UGX. The database refuses any pass that doesn't match a completed payment of the same viewer and length. A new pass starts when the last one ends. A reversed payment ends its pass.
 
-With `VELORAUG_PASSES_REQUIRED=true`, a grant ends no later than the viewer's pass, and without one the grant route answers `402`. Admins never need a pass.
+With `VELORAUG_PASSES_REQUIRED=true`, a grant ends no later than the viewer's pass, and without one the grant route answers `402`. Admins never need a pass. Since Milestone 10 it also turns on registered devices and playback sessions: the device must send `X-Velora-Device` (`403 device_required` otherwise; the app registers itself), the plan's device and screen limits apply (`409 device_limit` or `stream_limit`), and the grant names a session that the media gateway checks with `GET /api/v1/gateway/sessions/{id}`. See [Milestone 10 subscriptions](../../docs/step-10a-payments-plan.md#milestone-10-subscriptions).
 
 **To set it up,** put the two Pesapal keys in `.env` and start the API, then register the notification address once per environment, from the API's container:
 

@@ -9,6 +9,7 @@ import 'admin/uploads/uploads_view.dart';
 import 'api/admin_api.dart';
 import 'api/api_config.dart';
 import 'api/catalogue_api.dart';
+import 'api/device_store.dart';
 import 'api/playback_api.dart';
 import 'auth/auth_controller.dart';
 import 'auth/browser_step.dart';
@@ -191,6 +192,8 @@ class _VeloraAppState extends State<VeloraApp> {
       mediaBaseUrl: mediaBaseUrl,
       httpClient: _playbackHttpClient = http.Client(),
       accessToken: auth.accessToken,
+      // Milestone 10: this installation's device credential.
+      deviceStore: createPlatformDeviceStore(),
     );
   }
 

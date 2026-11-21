@@ -1,32 +1,64 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:http/http.dart' as http;
-
-import '../auth/oauth_client.dart';
 import 'playback_api.dart';
 
-/// A pass for sale: a day, a week or a month, in whole Uganda shillings.
+/// A plan for sale, Milestone 10: one of VeloraUG's six tiers. Every value
+/// comes from the API; the app never decides a price or an allowance.
 class PassPlan {
   const PassPlan({
     required this.id,
     required this.days,
     required this.priceUgx,
-  });
+    String? displayName,
+    this.description,
+    this.maxDevices = 1,
+    this.maxStreams = 1,
+    this.featured = false,
+  }) : displayName = displayName ?? id;
 
-  /// day, week or month.
+  /// Such as velora_prime.
   final String id;
   final int days;
+
+  /// Whole Uganda shillings.
   final int priceUgx;
+  final String displayName;
+  final String? description;
+  final int maxDevices;
+  final int maxStreams;
+
+  /// The plan to highlight: Velora Prime, unless an admin chose another.
+  final bool featured;
 }
 
-/// Whether the viewer has a pass, Step 10C.
+/// One pass: what it allows, from when, until when.
+class Entitlement {
+  const Entitlement({
+    required this.planId,
+    required this.planName,
+    required this.startsAt,
+    required this.endsAt,
+    required this.maxDevices,
+    required this.maxStreams,
+  });
+
+  final String planId;
+  final String planName;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final int maxDevices;
+  final int maxStreams;
+}
+
+/// The viewer's membership, Step 10C and Milestone 10.
 class PassStatus {
   const PassStatus({
     required this.active,
     this.currentEndsAt,
     this.endsAt,
     this.checking = false,
+    this.current,
+    this.queued = const [],
   });
 
   /// A pass is running now.
@@ -41,6 +73,12 @@ class PassStatus {
 
   /// A payment is still being checked with Pesapal.
   final bool checking;
+
+  /// The pass running now, which decides devices and streams.
+  final Entitlement? current;
+
+  /// Passes bought early, each starting when the one before ends.
+  final List<Entitlement> queued;
 }
 
 /// A payment started: where the viewer pays.
@@ -64,15 +102,79 @@ class PaymentCheck {
   final DateTime? passEndsAt;
 }
 
+/// One of the viewer's payments, for Account, Payments.
+class PaymentRecord {
+  const PaymentRecord({
+    required this.id,
+    required this.planName,
+    required this.amountUgx,
+    required this.state,
+    required this.createdAt,
+    this.providerReference,
+  });
+
+  final String id;
+  final String planName;
+  final int amountUgx;
+  final PaymentState state;
+  final DateTime createdAt;
+
+  /// Pesapal's confirmation code, once paid.
+  final String? providerReference;
+}
+
+/// One of the viewer's registered devices.
+class RegisteredDevice {
+  const RegisteredDevice({
+    required this.id,
+    required this.label,
+    required this.platform,
+    required this.lastActiveAt,
+    this.current = false,
+  });
+
+  final String id;
+  final String label;
+
+  /// web, android, ios or other.
+  final String platform;
+  final DateTime lastActiveAt;
+
+  /// The device asking: this one.
+  final bool current;
+}
+
+class DeviceList {
+  const DeviceList({
+    required this.devices,
+    required this.allowed,
+    required this.streamsAllowed,
+    required this.overLimit,
+  });
+
+  final List<RegisteredDevice> devices;
+  final int allowed;
+  final int streamsAllowed;
+
+  /// More devices than the plan running now allows: some must go.
+  final bool overLimit;
+}
+
 enum PassFailure {
   /// Not signed in, or the token was refused.
   signedOut,
+
+  /// 404: no such device or session, or it's someone else's.
+  notFound,
 
   /// 409: the pass isn't for sale any more.
   notForSale,
 
   /// 422: no email or phone, or one that isn't valid.
   needsContact,
+
+  /// 429: too many attempts.
+  tooMany,
 
   /// 502 or 503: Pesapal, the API or payments aren't available.
   unavailable,
@@ -99,7 +201,8 @@ bool isPesapalPage(Uri url) =>
     url.userInfo.isEmpty &&
     (url.host == 'pesapal.com' || url.host.endsWith('.pesapal.com'));
 
-/// Passes go with playback: the same API, token and client.
+/// Membership, payments and devices go with playback: the same API, token,
+/// device and client.
 extension PassRequests on PlaybackApi {
   Future<List<PassPlan>> passPlans() async {
     final json = await _passJson('GET', '/api/v1/passes/plans', signIn: false);
@@ -111,7 +214,16 @@ extension PassRequests on PlaybackApi {
           'days': final int days,
           'price_ugx': final int price,
         })
-          PassPlan(id: id, days: days, priceUgx: price),
+          PassPlan(
+            id: id,
+            days: days,
+            priceUgx: price,
+            displayName: _string(plan['display_name']),
+            description: _string(plan['description']),
+            maxDevices: _int(plan['max_devices']) ?? 1,
+            maxStreams: _int(plan['max_streams']) ?? 1,
+            featured: plan['featured'] == true,
+          ),
     ];
   }
 
@@ -123,9 +235,38 @@ extension PassRequests on PlaybackApi {
         currentEndsAt: _time(json['current_ends_at']),
         endsAt: _time(json['ends_at']),
         checking: json['checking'] == true,
+        current: _entitlement(json['current']),
+        queued: [
+          if (json['queued'] case final List<Object?> rows)
+            for (final row in rows) ?_entitlement(row),
+        ],
       );
     }
     throw const PassException(PassFailure.unexpected);
+  }
+
+  Future<List<PaymentRecord>> myPayments() async {
+    final json = await _passJson('GET', '/api/v1/me/payments');
+    if (json is! List) throw const PassException(PassFailure.unexpected);
+    return [
+      for (final row in json)
+        if (row case {
+          'id': final String id,
+          'plan_name': final String plan,
+          'amount_ugx': final int amount,
+          'state': final String state,
+          'created_at': final String created,
+        })
+          if (_state(state) case final known?)
+            PaymentRecord(
+              id: id,
+              planName: plan,
+              amountUgx: amount,
+              state: known,
+              createdAt: DateTime.tryParse(created)?.toUtc() ?? DateTime.now(),
+              providerReference: _string(row['provider_reference']),
+            ),
+    ];
   }
 
   Future<Checkout> checkout(
@@ -156,10 +297,7 @@ extension PassRequests on PlaybackApi {
       '/api/v1/passes/payments/${Uri.encodeComponent(paymentId)}',
     );
     if (json case {'state': final String name}) {
-      final state = PaymentState.values
-          .where((s) => s.name == name)
-          .firstOrNull;
-      if (state != null) {
+      if (_state(name) case final state?) {
         return PaymentCheck(
           state: state,
           passEndsAt: _time(json['pass_ends_at']),
@@ -169,55 +307,142 @@ extension PassRequests on PlaybackApi {
     throw const PassException(PassFailure.unexpected);
   }
 
+  // --- Devices and sessions -------------------------------------------------
+
+  Future<DeviceList> myDevices() async {
+    final json = await _passJson('GET', '/api/v1/me/devices');
+    if (json case {
+      'devices': final List<Object?> rows,
+      'allowed': final int allowed,
+    }) {
+      return DeviceList(
+        devices: [
+          for (final row in rows)
+            if (row case {
+              'id': final String id,
+              'label': final String label,
+              'platform': final String platform,
+              'last_active_at': final String active,
+            })
+              RegisteredDevice(
+                id: id,
+                label: label,
+                platform: platform,
+                lastActiveAt:
+                    DateTime.tryParse(active)?.toUtc() ?? DateTime.now(),
+                current: row['current'] == true,
+              ),
+        ],
+        allowed: allowed,
+        streamsAllowed: _int(json['streams_allowed']) ?? 0,
+        overLimit: json['over_limit'] == true,
+      );
+    }
+    throw const PassException(PassFailure.unexpected);
+  }
+
+  Future<void> renameDevice(String deviceId, String label) async {
+    await _passJson(
+      'PATCH',
+      '/api/v1/me/devices/${Uri.encodeComponent(deviceId)}',
+      body: {'label': label},
+    );
+  }
+
+  /// Removes a device. Removing this one forgets its credential too, so it
+  /// registers again, as a new device, next time it plays.
+  Future<void> removeDevice(String deviceId, {bool current = false}) async {
+    await _passJson(
+      'DELETE',
+      '/api/v1/me/devices/${Uri.encodeComponent(deviceId)}',
+    );
+    if (current) await deviceStore.clear();
+  }
+
+  Future<List<LiveSession>> playingNow() async {
+    final json = await _passJson('GET', '/api/v1/me/playback-sessions');
+    if (json is! List) throw const PassException(PassFailure.unexpected);
+    return [
+      for (final row in json)
+        if (row case {
+          'id': final String id,
+          'device_label': final String label,
+          'started_at': final String started,
+        })
+          LiveSession(
+            id: id,
+            deviceLabel: label,
+            startedAt: DateTime.tryParse(started)?.toUtc() ?? DateTime.now(),
+            currentDevice: row['current_device'] == true,
+          ),
+    ];
+  }
+
+  Future<void> stopSession(String sessionId) async {
+    await _passJson(
+      'DELETE',
+      '/api/v1/me/playback-sessions/${Uri.encodeComponent(sessionId)}',
+    );
+  }
+
   Future<Object?> _passJson(
     String method,
     String path, {
     Map<String, Object?>? body,
     bool signIn = true,
   }) async {
-    final headers = <String, String>{};
-    if (signIn) {
-      final String? token;
-      try {
-        token = await accessToken();
-      } on OAuthException {
-        throw const PassException(PassFailure.unreachable);
-      }
-      if (token == null) throw const PassException(PassFailure.signedOut);
-      headers['Authorization'] = 'Bearer $token';
-    }
-    final request = http.Request(method, baseUrl.replace(path: path))
-      ..headers.addAll(headers);
-    if (body != null) {
-      request.headers['Content-Type'] = 'application/json';
-      request.body = jsonEncode(body);
-    }
-    final http.Response response;
+    final ApiAnswer answer;
     try {
-      response = await http.Response.fromStream(
-        await httpClient.send(request).timeout(timeout),
-      ).timeout(timeout);
-    } on TimeoutException {
-      throw const PassException(PassFailure.unreachable);
-    } on Exception {
-      throw const PassException(PassFailure.unreachable);
+      answer = await send(method, path, body: body, signIn: signIn);
+    } on Exception catch (error) {
+      throw PassException(
+        isSignedOut(error) ? PassFailure.signedOut : PassFailure.unreachable,
+      );
     }
-    final failure = switch (response.statusCode) {
-      200 || 201 => null,
+    final failure = switch (answer.status) {
+      200 || 201 || 204 => null,
       401 => PassFailure.signedOut,
+      404 => PassFailure.notFound,
       409 => PassFailure.notForSale,
       422 => PassFailure.needsContact,
+      429 => PassFailure.tooMany,
       502 || 503 => PassFailure.unavailable,
       _ => PassFailure.unexpected,
     };
     if (failure != null) throw PassException(failure);
-    try {
-      return jsonDecode(utf8.decode(response.bodyBytes));
-    } on FormatException {
-      throw const PassException(PassFailure.unexpected);
-    }
+    return answer.json;
   }
 }
+
+Entitlement? _entitlement(Object? value) => switch (value) {
+  {
+    'plan_id': final String planId,
+    'plan_name': final String planName,
+    'starts_at': final String starts,
+    'ends_at': final String ends,
+    'max_devices': final int devices,
+    'max_streams': final int streams,
+  } =>
+    switch ((DateTime.tryParse(starts), DateTime.tryParse(ends))) {
+      (final s?, final e?) => Entitlement(
+        planId: planId,
+        planName: planName,
+        startsAt: s.toUtc(),
+        endsAt: e.toUtc(),
+        maxDevices: devices,
+        maxStreams: streams,
+      ),
+      _ => null,
+    },
+  _ => null,
+};
+
+PaymentState? _state(String name) =>
+    PaymentState.values.where((s) => s.name == name).firstOrNull;
+
+String? _string(Object? value) => value is String ? value : null;
+
+int? _int(Object? value) => value is int ? value : null;
 
 DateTime? _time(Object? value) =>
     value is String ? DateTime.tryParse(value)?.toUtc() : null;

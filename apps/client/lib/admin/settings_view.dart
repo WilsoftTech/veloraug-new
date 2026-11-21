@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../api/admin_api.dart';
 import '../l10n/l10n.dart';
-import '../screens/pass_screen.dart' show passName;
 import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
@@ -11,7 +10,8 @@ import '../widgets/velora_button.dart';
 import '../widgets/velora_text_field.dart';
 import 'admin_common.dart';
 
-/// Settings: the admins, and the languages editions can be in.
+/// Settings: the admins, and the languages editions can be in. Plans and
+/// prices are under Subscriptions.
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
 
@@ -22,9 +22,6 @@ class SettingsView extends StatefulWidget {
 class _SettingsViewState extends State<SettingsView> {
   List<AdminEntry>? _admins;
   List<AdminLanguage>? _languages;
-  List<AdminPassPlan>? _plans;
-  final _prices = <String, TextEditingController>{};
-  final _priceForm = GlobalKey<FormState>();
   AdminException? _failure;
   final _email = TextEditingController();
   final _code = TextEditingController();
@@ -48,9 +45,6 @@ class _SettingsViewState extends State<SettingsView> {
     _email.dispose();
     _code.dispose();
     _languageName.dispose();
-    for (final field in _prices.values) {
-      field.dispose();
-    }
     super.dispose();
   }
 
@@ -69,45 +63,6 @@ class _SettingsViewState extends State<SettingsView> {
     } on AdminException catch (error) {
       if (mounted) setState(() => _failure = error);
     }
-    await _loadPlans(api);
-  }
-
-  /// Separate, so a server without passes still shows the rest.
-  Future<void> _loadPlans(AdminApi api) async {
-    try {
-      final plans = await api.passPlans();
-      if (!mounted) return;
-      setState(() {
-        _plans = plans;
-        for (final plan in plans) {
-          (_prices[plan.id] ??= TextEditingController()).text =
-              plan.priceUgx?.toString() ?? '';
-        }
-      });
-    } on AdminException {
-      if (mounted) setState(() => _plans = null);
-    }
-  }
-
-  static int? _price(String text) {
-    final digits = text.replaceAll(RegExp(r'[\s,]'), '');
-    return digits.isEmpty ? null : int.tryParse(digits);
-  }
-
-  Future<void> _savePrices() async {
-    if (!(_priceForm.currentState?.validate() ?? false)) return;
-    final plans = _plans;
-    if (plans == null) return;
-    final changed = [
-      for (final plan in plans)
-        if (_price(_prices[plan.id]!.text) != plan.priceUgx)
-          (plan.id, _price(_prices[plan.id]!.text)),
-    ];
-    await _run((api) async {
-      for (final (id, price) in changed) {
-        await api.setPassPrice(id, price);
-      }
-    }, context.l10n.pricesSaved);
   }
 
   Future<void> _run(
@@ -282,48 +237,6 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ],
           ),
-          if (_plans case final plans?)
-            AdminSection(
-              title: l.passPrices,
-              children: [
-                Text(l.passPricesIntro),
-                Form(
-                  key: _priceForm,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    spacing: VeloraSpacing.sm,
-                    children: [
-                      for (final plan in plans)
-                        VeloraTextField(
-                          key: ValueKey('price-${plan.id}'),
-                          label: l.priceUgx(passName(l, plan.id, plan.days)),
-                          controller: _prices[plan.id],
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            final text = (value ?? '').trim();
-                            if (text.isEmpty) return null;
-                            final price = _price(text);
-                            return price != null &&
-                                    price >= 500 &&
-                                    price <= 10000000
-                                ? null
-                                : l.priceNotValid;
-                          },
-                        ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: VeloraButton(
-                          label: l.savePrices,
-                          icon: Icons.save_outlined,
-                          isLoading: _busy,
-                          onPressed: _savePrices,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
         ],
       ],
     );
