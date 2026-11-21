@@ -117,6 +117,23 @@ bash /opt/veloraug/repo/infra/deploy.sh
 
 Logs are rotated by Docker: five files of 20 MB per service. Every service restarts by itself, after a crash or a reboot.
 
+### Deploy the web app and sign-in pages
+
+Both are static files served by Cloudflare Workers, `veloraug-app` on `app.veloraug.com` and `veloraug-auth` on `auth.veloraug.com`, with no code and no `workers.dev` address. They are built and deployed from this PC. Their production settings are public and tracked: [`apps/client/dart_defines.prod.json`](../apps/client/dart_defines.prod.json) and [`apps/auth_pages/.env.prod`](../apps/auth_pages/.env.prod).
+
+```powershell
+cd C:\Users\Wilsoft\veloraug\apps\auth_pages
+npm ci; npm test; npm run build:prod          # into dist-prod
+cd ..\client
+Remove-Item -Recurse -Force build\web -ErrorAction SilentlyContinue
+flutter build web --release --no-web-resources-cdn --dart-define-from-file=dart_defines.prod.json
+cd ..\..
+npx --yes wrangler@4.157.0 deploy --config infra/cloudflare/auth/wrangler.jsonc
+npx --yes wrangler@4.157.0 deploy --config infra/cloudflare/app/wrangler.jsonc
+```
+
+Clear `build\web` first: an incremental build can leave out `auth.html`. The app's Worker serves `/auth.html` as itself, because it is the registered sign-in redirect. Production's `assetlinks.json` comes from [`apps/auth_pages/assetlinks.prod.json`](../apps/auth_pages/assetlinks.prod.json), which stays `[]` until Step 11G adds `com.veloraug.app` and the release certificate. Run Wrangler from the repository root with `--config`, never from `services/media_gateway`, whose own configuration would deploy the gateway's code under these names.
+
 ### Copy films to production
 
 [`copy_to_production.py`](../services/api/scripts/copy_to_production.py), Step 11F, copies each published, non-test edition from development to production: its rows with the same IDs, and its files inside R2 from `veloraug-dev` to `veloraug`, without downloading them. It is run on this PC, from `services/api`, with both **owner** connections (direct, not pooled) set in the terminal only:

@@ -12,7 +12,7 @@ It holds no secrets. Everything here is public, including the Neon Auth URL, whi
 | `/reset` | Resets a password with an emailed code. The wording is the same whether or not the address has an account |
 | `/sign-out` | Ends the Neon browser session, then returns to the app |
 | `/auth/callback/android` | The Android App Link target. Android normally opens the app without showing it |
-| `/.well-known/assetlinks.json` | Tells Android that `com.example.veloraug`, signed with this computer's debug certificate, may open those addresses |
+| `/.well-known/assetlinks.json` | Tells Android that `com.example.veloraug`, signed with this computer's debug certificate, may open those addresses. Production's comes from `assetlinks.prod.json` |
 
 ## Check locally
 
@@ -38,3 +38,7 @@ npx --yes wrangler@4.157.0 pages deploy dist --project-name veloraug-auth-dev --
 ```
 
 **The address must be exactly `veloraug-auth-dev.pages.dev`.** `pages project create` prints it. If Cloudflare adds a suffix because the name is taken, stop, because the same address is in the Android manifest, the Neon settings and the Flutter settings.
+
+## Deploy to production
+
+`npm run build:prod` builds with [`.env.prod`](.env.prod), production's public Neon Auth URL, into `dist-prod`, with `assetlinks.prod.json` as its `assetlinks.json`. It is served on `auth.veloraug.com` by a Worker: see [Deploy the web app and sign-in pages](../../infra/README.md#deploy-the-web-app-and-sign-in-pages).

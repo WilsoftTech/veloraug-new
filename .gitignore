@@ -3,6 +3,8 @@
 .env.*
 *.env
 !.env.example
+# Production's public settings for the sign-in pages.
+!apps/auth_pages/.env.prod
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
@@ -12,6 +14,7 @@ compose.override.yml
 # Flutter public build settings, per environment. Examples are allowed.
 dart_defines*.json
 !dart_defines.example.json
+!dart_defines.prod.json
 
 # Node tooling, at any depth
 node_modules/
@@ -46,6 +49,7 @@ captures/
 # Cloudflare and Neon local state
 .wrangler/
 dist/
+dist-prod/
 .neon
 
 # Signing keys

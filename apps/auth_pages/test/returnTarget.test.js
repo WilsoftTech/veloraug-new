@@ -8,6 +8,7 @@ const origin = 'https://veloraug-auth-dev.pages.dev';
 test('allows the web and Android callbacks', () => {
   for (const target of [
     'http://localhost:8765/auth.html',
+    'https://app.veloraug.com/auth.html',
     `${origin}/auth/callback/android`,
   ]) {
     assert.equal(allowedReturnTarget(target, origin), target);
@@ -21,6 +22,8 @@ test('refuses everything else', () => {
     'https://example.com/',
     'http://localhost:8765/auth.html?x=1',
     'http://localhost:8765.example.com/auth.html',
+    'http://app.veloraug.com/auth.html',
+    'https://app.veloraug.com.example.com/auth.html',
     `${origin}/auth/callback/android/`,
     `${origin}/login`,
     '//example.com',
