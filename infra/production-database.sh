@@ -6,8 +6,8 @@
 #
 # It asks once for the owner connection string of Neon's default branch,
 # direct (not pooled), hidden as you paste. Then:
-#   1. runs the migrations to head;
-#   2. creates veloraug_app and gives veloraug_editor and veloraug_media
+#   1. creates veloraug_app, which the first migration needs;
+#   2. runs the migrations to head, then gives veloraug_editor and veloraug_media
 #      logins, writing their pooled connection strings straight into
 #      /opt/veloraug/env/api.env and media.env;
 #   3. checks the database as veloraug_app.
@@ -41,19 +41,21 @@ echo
 export VELORAUG_MIGRATION_DATABASE_URL="$url"
 unset url
 
-echo; echo "== 1. Migrations"
+echo; echo "== 1. The API role, which the first migration needs"
+python scripts/create_app_role.py --env-file /env/api.env
+
+echo; echo "== 2. Migrations"
 python -m alembic upgrade head
 python -m alembic current
 
-echo; echo "== 2. Roles"
-python scripts/create_app_role.py --env-file /env/api.env
+echo; echo "== 3. Logins for the roles the migrations made"
 python scripts/create_app_role.py --role editor --env-file /env/api.env
 python scripts/create_app_role.py --role media --env-file /env/media.env
 unset VELORAUG_MIGRATION_DATABASE_URL
 chown "$HOST_UID:$HOST_GID" /env/api.env /env/media.env
 chmod 600 /env/api.env /env/media.env
 
-echo; echo "== 3. Check, as veloraug_app"
+echo; echo "== 4. Check, as veloraug_app"
 export VELORAUG_DATABASE_URL=$(setting VELORAUG_DATABASE_URL /env/api.env)
 python scripts/check_database.py
 '
