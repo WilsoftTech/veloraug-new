@@ -4,16 +4,23 @@
 // signature is HMAC-SHA256 over GRANT_CONTEXT followed by the payload text.
 // The payload is JSON: {"m": movie ID, "o": original ID, "e": expiry, in
 // seconds since 1970}. See docs/step-08a-playback-plan.md.
+//
+// Milestone 10: a grant may also carry "s", a playback session's ID. The
+// gateway then asks the API whether that session is still live: see
+// src/sessions.ts.
 
 const GRANT_CONTEXT = "veloraug-playback-v1.";
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-// Real grants are about 170 characters. A SHA-256 signature is 43.
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// Real grants are about 170 characters, 230 with a session. A SHA-256
+// signature is 43.
 export const GRANT_PATTERN = "[A-Za-z0-9_-]{1,400}\\.[A-Za-z0-9_-]{43}";
 
 export interface Grant {
   movieId: string;
   originalId: string;
   expires: number;
+  // The playback session the grant is bound to, if any.
+  sessionId?: string;
 }
 
 const encoder = new TextEncoder();
@@ -32,7 +39,8 @@ export function importSigningKey(secret: string): Promise<CryptoKey> {
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["verify"],
+    // Sign: the gateway signs its questions to the API about sessions.
+    ["verify", "sign"],
   );
 }
 
@@ -60,17 +68,20 @@ export async function verifyGrant(
     return null;
   }
   if (typeof claims !== "object" || claims === null) return null;
-  const { m, o, e } = claims as Record<string, unknown>;
+  const { m, o, e, s } = claims as Record<string, unknown>;
   if (
     typeof m !== "string" ||
     typeof o !== "string" ||
     !UUID.test(m) ||
     !UUID.test(o) ||
     typeof e !== "number" ||
-    !Number.isSafeInteger(e)
+    !Number.isSafeInteger(e) ||
+    (s !== undefined && (typeof s !== "string" || !UUID.test(s)))
   ) {
     return null;
   }
   if (e <= nowSeconds) return null;
-  return { movieId: m, originalId: o, expires: e };
+  const grant: Grant = { movieId: m, originalId: o, expires: e };
+  if (typeof s === "string") grant.sessionId = s;
+  return grant;
 }

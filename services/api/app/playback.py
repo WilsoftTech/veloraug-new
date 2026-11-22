@@ -14,6 +14,14 @@ movie IDs, and R2 still keeps every item's files under movies/<item ID>/.
 The grant goes in the path of the playback address, so the relative entries
 in HLS playlists carry it to every file. See docs/step-08a-playback-plan.md.
 No user is named in a grant: the address appears in browser history.
+
+Milestone 10: with passes required, a viewer's grant also names a playback
+session, "s", a random ID that says nothing about who is watching. Such a
+grant lasts at most SESSION_GRANT_SECONDS, and the Worker asks the API, at
+least every minute, whether its session is still live: a removed device, an
+ended session, or an expired or reversed pass stops the video within a
+minute, long before the grant itself runs out. The Worker's question is
+signed with the same key under GATEWAY_CONTEXT, so nobody else can ask.
 """
 
 import base64
@@ -30,6 +38,12 @@ import psycopg
 
 GRANT_CONTEXT = b"veloraug-playback-v1."
 GRANT_SECONDS = 6 * 60 * 60
+# A grant bound to a playback session. The player asks for a new one when
+# it runs out, and carries on from the same moment.
+SESSION_GRANT_SECONDS = 60 * 60
+# The Worker's question about a session, and how long its signature counts.
+GATEWAY_CONTEXT = b"veloraug-gateway-v1."
+GATEWAY_SKEW_SECONDS = 120
 PLAYLIST = "master.m3u8"
 
 
@@ -37,14 +51,19 @@ def _b64(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def sign_grant(key: bytes, *, item_id: UUID, original_id: UUID, expires: int) -> str:
+def sign_grant(
+    key: bytes,
+    *,
+    item_id: UUID,
+    original_id: UUID,
+    expires: int,
+    session_id: UUID | None = None,
+) -> str:
     """The grant text. `expires` is in seconds since 1970, UTC."""
-    payload = _b64(
-        json.dumps(
-            {"m": str(item_id), "o": str(original_id), "e": expires},
-            separators=(",", ":"),
-        ).encode()
-    )
+    claims: dict[str, object] = {"m": str(item_id), "o": str(original_id), "e": expires}
+    if session_id is not None:
+        claims["s"] = str(session_id)
+    payload = _b64(json.dumps(claims, separators=(",", ":")).encode())
     signature = hmac.new(key, GRANT_CONTEXT + payload.encode(), hashlib.sha256)
     return f"{payload}.{_b64(signature.digest())}"
 
@@ -62,15 +81,26 @@ class Granter:
         self._clock = clock
 
     def grant(
-        self, item_id: UUID, original_id: UUID, *, until: datetime | None = None
+        self,
+        item_id: UUID,
+        original_id: UUID,
+        *,
+        until: datetime | None = None,
+        session_id: UUID | None = None,
     ) -> Playback:
         """A grant for GRANT_SECONDS, or until `until` if that's sooner: the
-        end of the viewer's pass, Step 10B."""
-        expires = int(self._clock()) + GRANT_SECONDS
+        end of the viewer's pass, Step 10B. One bound to a playback session
+        lasts SESSION_GRANT_SECONDS at most."""
+        seconds = GRANT_SECONDS if session_id is None else SESSION_GRANT_SECONDS
+        expires = int(self._clock()) + seconds
         if until is not None:
             expires = min(expires, int(until.timestamp()))
         token = sign_grant(
-            self._key, item_id=item_id, original_id=original_id, expires=expires
+            self._key,
+            item_id=item_id,
+            original_id=original_id,
+            expires=expires,
+            session_id=session_id,
         )
         return Playback(
             playlist_url=f"{self._gateway}/v1/{token}/{PLAYLIST}",
@@ -91,6 +121,14 @@ class Granter:
     @property
     def gateway(self) -> str:
         return self._gateway
+
+    def gateway_check_valid(self, session_id: UUID, signature: str | None) -> bool:
+        """Whether the Worker signed this question about this session. The
+        header is `<expires>.<signature>`, valid until `expires`, and at most
+        GATEWAY_SKEW_SECONDS ahead."""
+        return verify_gateway_check(
+            self._key, session_id, signature, int(self._clock())
+        )
 
     def image_url(self, path: str) -> str:
         """The public address of an uploaded poster or VJ photo."""
@@ -134,3 +172,24 @@ def ready_original(conn: psycopg.Connection, item_id: UUID) -> UUID | None:
         (item_id,),
     ).fetchone()
     return row[0] if row else None
+
+
+def sign_gateway_check(key: bytes, session_id: UUID, expires: int) -> str:
+    """What the Worker sends in X-Velora-Gateway to ask about a session."""
+    message = GATEWAY_CONTEXT + f"{session_id}.{expires}".encode()
+    return f"{expires}.{_b64(hmac.new(key, message, hashlib.sha256).digest())}"
+
+
+def verify_gateway_check(
+    key: bytes, session_id: UUID, header: str | None, now: int
+) -> bool:
+    if not header or len(header) > 80 or "." not in header:
+        return False
+    expires_text, _, given = header.partition(".")
+    if not expires_text.isdigit() or len(expires_text) > 12:
+        return False
+    expires = int(expires_text)
+    if expires <= now or expires > now + GATEWAY_SKEW_SECONDS:
+        return False
+    expected = sign_gateway_check(key, session_id, expires).partition(".")[2]
+    return hmac.compare_digest(expected, given)

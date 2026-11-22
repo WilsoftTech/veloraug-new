@@ -2637,6 +2637,582 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Prices saved.'**
   String get pricesSaved;
+
+  /// No description provided for @choosePlanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your plan'**
+  String get choosePlanTitle;
+
+  /// No description provided for @choosePlanIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Every plan unlocks the whole VeloraUG catalogue. Pay once on Pesapal\'s secure page with MTN Mobile Money, Airtel Money or a card. Nothing renews by itself.'**
+  String get choosePlanIntro;
+
+  /// No description provided for @mostPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Most popular'**
+  String get mostPopular;
+
+  /// No description provided for @planDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day} other{{days} days}}'**
+  String planDays(int days);
+
+  /// No description provided for @planDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 registered device} other{{count} registered devices}}'**
+  String planDevices(int count);
+
+  /// No description provided for @planStreams.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 screen at a time} other{{count} screens at a time}}'**
+  String planStreams(int count);
+
+  /// No description provided for @planBenefitCatalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Every published movie and series'**
+  String get planBenefitCatalogue;
+
+  /// No description provided for @planBenefitPlatforms.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch on the web and on Android'**
+  String get planBenefitPlatforms;
+
+  /// No description provided for @planBenefitNoRenewal.
+  ///
+  /// In en, this message translates to:
+  /// **'No automatic renewal'**
+  String get planBenefitNoRenewal;
+
+  /// No description provided for @payPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay {price}'**
+  String payPlan(String price);
+
+  /// No description provided for @planCardLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{plan}, {price}, {duration}'**
+  String planCardLabel(String plan, String price, String duration);
+
+  /// No description provided for @planQueuedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'You have a plan running. A new one starts when it ends, so you keep every day you paid for.'**
+  String get planQueuedNote;
+
+  /// No description provided for @paymentSecureNote.
+  ///
+  /// In en, this message translates to:
+  /// **'VeloraUG never sees your mobile money PIN or card number.'**
+  String get paymentSecureNote;
+
+  /// No description provided for @tooManyAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a moment and try again.'**
+  String get tooManyAttempts;
+
+  /// No description provided for @myMembership.
+  ///
+  /// In en, this message translates to:
+  /// **'My membership'**
+  String get myMembership;
+
+  /// No description provided for @membershipActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get membershipActive;
+
+  /// No description provided for @membershipNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No active plan'**
+  String get membershipNone;
+
+  /// No description provided for @membershipNoneHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a plan to start watching everything on VeloraUG.'**
+  String get membershipNoneHelp;
+
+  /// No description provided for @membershipChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment being checked'**
+  String get membershipChecking;
+
+  /// No description provided for @membershipStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Started {date}'**
+  String membershipStarted(String date);
+
+  /// No description provided for @membershipExpires.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String membershipExpires(String date);
+
+  /// No description provided for @timeLeftDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day left} other{{days} days left}}'**
+  String timeLeftDays(int days);
+
+  /// No description provided for @timeLeftHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours, plural, =1{1 hour left} other{{hours} hours left}}'**
+  String timeLeftHours(int hours);
+
+  /// No description provided for @timeLeftMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes, plural, =1{1 minute left} other{{minutes} minutes left}}'**
+  String timeLeftMinutes(int minutes);
+
+  /// No description provided for @membershipQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Next: {plan}, from {date}'**
+  String membershipQueued(String plan, String date);
+
+  /// No description provided for @renewPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew'**
+  String get renewPlan;
+
+  /// No description provided for @changePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Change plan'**
+  String get changePlan;
+
+  /// No description provided for @choosePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a plan'**
+  String get choosePlan;
+
+  /// No description provided for @myDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'My devices'**
+  String get myDevices;
+
+  /// No description provided for @devicesAllowance.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Your plan allows 1 registered device.} other{Your plan allows {count} registered devices.}}'**
+  String devicesAllowance(int count);
+
+  /// No description provided for @devicesNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No devices yet. A device registers itself the first time it plays.'**
+  String get devicesNone;
+
+  /// No description provided for @devicesOverLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Your plan now allows 1 device. Remove the ones you no longer use to keep watching.} other{Your plan now allows {count} devices. Remove the ones you no longer use to keep watching.}}'**
+  String devicesOverLimit(int count);
+
+  /// No description provided for @devicesPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing a device frees its place at once. To stop sharing, up to 3 replacement devices can be added every 30 days.'**
+  String get devicesPolicy;
+
+  /// No description provided for @thisDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This device'**
+  String get thisDevice;
+
+  /// No description provided for @lastActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Last active {date}'**
+  String lastActive(String date);
+
+  /// No description provided for @removeDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get removeDevice;
+
+  /// No description provided for @removeDeviceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this device?'**
+  String get removeDeviceTitle;
+
+  /// No description provided for @removeDeviceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{device} stops playing within a minute. It can register again later, as a new device.'**
+  String removeDeviceMessage(String device);
+
+  /// No description provided for @deviceRemovedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Device removed.'**
+  String get deviceRemovedNotice;
+
+  /// No description provided for @renameDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get renameDevice;
+
+  /// No description provided for @deviceName.
+  ///
+  /// In en, this message translates to:
+  /// **'Device name'**
+  String get deviceName;
+
+  /// No description provided for @deviceRenamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Name saved.'**
+  String get deviceRenamed;
+
+  /// No description provided for @platformWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Web browser'**
+  String get platformWeb;
+
+  /// No description provided for @platformAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Android'**
+  String get platformAndroid;
+
+  /// No description provided for @platformOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other device'**
+  String get platformOther;
+
+  /// No description provided for @devicesCouldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your devices.'**
+  String get devicesCouldNotLoad;
+
+  /// No description provided for @playingNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Playing now'**
+  String get playingNow;
+
+  /// No description provided for @playingOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On {device} since {time}'**
+  String playingOn(String device, String time);
+
+  /// No description provided for @stopPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get stopPlayback;
+
+  /// No description provided for @sessionStoppedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback stopped on {device}.'**
+  String sessionStoppedNotice(String device);
+
+  /// No description provided for @paymentsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments'**
+  String get paymentsHeading;
+
+  /// No description provided for @paymentsNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No payments yet.'**
+  String get paymentsNone;
+
+  /// No description provided for @paymentsCouldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your payments.'**
+  String get paymentsCouldNotLoad;
+
+  /// No description provided for @paymentStateCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get paymentStateCompleted;
+
+  /// No description provided for @paymentStatePending.
+  ///
+  /// In en, this message translates to:
+  /// **'Being checked'**
+  String get paymentStatePending;
+
+  /// No description provided for @paymentStateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get paymentStateFailed;
+
+  /// No description provided for @paymentStateReversed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reversed'**
+  String get paymentStateReversed;
+
+  /// No description provided for @paymentStateAbandoned.
+  ///
+  /// In en, this message translates to:
+  /// **'Not completed'**
+  String get paymentStateAbandoned;
+
+  /// No description provided for @paymentReference.
+  ///
+  /// In en, this message translates to:
+  /// **'Ref. {reference}'**
+  String paymentReference(String reference);
+
+  /// No description provided for @deviceLimitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device limit reached'**
+  String get deviceLimitTitle;
+
+  /// No description provided for @deviceLimitMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Every device your plan allows is registered. Remove one you no longer use, then try again.'**
+  String get deviceLimitMessage;
+
+  /// No description provided for @manageDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage devices'**
+  String get manageDevices;
+
+  /// No description provided for @streamLimitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playing on another device'**
+  String get streamLimitTitle;
+
+  /// No description provided for @streamLimitMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Every screen your plan allows is in use. Stop playback on another device to watch here.'**
+  String get streamLimitMessage;
+
+  /// No description provided for @stopOnDeviceAndWatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop on {device} and watch here'**
+  String stopOnDeviceAndWatch(String device);
+
+  /// No description provided for @deviceSwitchLimitMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has added too many new devices in the last 30 days. Keep watching on a registered device, or contact VeloraUG support.'**
+  String get deviceSwitchLimitMessage;
+
+  /// No description provided for @sessionEndedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback stopped'**
+  String get sessionEndedTitle;
+
+  /// No description provided for @sessionEndedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback was stopped from another device, or this device was removed.'**
+  String get sessionEndedMessage;
+
+  /// No description provided for @watchHereAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch here again'**
+  String get watchHereAgain;
+
+  /// No description provided for @adminSubscriptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions'**
+  String get adminSubscriptions;
+
+  /// No description provided for @adminOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get adminOverview;
+
+  /// No description provided for @metricActiveSubscribers.
+  ///
+  /// In en, this message translates to:
+  /// **'Active subscribers'**
+  String get metricActiveSubscribers;
+
+  /// No description provided for @metricRevenue.
+  ///
+  /// In en, this message translates to:
+  /// **'Revenue, last 30 days'**
+  String get metricRevenue;
+
+  /// No description provided for @metricFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed, last 30 days'**
+  String get metricFailed;
+
+  /// No description provided for @metricReversed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reversed, last 30 days'**
+  String get metricReversed;
+
+  /// No description provided for @metricPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Being checked now'**
+  String get metricPending;
+
+  /// No description provided for @metricDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Registered devices'**
+  String get metricDevices;
+
+  /// No description provided for @metricPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Playing now'**
+  String get metricPlaying;
+
+  /// No description provided for @adminPlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans'**
+  String get adminPlans;
+
+  /// No description provided for @adminPlansIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices are in whole Uganda shillings. A change applies to new payments only: what was already bought keeps its price, length and devices. Every change is recorded.'**
+  String get adminPlansIntro;
+
+  /// No description provided for @planOnSale.
+  ///
+  /// In en, this message translates to:
+  /// **'On sale'**
+  String get planOnSale;
+
+  /// No description provided for @planFeatured.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get planFeatured;
+
+  /// No description provided for @planLegacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Legacy pass, kept for history'**
+  String get planLegacy;
+
+  /// No description provided for @planSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} · {devices}'**
+  String planSummary(String duration, String devices);
+
+  /// No description provided for @savePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get savePlan;
+
+  /// No description provided for @planSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'{plan} saved.'**
+  String planSaved(String plan);
+
+  /// No description provided for @adminPayments.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments'**
+  String get adminPayments;
+
+  /// No description provided for @paymentsFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get paymentsFilterAll;
+
+  /// No description provided for @adminSubscribers.
+  ///
+  /// In en, this message translates to:
+  /// **'Active subscribers'**
+  String get adminSubscribers;
+
+  /// No description provided for @subscribersNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No one has an active plan.'**
+  String get subscribersNone;
+
+  /// No description provided for @subscriberLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{plan} until {date} · {devices}'**
+  String subscriberLine(String plan, String date, String devices);
+
+  /// No description provided for @adminDevicesOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get adminDevicesOf;
+
+  /// No description provided for @adminRemoveDeviceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{device} stops playing within a minute. The account holder can register it again.'**
+  String adminRemoveDeviceMessage(String device);
+
+  /// No description provided for @priceHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Price history'**
+  String get priceHistory;
+
+  /// No description provided for @priceChange.
+  ///
+  /// In en, this message translates to:
+  /// **'{plan}: {from} to {to}'**
+  String priceChange(String plan, String from, String to);
+
+  /// No description provided for @noPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'no price'**
+  String get noPrice;
 }
 
 class _AppLocalizationsDelegate

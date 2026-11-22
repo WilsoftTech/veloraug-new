@@ -14,6 +14,7 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
+    Header,
     HTTPException,
     Query,
     Request,
@@ -23,7 +24,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints
 from starlette.background import BackgroundTask
 
-from app import passes, playback, viewer
+from app import devices, passes, playback, ratelimit, viewer
 from app.auth import VerifiedUser, current_user
 from app.db import Database
 from app.images import ImageUrls
@@ -138,6 +139,10 @@ class LanguageOut(BaseModel):
 class PlaybackOut(BaseModel):
     playlist_url: str
     expires_at: datetime
+    # With passes required: the playback session, which the player keeps
+    # alive every heartbeat_seconds.
+    session_id: UUID | None = None
+    heartbeat_seconds: int | None = None
 
 
 def _card(summary: viewer.EditionSummary, images: ImageUrls) -> EditionCard:
@@ -318,8 +323,10 @@ def granter(request: Request) -> Granter:
     responses={
         401: {"description": "Not signed in."},
         402: {"description": NEEDS_PASS},
+        403: {"description": "This device isn't registered, or was removed."},
         404: {"description": NOT_AVAILABLE},
-        409: {"description": NOT_READY},
+        409: {"description": NOT_READY + " Or a device or stream limit."},
+        429: {"description": "Too many requests."},
         503: {"description": "Busy, or playback isn't set up."},
     },
 )
@@ -329,29 +336,76 @@ def grant_playback(
     user: Annotated[VerifiedUser, Depends(current_user)],
     db: AppDatabase,
     granter: Annotated[Granter, Depends(granter)],
+    device_credential: Annotated[
+        str | None, Header(alias=devices.HEADER, max_length=100)
+    ] = None,
 ) -> PlaybackOut:
-    """A playback address for one movie edition's video, or one episode, for
-    6 hours. With passes required, Step 10B, a viewer who isn't an admin
-    needs a running pass, and the address ends no later than the pass."""
+    """A playback address for one movie edition's video, or one episode.
+
+    With passes off, or for an admin, as before: 6 hours. With passes
+    required, a viewer also needs, in order: a running pass (402), this
+    device registered to them (403, code `device_required`), no more
+    devices than their plan allows (409, `device_limit`), and a free stream
+    (409, `stream_limit`). The address is then bound to a new playback
+    session, ends no later than the pass, and stops working within a minute
+    of the session ending."""
+    settings = request.app.state.settings
+    limiter = request.app.state.rate_limiter
+    limiter.check("playback", str(user.user_id), ratelimit.PLAYBACK)
     until = None
+    session_id = None
     with db.as_user(user.user_id) as conn:
         visible = viewer.playable_item(conn, item_id)
         original = playback.ready_original(conn, item_id) if visible else None
         if (
             visible
             and original is not None
-            and request.app.state.settings.passes_required
+            and settings.passes_required
             and not passes.is_admin(conn, user.user_id)
         ):
             now = datetime.now(UTC)
-            until = passes.pass_status(conn, user.user_id, now).current_ends_at
-            if until is None:
+            entitlement = passes.current_entitlement(conn, user.user_id, now)
+            if entitlement is None:
                 raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, NEEDS_PASS)
+            device = devices.authenticate(conn, device_credential)
+            if device is None:
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN,
+                    {"code": "device_required", "message": DEVICE_REQUIRED},
+                )
+            try:
+                session_id = devices.start_session(
+                    conn, user.user_id, device, entitlement, item_id, now
+                )
+            except devices.DeviceProblem as problem:
+                raise device_refusal(problem) from None
+            until = entitlement.ends_at
     if not visible:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_AVAILABLE)
     if original is None:
         raise HTTPException(status.HTTP_409_CONFLICT, NOT_READY)
-    grant = granter.grant(item_id, original, until=until)
+    grant = granter.grant(item_id, original, until=until, session_id=session_id)
     # The item only: never the user, the grant or the address.
     playback_logger.info("Playback granted for item %s", item_id)
-    return PlaybackOut(playlist_url=grant.playlist_url, expires_at=grant.expires_at)
+    return PlaybackOut(
+        playlist_url=grant.playlist_url,
+        expires_at=grant.expires_at,
+        session_id=session_id,
+        heartbeat_seconds=devices.HEARTBEAT_SECONDS if session_id else None,
+    )
+
+
+DEVICE_REQUIRED = "Register this device to watch on it."
+
+
+def device_refusal(problem: devices.DeviceProblem) -> HTTPException:
+    """409 for a device or stream limit, 429 for too many new devices, with
+    a code the app understands and the details it shows."""
+    code = (
+        status.HTTP_429_TOO_MANY_REQUESTS
+        if isinstance(problem, devices.SwitchLimit)
+        else status.HTTP_409_CONFLICT
+    )
+    return HTTPException(
+        code, {"code": problem.code, "message": str(problem), **problem.details}
+    )

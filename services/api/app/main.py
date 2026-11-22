@@ -6,13 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.admin import router as admin_router
+from app.admin_billing import router as billing_router
 from app.auth import TokenVerifier
 from app.catalogue import Refresher
 from app.config import Settings
 from app.db import Database, DatabaseUnavailable
+from app.device_routes import router as device_router
 from app.pass_routes import router as pass_router
 from app.pesapal import PesapalClient
 from app.playback import Granter
+from app.ratelimit import RateLimiter
 from app.routes import router
 from app.tmdb import TmdbClient
 from app.viewer_routes import router as viewer_router
@@ -30,6 +33,7 @@ def create_app(
     editor_database: Database | None = None,
     tmdb: TmdbClient | None = None,
     pesapal: PesapalClient | None = None,
+    rate_limiter: RateLimiter | None = None,
 ) -> FastAPI:
     """Build the application. Tests pass their own settings, verifier,
     databases, TMDB refresher and client, playback granter and Pesapal."""
@@ -120,6 +124,8 @@ def create_app(
     app.state.tmdb = tmdb
     # None without the Pesapal settings. Buying a pass answers 503.
     app.state.pesapal = pesapal
+    # Per account: checkouts, payment checks, devices and playback.
+    app.state.rate_limiter = rate_limiter or RateLimiter()
     if settings.passes_required and pesapal is None:
         logger.warning(
             "VELORAUG_PASSES_REQUIRED is on, but Pesapal isn't set up: "
@@ -131,7 +137,7 @@ def create_app(
         # No cookies are used: the app sends its token in a header.
         allow_credentials=False,
         allow_methods=["GET", "PATCH", "POST", "PUT", "DELETE"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-Velora-Device"],
     )
 
     @app.exception_handler(DatabaseUnavailable)
@@ -146,4 +152,6 @@ def create_app(
     app.include_router(viewer_router)
     app.include_router(admin_router)
     app.include_router(pass_router)
+    app.include_router(device_router)
+    app.include_router(billing_router)
     return app

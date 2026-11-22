@@ -4,7 +4,38 @@ For the owner, on this PC, with Neon's development branch and **Pesapal's sandbo
 
 **Before you start:** the 9F run sheet's setup works (the API, the media worker and the app run, and at least one film is published and plays).
 
-## 1. Run the migration
+> **Updated 21 November 2026 for Milestone 10's six tiers and devices.** Run [Migration 0007](#migration-0007) instead of step 1, use the tiers in steps 3 to 7, and add steps 10 to 15. Nothing here uses live Pesapal keys or real money.
+
+## Migration 0007
+
+Run this on Neon's **development** branch first. On production, only once the whole run sheet has passed on development, and only with the owner's go-ahead.
+
+**Order matters:** migrate **before** the API from this branch runs against that database. The new API reads `0007`'s columns; on a `0006` database its pass and account routes would fail. Today's API keeps working on `0007`. Don't run `infra/production-database.sh` again for this: it upgrades to `head` without the checks below.
+
+1. **Backup.** In the Neon Console, open the project, **Branches → Create branch**, from the branch you'll migrate, at the current time. Name it `backup-before-0007-<date>`. Check it's listed, with its parent and time. Neon keeps it until you delete it; restoring is **Branches → … → Restore**.
+2. **Preflight**, read-only, with the owner string pasted when asked:
+
+   ```powershell
+   cd services\api
+   .\.venv\Scripts\python.exe scripts\preflight_0007.py
+   ```
+
+   **Expect:** every line `PASS`, and the counts of payments, passes and completed payments. Write the counts down. If anything says `FAIL`, stop and send it back.
+3. **Review the SQL** without running it, if you wish: `.\.venv\Scripts\python.exe -m alembic upgrade 0006:0007 --sql`.
+4. **Migrate**, explicitly to `0007`:
+
+   ```powershell
+   .\.venv\Scripts\python.exe -m alembic upgrade 0007
+   .\.venv\Scripts\python.exe -m alembic current
+   .\.venv\Scripts\python.exe scripts\check_database.py
+   ```
+
+   **Expect:** `0007 (head)`, and every check `PASS`, including "the six tiers, with their days and devices" and "a fourth device is refused".
+5. **Compare** in the SQL editor: `select count(*) from public.payments; select count(*) from public.passes;` match step 2, and `select id, display_name, price_ugx, days, max_devices, for_sale from public.pass_plans order by display_order;` shows the six tiers on sale and `day`, `week`, `month` off sale.
+
+If step 4 fails part-way, the migration runs in one transaction and nothing changes; send back the error. Never downgrade a hosted branch.
+
+## 1. Run the migration (before Milestone 10)
 
 Migration `0006_passes` adds pass prices, payments and passes. As for earlier migrations, paste the owner connection string into your own terminal only, **never in a message**:
 
@@ -34,7 +65,7 @@ The first two each ask for the owner string, as in the [API README](../services/
 
    ```powershell
    docker compose -f infra\compose.local.yaml --profile uploads up -d api
-   docker compose -f infra\compose.local.yaml exec api python -m app.pesapal register-ipn http://127.0.0.1:8000/api/v1/passes/ipn
+   docker compose -f infra\compose.local.yaml exec api python -m app.pesapal register-ipn https://api.veloraug.com/api/v1/passes/ipn
    ```
 
 4. Copy the printed `VELORAUG_PESAPAL_IPN_ID=...` line into `.env`, add the two lines below, and restart the API again:
@@ -44,13 +75,13 @@ The first two each ask for the owner string, as in the [API README](../services/
    VELORAUG_PASSES_REQUIRED=true
    ```
 
-**Expect:** `Registered with Pesapal's sandbox.` Pesapal can't reach `127.0.0.1`, so no notifications arrive: the app checks the payment itself.
+**Expect:** `Registered with Pesapal's sandbox.` Pesapal refuses a local address (found on 22 November 2026: `invalid_url ... not a local address`), so a public one is registered only to get an ID. Notifications go to the production API, which has no Pesapal keys and answers 503 without changing anything; on this PC, the app checks the payment itself.
 
-## 3. Set the prices
+## 3. The plans
 
-In the app, signed in as an admin: **Admin → Settings → Pass prices**. Set the day pass to **1000**, the week to **5000**, and leave the month empty. **Save prices**.
+The six tiers come with their approved prices. In the app, signed in as an admin: **Admin → Subscriptions**. Check the six plans, with Velora Prime featured. Change Velora Flex's price to **10,500**, **Save**, then back to **10,000**, **Save**.
 
-**Expect:** "Prices saved."
+**Expect:** "Velora Flex saved." each time, and two lines under **Price history**. `day`, `week` and `month` say "Legacy pass, kept for history", with no price field.
 
 ## 4. A viewer without a pass is refused
 
@@ -58,9 +89,9 @@ Sign in **as an account that isn't an admin** (admins never need a pass). Open a
 
 **Expect:** "You need a pass to watch", with **Buy a pass**. Account → Your pass says "You don't have a pass."
 
-## 5. Buy a day pass from the player
+## 5. Buy a plan from the player
 
-1. Press **Buy a pass**, then **1 day, UGX 1,000**.
+1. Press **Choose a plan**, then **Pay UGX 6,000** on Velora Start.
 2. Pesapal's sandbox page opens in a new tab. Pay with one of the sandbox test methods Pesapal lists.
 3. Go back to the VeloraUG tab.
 
@@ -70,13 +101,13 @@ Sign in **as an account that isn't an admin** (admins never need a pass). Open a
 
 ## 6. The payment in Pesapal's dashboard
 
-Sign in to Pesapal's sandbox dashboard. **Expect:** the payment, for UGX 1,000, described as "VeloraUG pass, 1 day".
+Sign in to Pesapal's sandbox dashboard. **Expect:** the payment, for UGX 6,000, described as "VeloraUG Velora Start, 7 days". Account → Payments shows it as **Paid**, with Pesapal's reference.
 
 ## 7. A pass bought early starts when the first ends
 
-Account → Your pass → **Buy another pass** → **1 week**, and pay.
+Account → My membership → **Change plan** → **Velora Duo**, and pay.
 
-**Expect:** "Your pass runs until" tomorrow, and "With the pass you bought next, you can watch until" 8 days from now.
+**Expect:** My membership still shows **Velora Start**, 1 registered device, and "Next: Velora Duo, from" the day Velora Start ends, 7 days from now.
 
 ## 8. The pass ends
 
@@ -90,7 +121,7 @@ where user_id = (
 );
 ```
 
-**Expect:** `UPDATE 2`, one for each pass bought.
+**Expect:** `UPDATE 2`, one for each pass bought. (Through the API's own roles the database refuses to move a pass that has started; the owner, by hand, may.)
 
 Then press **Watch** again.
 
@@ -99,6 +130,42 @@ Then press **Watch** again.
 ## 9. Switch passes off again
 
 Set `VELORAUG_PASSES_REQUIRED=false` in `.env` and restart the API, so viewing carries on as before until launch.
+
+## 10. Devices: registered once, and limited
+
+Before step 8's SQL, or with a fresh viewer who has Velora Start: watch a film in Chrome. Then Account → **My devices**.
+
+**Expect:** one device, "Web browser", marked **This device**. In a second tab of the same browser, it's the same device. In Edge, or on the phone, pressing **Watch** says **Device limit reached** with **Manage devices**.
+
+## 11. Two devices on Velora Duo
+
+For a fresh test viewer, buy **Velora Duo**. Register Chrome and the phone by pressing **Watch** on each, and play on both at once. Then try a third browser.
+
+**Expect:** both play together, and the third says **Device limit reached**. Account → My devices shows two devices, "Your plan allows 2 registered devices."
+
+## 12. Removing a device stops it
+
+While the phone plays, in Chrome: Account → My devices → the phone → **Remove**.
+
+**Expect:** within about a minute the phone's film stops and says **Playback stopped**. Pressing **Watch here again** registers it as a new device.
+
+## 13. Stopping playback elsewhere
+
+While Chrome plays, on the phone Account → My devices → **Playing now** → **Stop**.
+
+**Expect:** Chrome's film stops within about a minute.
+
+## 14. A reversal
+
+In Pesapal's sandbox dashboard, if it lets you reverse or refund a sandbox payment, reverse the Velora Start payment. Otherwise note that it couldn't be tried.
+
+**Expect:** after Pesapal's notification, or the next Account visit, Payments shows **Reversed**, Velora Start is gone from My membership, and Velora Duo starts now.
+
+## 15. The media gateway's check
+
+Only after the Worker from this branch is deployed with `API_URL` (Step 11D). With a film playing, run step 8's SQL.
+
+**Expect:** the film stops within about a minute, not when its grant ends.
 
 ## What to send back
 

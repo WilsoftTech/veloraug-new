@@ -16,6 +16,7 @@
 // Nothing here logs an address: it contains the grant.
 
 import { GRANT_PATTERN, importSigningKey, verifyGrant } from "./grant.ts";
+import { type Fetcher, sessionState } from "./sessions.ts";
 import {
   IMAGE_PATH,
   MAX_IMAGE_BYTES,
@@ -57,6 +58,9 @@ export interface Env {
   PLAYBACK_SIGNING_KEY: string;
   // Web app origins allowed to read video, separated by commas.
   ALLOWED_ORIGINS: string;
+  // The API's origin, which says whether a grant's playback session is
+  // still live (Milestone 10). Without it, a session-bound grant gets 503.
+  API_URL?: string;
 }
 
 const ROUTE = new RegExp(
@@ -105,6 +109,7 @@ export async function handle(
   request: Request,
   env: Env,
   nowSeconds: number = Math.floor(Date.now() / 1000),
+  fetcher: Fetcher = (input, init) => fetch(input, init),
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   if (origin !== null) {
@@ -144,8 +149,24 @@ export async function handle(
   if (secret.length < MIN_KEY_LENGTH) {
     return plain(503, "Playback isn't set up.", cors);
   }
-  const grant = await verifyGrant(await signingKey(secret), match[1], nowSeconds);
+  const signing = await signingKey(secret);
+  const grant = await verifyGrant(signing, match[1], nowSeconds);
   if (grant === null) return plain(403, "Not allowed.", cors);
+  if (grant.sessionId !== undefined) {
+    // Milestone 10: honoured only while its session is live.
+    const apiUrl = env.API_URL ?? "";
+    if (!/^https?:\/\//.test(apiUrl)) {
+      return plain(503, "Playback isn't set up.", cors);
+    }
+    const state = await sessionState(signing, apiUrl, grant.sessionId, nowSeconds, fetcher);
+    if (state === "ended") return plain(403, "Not allowed.", cors);
+    if (state === "unknown") {
+      return plain(503, "Playback can't be checked right now.", {
+        ...cors,
+        "Retry-After": "10",
+      });
+    }
+  }
 
   const key = `movies/${grant.movieId}/${grant.originalId}/${match[2]}`;
   let object: R2Object | null;

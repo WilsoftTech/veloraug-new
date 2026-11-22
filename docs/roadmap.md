@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 17 November 2026.
+Last updated: 21 November 2026.
 
 Milestones 1 and 2 match the setup steps already carried out. Milestone 3 is complete: see the [Step 3 report](step-03-report.md). Milestone 4 is complete, through Step 4, the local Docker run in Step 4B and the Flutter connection in Step 4C: see the [Step 4](step-04-report.md), [Step 4B](step-04b-report.md) and [Step 4C](step-04c-report.md) reports. Milestones 5 onward are a proposed order and may change.
 
@@ -128,13 +128,17 @@ VeloraUG streams **Luganda-translated movies and series by Ugandan VJs**, browse
 
 ### Milestone 10: Payments
 
-Prepaid **daily, weekly and monthly catalogue passes**, through Pesapal. Planned in the [payments plan](step-10a-payments-plan.md), **not yet approved**: written and built on 19 November 2026 at the owner's request to implement Milestone 10. Prices are set by an admin in Settings. Pay per title and automatic renewal come later. Passes are switched on with `VELORAUG_PASSES_REQUIRED`, off by default.
+Prepaid catalogue passes through Pesapal: since 21 November 2026, **six tiers** with device limits, replacing the daily, weekly and monthly passes for sale. Planned in the [payments plan](step-10a-payments-plan.md), **not yet approved**: written and built on 19 November 2026 at the owner's request to implement Milestone 10. Prices are set by an admin in Settings. Pay per title and automatic renewal come later. Passes are switched on with `VELORAUG_PASSES_REQUIRED`, off by default.
 
 - [x] 10A: Plan passes, payment confirmation and expiry (awaiting the owner's approval)
 - [x] 10B: Migration `0006`, the Pesapal API 3.0 client, the pass routes, grants capped at the pass's end and 402 without one, and admin prices (automated tests, with Pesapal faked)
 - [x] 10C: The app: Your pass on the Account tab, buying through Pesapal's page, the player's "You need a pass" and "Your pass has ended", and pass prices in admin Settings (widget tests, with the API faked)
 - [x] 10D: The [Step 10E run sheet](step-10e-runbook.md) and the docs
 - [ ] 10E: One pass in Pesapal's sandbox: payment confirmed by the backend, playback allowed, then refused when the pass expires. Needs the owner: migration `0006` on Neon, sandbox keys, and the run sheet
+- [x] 10F (21 November 2026), code only, on branch `feature/milestone-10-subscriptions`, not merged or deployed: the owner-approved **six tiers** (Velora Start, Flex, Prime, Duo, Pro, Max: UGX 6,000 to 150,000, 7 to 365 days, 1 to 3 devices), with `day`, `week` and `month` kept as legacy and off sale. Migration `0007` (forward only, snapshots of what each payment bought, at most three devices and three streams per account enforced by the database), registered devices with server-made credentials, playback sessions with heartbeats, the media gateway checking each session with the API, queued passes by tier, reversals moving queued passes up, checkout retries, per-account rate limits, audit events, Admin → Subscriptions, and the app's plan cards, My membership, My devices and Payments. Automated tests: 592 API (local Postgres, Pesapal faked), 39 Worker, all Flutter widget and unit tests; the web release build compiles. See [Milestone 10 subscriptions](step-10a-payments-plan.md#milestone-10-subscriptions)
+- [ ] 10G: Migration `0007` on Neon with the [preflight](step-10e-runbook.md#migration-0007), the Worker with `API_URL` deployed, an Android build on a phone, and the updated [10E run sheet](step-10e-runbook.md) in Pesapal's sandbox, steps 1 to 15
+  - [x] On the development branch, 22 November 2026: migration `0007` (preflight 11/11, `check_database.py` 38/38), and one sandbox payment with Pesapal's test card, completed and confirmed by the API (Velora Flex, 14 days). A second, non-admin account bought a plan, played a film, and its browser registered itself as **This device** (user-reported). Admins skip devices, as designed
+- [ ] 10H: One controlled live payment by the owner, with passes still off for viewers: [Step 10H run sheet](step-10h-live-runbook.md)
 
 ### Milestone 11: Pilot deployment
 

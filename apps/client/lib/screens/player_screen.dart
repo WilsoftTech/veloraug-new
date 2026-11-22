@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api/catalogue_api.dart';
+import '../api/pass_api.dart';
 import '../api/playback_api.dart';
 import '../l10n/l10n.dart';
 import '../player/video_view.dart';
@@ -8,9 +11,13 @@ import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/velora_button.dart';
+import 'devices_screen.dart';
 import 'pass_screen.dart';
 
 enum _Phase { granting, playing, failed }
+
+/// Why playback stopped, when it is something the viewer can fix here.
+enum _Stop { other, pass, devices, streams, session }
 
 /// Watches one item: a movie, or one episode of a series. Asks the API for
 /// a grant, then plays the playlist it names from the media gateway.
@@ -28,6 +35,12 @@ enum _Phase { granting, playing, failed }
 /// Next Episode offers the next one, in the same edition, so the same VJ:
 /// in the bar at any time, and in the middle of the screen when an episode
 /// ends.
+///
+/// With passes required, Milestone 10, a grant is bound to a playback
+/// session that the player keeps alive with a heartbeat. If the session is
+/// stopped from another device, the device is removed or the pass ends,
+/// the player says so. A device or stream limit offers to manage devices or
+/// stop the other playback, then carries on from the same moment.
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({
     super.key,
@@ -69,9 +82,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   PlaybackGrant? _grant;
   String? _message;
 
-  /// The failure is a missing or ended pass, Step 10C.
-  bool _needsPass = false;
+  /// What stopped playback, Step 10C and Milestone 10.
+  _Stop _stop = _Stop.other;
   bool _passEnded = false;
+
+  /// For a stream limit: what is playing elsewhere.
+  List<LiveSession> _elsewhere = const [];
+
+  /// Keeps the playback session alive.
+  Timer? _heartbeat;
   Duration _position = Duration.zero;
   bool _started = false;
   bool _ended = false;
@@ -115,6 +134,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _heartbeat?.cancel();
+    super.dispose();
+  }
+
+  void _startHeartbeat(PlaybackGrant grant) {
+    _heartbeat?.cancel();
+    final every = grant.heartbeat;
+    final session = grant.sessionId;
+    if (every == null || session == null) return;
+    _heartbeat = Timer.periodic(every, (_) => _beat(session));
+  }
+
+  Future<void> _beat(String session) async {
+    final api = PlaybackScope.of(context);
+    if (api == null) return;
+    final result = await api.heartbeat(session);
+    if (!mounted || _grant?.sessionId != session) return;
+    _react(result);
+  }
+
+  /// What the API said of the session. Answers whether playback must stop.
+  bool _react(HeartbeatResult result) {
+    switch (result) {
+      case HeartbeatResult.passEnded:
+        _heartbeat?.cancel();
+        _showNeedsPass(ended: true);
+        return true;
+      case HeartbeatResult.ended || HeartbeatResult.deviceRemoved:
+        _heartbeat?.cancel();
+        _showStop(_Stop.session, context.l10n.sessionEndedMessage);
+        return true;
+      case HeartbeatResult.live || HeartbeatResult.unknown:
+        return false;
+    }
+  }
+
   Future<void> _fetchGrant({bool renewal = false}) async {
     if (mounted) {
       setState(() => _phase = _Phase.granting);
@@ -141,14 +198,52 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _renewedThisGrant = renewal;
         _phase = _Phase.playing;
       });
+      _startHeartbeat(grant);
     } on PlaybackException catch (error) {
       if (itemId != _itemId) return;
-      if (error.failure == PlaybackFailure.needsPass) {
-        _showNeedsPass(ended: renewal || _grant != null);
-        return;
+      _heartbeat?.cancel();
+      switch (error.failure) {
+        case PlaybackFailure.needsPass:
+          _showNeedsPass(ended: renewal || _grant != null);
+        case PlaybackFailure.deviceLimit:
+          _showStop(_Stop.devices, l.deviceLimitMessage);
+        case PlaybackFailure.streamLimit:
+          _elsewhere = error.sessions;
+          _showStop(_Stop.streams, l.streamLimitMessage);
+        default:
+          _showFailure(playbackFailureMessage(l, error.failure));
       }
-      _showFailure(playbackFailureMessage(l, error.failure));
     }
+  }
+
+  void _showStop(_Stop stop, String message) {
+    if (!mounted) return;
+    setState(() {
+      _stop = stop;
+      _message = message;
+      _phase = _Phase.failed;
+    });
+  }
+
+  Future<void> _manageDevices() async {
+    await DevicesScreen.open(context);
+    if (!mounted) return;
+    _position = _playedTo;
+    await _fetchGrant();
+  }
+
+  /// Stops playback on another device, then watches here.
+  Future<void> _takeOver(LiveSession session) async {
+    final api = PlaybackScope.of(context);
+    if (api == null) return;
+    try {
+      await api.stopSession(session.id);
+    } on PassException {
+      // Asking for a grant again says what is still in the way.
+    }
+    if (!mounted) return;
+    _position = _playedTo;
+    await _fetchGrant();
   }
 
   /// No pass, or it ended mid-film, Step 10C: offers one, and carries on
@@ -157,7 +252,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (!mounted) return;
     final l = context.l10n;
     setState(() {
-      _needsPass = true;
+      _stop = _Stop.pass;
       _passEnded = ended;
       _message = ended ? l.passEndedMessage : l.passNeededMessage;
       _phase = _Phase.failed;
@@ -235,16 +330,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showFailure(String message) {
     if (!mounted) return;
     setState(() {
-      _needsPass = false;
+      _stop = _Stop.other;
       _message = message;
       _phase = _Phase.failed;
     });
   }
 
-  void _playbackFailed(Duration position) {
+  Future<void> _playbackFailed(Duration position) async {
     _position = position;
     _playedTo = position;
     final grant = _grant;
+    // A session-bound grant: the gateway may have refused because the
+    // session ended. Ask why before anything else.
+    final session = grant?.sessionId;
+    final api = PlaybackScope.of(context);
+    if (session != null && api != null) {
+      final result = await api.heartbeat(session);
+      if (!mounted || _grant?.sessionId != session) return;
+      if (_react(result)) return;
+    }
     final runOut =
         grant != null &&
         !widget.clock().isBefore(
@@ -265,6 +369,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _playNext() {
     final next = _next;
     if (next == null) return;
+    _heartbeat?.cancel();
     setState(() {
       _itemId = next.itemId;
       _grant = null;
@@ -319,21 +424,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 constraints: const BoxConstraints(
                   maxWidth: VeloraLayout.readingWidth,
                 ),
-                child: _needsPass
-                    ? ErrorState(
-                        icon: Icons.confirmation_number_outlined,
-                        title: _passEnded
-                            ? l.passEndedTitle
-                            : l.passNeededTitle,
-                        message: _message!,
-                        onRetry: _buyPass,
-                        retryLabel: l.buyAPass,
-                      )
-                    : ErrorState(
-                        title: l.couldNotPlay,
-                        message: _message!,
-                        onRetry: _fetchGrant,
-                      ),
+                child: _failedView(context),
               ),
             ),
           ),
@@ -386,6 +477,64 @@ class _PlayerScreenState extends State<PlayerScreen> {
         },
       ),
     );
+  }
+}
+
+extension on _PlayerScreenState {
+  Widget _failedView(BuildContext context) {
+    final l = context.l10n;
+    return switch (_stop) {
+      _Stop.pass => ErrorState(
+        icon: Icons.workspace_premium_outlined,
+        title: _passEnded ? l.passEndedTitle : l.passNeededTitle,
+        message: _message!,
+        onRetry: _buyPass,
+        retryLabel: l.choosePlan,
+      ),
+      _Stop.devices => ErrorState(
+        icon: Icons.devices_outlined,
+        title: l.deviceLimitTitle,
+        message: _message!,
+        onRetry: _manageDevices,
+        retryLabel: l.manageDevices,
+      ),
+      _Stop.streams => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: VeloraSpacing.sm,
+        children: [
+          ErrorState(
+            icon: Icons.tv_off_outlined,
+            title: l.streamLimitTitle,
+            message: _message!,
+            onRetry: _fetchGrant,
+          ),
+          for (final session in _elsewhere)
+            VeloraButton(
+              key: ValueKey('take-over-${session.id}'),
+              label: l.stopOnDeviceAndWatch(session.deviceLabel),
+              icon: Icons.stop_circle_outlined,
+              variant: VeloraButtonVariant.secondary,
+              onPressed: () => _takeOver(session),
+            ),
+        ],
+      ),
+      _Stop.session => ErrorState(
+        icon: Icons.stop_circle_outlined,
+        title: l.sessionEndedTitle,
+        message: _message!,
+        onRetry: () {
+          _position = _playedTo;
+          _fetchGrant();
+        },
+        retryLabel: l.watchHereAgain,
+      ),
+      _Stop.other => ErrorState(
+        title: l.couldNotPlay,
+        message: _message!,
+        onRetry: _fetchGrant,
+      ),
+    };
   }
 }
 

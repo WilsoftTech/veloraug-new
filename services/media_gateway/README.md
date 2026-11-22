@@ -38,6 +38,12 @@ From Step 9C a "movie" here is a playable item, a movie edition or an episode, a
 
 The playlists name their files relative to themselves, so the grant in the path carries over to every playlist and chunk, in hls.js and ExoPlayer alike. Answers are `Cache-Control: private`, so a shared cache never keeps someone's grant. Nothing here logs an address. The local `wrangler dev` does print each one, grant included, to its own terminal.
 
+## Playback sessions (Milestone 10)
+
+With passes required, the API's grants carry `"s"`, a random playback-session ID. The Worker serves such a grant only while the API says its session is live: `GET <API_URL>/api/v1/gateway/sessions/<s>` with `X-Velora-Gateway: <expires>.<HMAC-SHA256 of "veloraug-gateway-v1." + s + "." + expires>`, signed with the same `PLAYBACK_SIGNING_KEY`. The answer is kept for 30 seconds in the isolate. If the API can't be reached, a session seen live within 2 minutes carries on; otherwise `503`. A stopped session, a removed device or a pass that has ended or been reversed gets `403` within about 30 seconds. Grants without `"s"` (admins, and every grant while passes are off) are served as before, without asking. See `src/sessions.ts`.
+
+**Deploy order:** this Worker accepts today's grants, and an older Worker ignores `"s"`, so either can be deployed first. Revocation only takes effect once this Worker runs with `API_URL`. The development Worker's `API_URL` is `http://127.0.0.1:8000`, which a deployed `workers.dev` Worker can't reach: on the deployed development Worker, set it to an address the Worker can reach before testing sessions there.
+
 ## Files
 
 | File | Job |
@@ -56,6 +62,7 @@ The playlists name their files relative to themselves, so the grant in the path 
 | --- | --- | --- |
 | `PLAYBACK_SIGNING_KEY` | **Secret.** `.dev.vars` locally, a Worker secret on Cloudflare | Exactly the API's `VELORAUG_PLAYBACK_SIGNING_KEY` |
 | `ALLOWED_ORIGINS` | `vars` in `wrangler.jsonc` | Web app origins allowed to read video, separated by commas. Requests with no `Origin`, as from ExoPlayer, are checked by grant only |
+| `API_URL` | `vars` in `wrangler.jsonc` | Milestone 10. The API's origin, asked whether a grant's playback session is still live. Without it, a grant that names a session gets `503`; grants without one are served as before |
 | `MEDIA` | `r2_buckets` in `wrangler.jsonc` | The bucket, `veloraug-dev` |
 
 ## Setup

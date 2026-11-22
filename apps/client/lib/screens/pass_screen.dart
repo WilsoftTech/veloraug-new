@@ -8,14 +8,16 @@ import '../api/pass_api.dart';
 import '../api/playback_api.dart';
 import '../auth/auth_controller.dart';
 import '../l10n/l10n.dart';
+import '../theme/palette.dart';
 import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/screen_body.dart';
+import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
 import '../widgets/velora_text_field.dart';
 
-/// "UGX 2,000".
+/// "UGX 18,000".
 String formatUgx(BuildContext context, int amount) => context.l10n.passPrice(
   NumberFormat.decimalPattern(Localizations.localeOf(context).toLanguageTag())
       .format(amount),
@@ -29,6 +31,18 @@ String formatPassEnd(BuildContext context, DateTime at) {
       '${dates.formatTimeOfDay(TimeOfDay.fromDateTime(local), alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context))}';
 }
 
+/// "19 Nov 2026".
+String formatDay(BuildContext context, DateTime at) =>
+    MaterialLocalizations.of(context).formatMediumDate(at.toLocal());
+
+/// "12 days left", "5 hours left" or "20 minutes left".
+String timeLeft(AppLocalizations l, Duration left) {
+  if (left.inDays >= 1) return l.timeLeftDays(left.inDays);
+  if (left.inHours >= 1) return l.timeLeftHours(left.inHours);
+  return l.timeLeftMinutes(left.inMinutes < 1 ? 1 : left.inMinutes);
+}
+
+/// A legacy pass's name, Step 10C. The six tiers carry their own names.
 String passName(AppLocalizations l, String id, int days) => switch (id) {
   'day' => l.passDay,
   'week' => l.passWeek,
@@ -39,22 +53,31 @@ String passName(AppLocalizations l, String id, int days) => switch (id) {
 String passFailureMessage(AppLocalizations l, PassFailure failure) =>
     switch (failure) {
       PassFailure.signedOut => l.passSignInNeeded,
+      PassFailure.notFound => l.somethingWentWrong,
       PassFailure.notForSale => l.passNotForSale,
       PassFailure.needsContact => l.phoneNotValid,
+      PassFailure.tooMany => l.tooManyAttempts,
       PassFailure.unavailable => l.paymentsUnavailable,
       PassFailure.unreachable => l.unreachable,
       PassFailure.unexpected => l.somethingWentWrong,
     };
 
-/// The Account tab's "Your pass": whether one is running, and buying one.
-class PassSection extends StatefulWidget {
-  const PassSection({super.key});
+// --- Account: My membership --------------------------------------------------
+
+/// The Account tab's "My membership": the plan running now, its dates, time
+/// left and allowances, any plan queued after it, and renewing or changing
+/// plan. A payment shows as made only once the API has confirmed it with
+/// Pesapal, never because the browser came back from Pesapal's page.
+class MembershipSection extends StatefulWidget {
+  const MembershipSection({super.key, this.clock = DateTime.now});
+
+  final DateTime Function() clock;
 
   @override
-  State<PassSection> createState() => _PassSectionState();
+  State<MembershipSection> createState() => _MembershipSectionState();
 }
 
-class _PassSectionState extends State<PassSection> {
+class _MembershipSectionState extends State<MembershipSection> {
   PassStatus? _status;
   PassFailure? _failure;
   bool _started = false;
@@ -80,7 +103,7 @@ class _PassSectionState extends State<PassSection> {
     }
   }
 
-  Future<void> _buy() async {
+  Future<void> _choose() async {
     final bought = await BuyPassScreen.open(context);
     if (bought && mounted) await _load();
   }
@@ -89,7 +112,6 @@ class _PassSectionState extends State<PassSection> {
   Widget build(BuildContext context) {
     if (PlaybackScope.of(context) == null) return const SizedBox.shrink();
     final l = context.l10n;
-    final theme = Theme.of(context);
     final status = _status;
     final failure = _failure;
     final Widget body;
@@ -100,40 +122,128 @@ class _PassSectionState extends State<PassSection> {
         onRetry: _load,
       );
     } else if (status == null) {
-      body = VeloraLoadingRegion(
-        label: l.loading,
-        child: const VeloraSpinner(size: 24),
-      );
+      body = const _SectionSkeleton(lines: 3);
     } else {
-      final current = status.currentEndsAt;
-      final last = status.endsAt;
-      body = Column(
+      body = _membership(context, status);
+    }
+    return AccountCard(title: l.myMembership, child: body);
+  }
+
+  Widget _membership(BuildContext context, PassStatus status) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final palette = VeloraPalette.of(context);
+    final current = status.current;
+    final badges = Wrap(
+      spacing: VeloraSpacing.xs,
+      runSpacing: VeloraSpacing.xs,
+      children: [
+        if (status.active)
+          StatusBadge(
+            label: l.membershipActive,
+            tone: StatusTone.success,
+            icon: Icons.check_circle_outline,
+          )
+        else
+          StatusBadge(label: l.membershipNone, tone: StatusTone.neutral),
+        if (status.checking)
+          StatusBadge(
+            label: l.membershipChecking,
+            tone: StatusTone.info,
+            icon: Icons.hourglass_top,
+          ),
+      ],
+    );
+    if (!status.active || current == null) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: VeloraSpacing.sm,
         children: [
-          if (status.active && current != null)
-            Text(l.passActiveUntil(formatPassEnd(context, current)))
-          else ...[
-            Text(l.noPass),
-            Text(l.passIntro),
-          ],
-          if (status.active &&
-              last != null &&
-              current != null &&
-              last.isAfter(current))
-            Text(l.passQueuedUntil(formatPassEnd(context, last))),
+          badges,
+          Text(l.membershipNoneHelp),
           if (status.checking) Text(l.passChecking),
           VeloraButton(
-            label: status.active ? l.buyAnotherPass : l.buyAPass,
-            icon: Icons.confirmation_number_outlined,
-            variant: status.active
-                ? VeloraButtonVariant.secondary
-                : VeloraButtonVariant.primary,
-            onPressed: _buy,
+            label: l.choosePlan,
+            icon: Icons.workspace_premium_outlined,
+            onPressed: _choose,
           ),
         ],
       );
     }
+    final left = current.endsAt.difference(widget.clock().toUtc());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: VeloraSpacing.sm,
+      children: [
+        badges,
+        Text(
+          current.planName,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          timeLeft(l, left.isNegative ? Duration.zero : left),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: palette.accentText,
+          ),
+        ),
+        Wrap(
+          spacing: VeloraSpacing.lg,
+          runSpacing: VeloraSpacing.xs,
+          children: [
+            _Fact(
+              Icons.event_available_outlined,
+              l.membershipStarted(formatDay(context, current.startsAt)),
+            ),
+            _Fact(
+              Icons.event_busy_outlined,
+              l.membershipExpires(formatPassEnd(context, current.endsAt)),
+            ),
+            _Fact(Icons.devices_outlined, l.planDevices(current.maxDevices)),
+            _Fact(Icons.tv_outlined, l.planStreams(current.maxStreams)),
+          ],
+        ),
+        for (final next in status.queued)
+          _Fact(
+            Icons.schedule,
+            l.membershipQueued(
+              next.planName,
+              formatDay(context, next.startsAt),
+            ),
+          ),
+        if (status.checking) Text(l.passChecking),
+        Wrap(
+          spacing: VeloraSpacing.sm,
+          runSpacing: VeloraSpacing.sm,
+          children: [
+            VeloraButton(
+              label: l.renewPlan,
+              icon: Icons.autorenew,
+              onPressed: _choose,
+            ),
+            VeloraButton(
+              label: l.changePlan,
+              icon: Icons.swap_horiz,
+              variant: VeloraButtonVariant.secondary,
+              onPressed: _choose,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A titled card on the Account tab.
+class AccountCard extends StatelessWidget {
+  const AccountCard({super.key, required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Card.outlined(
       child: Padding(
         padding: const EdgeInsets.all(VeloraSpacing.md),
@@ -143,15 +253,62 @@ class _PassSectionState extends State<PassSection> {
           children: [
             Semantics(
               header: true,
-              child: Text(l.yourPass, style: theme.textTheme.titleMedium),
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-            body,
+            child,
           ],
         ),
       ),
     );
   }
 }
+
+class _Fact extends StatelessWidget {
+  const _Fact(this.icon, this.text);
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: VeloraSpacing.xs,
+      children: [
+        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+        Flexible(child: Text(text)),
+      ],
+    );
+  }
+}
+
+/// Grey lines while a section loads.
+class _SectionSkeleton extends StatelessWidget {
+  const _SectionSkeleton({required this.lines});
+
+  final int lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return VeloraLoadingRegion(
+      label: context.l10n.loading,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: VeloraSpacing.xs,
+        children: [
+          for (var i = 0; i < lines; i++)
+            VeloraSkeleton(width: i == 0 ? 120 : 260, height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Choosing and paying -----------------------------------------------------
 
 enum _Phase {
   loading,
@@ -164,8 +321,8 @@ enum _Phase {
   ready,
 }
 
-/// Choosing a pass, paying on Pesapal's page, and waiting until the API
-/// confirms it. Answers true, when popped, once a pass is ready.
+/// Choosing a plan, paying on Pesapal's page, and waiting until the API
+/// confirms it. Answers true, when popped, once a plan is ready.
 class BuyPassScreen extends StatefulWidget {
   const BuyPassScreen({super.key});
 
@@ -195,7 +352,9 @@ class BuyPassScreen extends StatefulWidget {
 class _BuyPassScreenState extends State<BuyPassScreen> {
   _Phase _phase = _Phase.loading;
   List<PassPlan> _plans = const [];
+  bool _hasPlan = false;
   String? _message;
+  String? _buying;
   Checkout? _checkout;
   DateTime? _endsAt;
   Timer? _timer;
@@ -243,6 +402,14 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
       });
     } on PassException catch (error) {
       _fail(passFailureMessage(context.l10n, error.failure));
+      return;
+    }
+    // Whether a new plan will queue behind one already running.
+    try {
+      final status = await api.myPass();
+      if (mounted) setState(() => _hasPlan = status.active);
+    } on PassException {
+      // Not needed to choose.
     }
   }
 
@@ -251,16 +418,18 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     setState(() {
       _message = message;
       _phase = phase;
+      _buying = null;
     });
   }
 
   Future<void> _buy(PassPlan plan) async {
     final api = _api;
-    if (api == null) return;
+    if (api == null || _buying != null) return;
     final email = _email;
     if (email == null && !(_form.currentState?.validate() ?? false)) return;
     final l = context.l10n;
     setState(() {
+      _buying = plan.id;
       _phase = _Phase.starting;
       _message = null;
     });
@@ -274,6 +443,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
       setState(() {
         _checkout = checkout;
         _phase = _Phase.waiting;
+        _buying = null;
       });
       _deadline = DateTime.now().add(BuyPassScreen.checkFor);
       await _openPesapal();
@@ -353,29 +523,19 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final wide = _phase == _Phase.loading || _phase == _Phase.choosing;
     return Scaffold(
-      appBar: AppBar(title: Text(l.buyAPass)),
+      appBar: AppBar(title: Text(l.choosePlanTitle)),
       body: ScreenBody(
-        heading: l.choosePass,
+        heading: l.choosePlanTitle,
+        maxWidth: wide ? VeloraLayout.browseWidth : VeloraLayout.readingWidth,
         children: [
           ...switch (_phase) {
             _Phase.loading => [
-              Center(
-                child: VeloraLoadingRegion(
-                  label: l.loading,
-                  child: const VeloraSpinner(size: 32),
-                ),
-              ),
+              Text(l.choosePlanIntro),
+              const _PlanGrid.skeleton(),
             ],
-            _Phase.choosing => _choosing(l),
-            _Phase.starting => [
-              Center(
-                child: VeloraLoadingRegion(
-                  label: l.startingPayment,
-                  child: const VeloraSpinner(size: 32),
-                ),
-              ),
-            ],
+            _Phase.choosing || _Phase.starting => _choosing(l),
             _Phase.waiting => [
               EmptyState(
                 icon: Icons.open_in_new,
@@ -395,7 +555,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
                 title: l.paymentFailedTitle,
                 message: l.paymentFailedHelp,
                 onRetry: _chooseAgain,
-                retryLabel: l.choosePass,
+                retryLabel: l.choosePlan,
               ),
               _waitingActions(l),
             ],
@@ -404,7 +564,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
                 title: l.paymentFailedTitle,
                 message: l.paymentGivenUp,
                 onRetry: _chooseAgain,
-                retryLabel: l.choosePass,
+                retryLabel: l.choosePlan,
               ),
             ],
             _Phase.timedOut => [
@@ -466,7 +626,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     if (_plans.isEmpty) {
       return [
         EmptyState(
-          icon: Icons.confirmation_number_outlined,
+          icon: Icons.workspace_premium_outlined,
           title: l.noPassesForSale,
           message: l.paymentsUnavailable,
           action: VeloraButton(
@@ -477,37 +637,326 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
         ),
       ];
     }
+    final theme = Theme.of(context);
     return [
-      Text(l.passIntro),
+      Text(l.choosePlanIntro),
+      if (_hasPlan) _Note(icon: Icons.schedule, text: l.planQueuedNote),
       if (_email == null)
         Form(
           key: _form,
-          child: VeloraTextField(
-            label: l.phoneForPayment,
-            helperText: l.phoneForPaymentHelp,
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            validator: (value) =>
-                RegExp(r'^\+?[0-9]{9,15}$')
-                    .hasMatch((value ?? '').replaceAll(RegExp(r'[\s-]'), ''))
-                ? null
-                : l.phoneNotValid,
-          ),
-        ),
-      for (final plan in _plans)
-        Card.outlined(
-          key: ValueKey('plan-${plan.id}'),
-          child: ListTile(
-            title: Text(passName(l, plan.id, plan.days)),
-            subtitle: Text(formatUgx(context, plan.priceUgx)),
-            trailing: Tooltip(
-              message: l.payWithPesapal,
-              child: const Icon(Icons.chevron_right),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: VeloraLayout.formWidth),
+            child: VeloraTextField(
+              label: l.phoneForPayment,
+              helperText: l.phoneForPaymentHelp,
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              validator: (value) =>
+                  RegExp(r'^\+?[0-9]{9,15}$')
+                      .hasMatch((value ?? '').replaceAll(RegExp(r'[\s-]'), ''))
+                  ? null
+                  : l.phoneNotValid,
             ),
-            onTap: () => _buy(plan),
           ),
         ),
+      _PlanGrid(
+        plans: _plans,
+        buying: _buying,
+        onBuy: _phase == _Phase.starting ? null : _buy,
+      ),
+      Row(
+        spacing: VeloraSpacing.xs,
+        children: [
+          Icon(
+            Icons.lock_outline,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          Expanded(
+            child: Text(
+              l.paymentSecureNote,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
     ];
+  }
+}
+
+class _Note extends StatelessWidget {
+  const _Note({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = VeloraPalette.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.infoContainer,
+        borderRadius: BorderRadius.circular(VeloraRadii.md),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(VeloraSpacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: VeloraSpacing.xs,
+          children: [
+            Icon(icon, size: 20),
+            Expanded(child: Text(text)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The plans as cards: three across on a wide screen, two on a tablet, and
+/// stacked on a phone. Cards in a row share one height.
+class _PlanGrid extends StatelessWidget {
+  const _PlanGrid({required this.plans, required this.buying, this.onBuy})
+    : skeleton = false;
+
+  const _PlanGrid.skeleton()
+    : plans = const [],
+      buying = null,
+      onBuy = null,
+      skeleton = true;
+
+  final List<PassPlan> plans;
+  final String? buying;
+  final ValueChanged<PassPlan>? onBuy;
+  final bool skeleton;
+
+  static int columnsFor(double width) {
+    if (width >= 900) return 3;
+    if (width >= 560) return 2;
+    return 1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = columnsFor(constraints.maxWidth);
+        final count = skeleton ? 6 : plans.length;
+        final cards = [
+          for (var i = 0; i < count; i++)
+            skeleton
+                ? const _PlanSkeleton()
+                : PlanCard(
+                    key: ValueKey('plan-${plans[i].id}'),
+                    plan: plans[i],
+                    busy: buying == plans[i].id,
+                    onBuy: onBuy == null ? null : () => onBuy!(plans[i]),
+                  ),
+        ];
+        final grid = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: VeloraSpacing.md,
+          children: [
+            for (var start = 0; start < cards.length; start += columns)
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: VeloraSpacing.md,
+                  children: [
+                    for (var i = start; i < start + columns; i++)
+                      Expanded(
+                        child: i < cards.length
+                            ? cards[i]
+                            : const SizedBox.shrink(),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+        return skeleton
+            ? VeloraLoadingRegion(label: context.l10n.loading, child: grid)
+            : grid;
+      },
+    );
+  }
+}
+
+class _PlanSkeleton extends StatelessWidget {
+  const _PlanSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card.outlined(
+      child: Padding(
+        padding: const EdgeInsets.all(VeloraSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: VeloraSpacing.sm,
+          children: const [
+            VeloraSkeleton(width: 120, height: 18),
+            VeloraSkeleton(width: 160, height: 32),
+            VeloraSkeleton(width: 200, height: 14),
+            VeloraSkeleton(width: 180, height: 14),
+            SizedBox(height: VeloraSpacing.sm),
+            VeloraSkeleton(height: 44),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One plan: its name, price, length, devices and screens, what every plan
+/// includes, and a button to pay. The featured plan is outlined in the
+/// accent with a small badge, and nothing more.
+class PlanCard extends StatefulWidget {
+  const PlanCard({
+    super.key,
+    required this.plan,
+    this.onBuy,
+    this.busy = false,
+  });
+
+  final PassPlan plan;
+  final VoidCallback? onBuy;
+  final bool busy;
+
+  @override
+  State<PlanCard> createState() => _PlanCardState();
+}
+
+class _PlanCardState extends State<PlanCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final plan = widget.plan;
+    final price = formatUgx(context, plan.priceUgx);
+    final duration = l.planDays(plan.days);
+    final featured = plan.featured;
+    final lift = _hovered && !VeloraMotion.reduced(context);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: VeloraMotion.of(context, VeloraMotion.standard),
+        curve: VeloraMotion.curve,
+        transform: Matrix4.translationValues(0, lift ? -4 : 0, 0),
+        decoration: BoxDecoration(
+          color: featured ? VeloraColors.surfaceRaised : VeloraColors.surface,
+          borderRadius: BorderRadius.circular(VeloraRadii.lg),
+          border: Border.all(
+            color: featured
+                ? VeloraColors.accent
+                : (_hovered
+                      ? VeloraColors.outline
+                      : VeloraColors.outlineSubtle),
+            width: featured ? VeloraStroke.focus : VeloraStroke.hairline,
+          ),
+          boxShadow: lift || featured ? VeloraShadows.raised : null,
+        ),
+        child: Semantics(
+          container: true,
+          label: l.planCardLabel(plan.displayName, price, duration),
+          child: Padding(
+            padding: const EdgeInsets.all(VeloraSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        plan.displayName,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (featured)
+                      StatusBadge(
+                        label: l.mostPopular,
+                        tone: StatusTone.info,
+                        icon: Icons.star_rounded,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: VeloraSpacing.sm),
+                Text(
+                  price,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: VeloraColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  duration,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: VeloraColors.textSecondary,
+                  ),
+                ),
+                if (plan.description case final text?) ...[
+                  const SizedBox(height: VeloraSpacing.xs),
+                  Text(text, style: theme.textTheme.bodyMedium),
+                ],
+                const SizedBox(height: VeloraSpacing.md),
+                Divider(color: VeloraColors.outlineSubtle, height: 1),
+                const SizedBox(height: VeloraSpacing.md),
+                _Benefit(
+                  Icons.devices_outlined,
+                  l.planDevices(plan.maxDevices),
+                ),
+                _Benefit(Icons.tv_outlined, l.planStreams(plan.maxStreams)),
+                _Benefit(Icons.movie_outlined, l.planBenefitCatalogue),
+                _Benefit(Icons.language, l.planBenefitPlatforms),
+                _Benefit(Icons.block, l.planBenefitNoRenewal),
+                const Spacer(),
+                const SizedBox(height: VeloraSpacing.md),
+                VeloraButton(
+                  label: l.payPlan(price),
+                  icon: Icons.lock_outline,
+                  expand: true,
+                  isLoading: widget.busy,
+                  loadingLabel: l.startingPayment,
+                  variant: featured
+                      ? VeloraButtonVariant.primary
+                      : VeloraButtonVariant.secondary,
+                  onPressed: widget.onBuy,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Benefit extends StatelessWidget {
+  const _Benefit(this.icon, this.text);
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = VeloraPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: VeloraSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: VeloraSpacing.xs,
+        children: [
+          Icon(icon, size: 18, color: palette.accentText),
+          Expanded(child: Text(text)),
+        ],
+      ),
+    );
   }
 }

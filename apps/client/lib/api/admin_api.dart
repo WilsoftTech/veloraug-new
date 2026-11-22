@@ -230,12 +230,130 @@ class AdminLanguage {
 
 /// A pass and its price, Step 10C. No price: not for sale.
 class AdminPassPlan {
-  const AdminPassPlan({required this.id, required this.days, this.priceUgx});
+  const AdminPassPlan({
+    required this.id,
+    required this.days,
+    this.priceUgx,
+    String? displayName,
+    this.maxDevices = 1,
+    this.maxStreams = 1,
+    this.featured = false,
+    this.forSale = false,
+    this.legacy = false,
+  }) : displayName = displayName ?? id;
 
-  /// day, week or month.
+  /// Such as velora_prime, or a legacy day, week or month.
   final String id;
   final int days;
   final int? priceUgx;
+  final String displayName;
+  final int maxDevices;
+  final int maxStreams;
+  final bool featured;
+  final bool forSale;
+
+  /// Step 10B's passes, kept for history and never for sale again.
+  final bool legacy;
+}
+
+class BillingMetrics {
+  const BillingMetrics({
+    required this.activeSubscribers,
+    required this.byPlan,
+    required this.revenueUgx,
+    required this.failed,
+    required this.reversed,
+    required this.pending,
+    required this.devices,
+    required this.playing,
+  });
+
+  final int activeSubscribers;
+
+  /// Plan name, and its subscribers now.
+  final List<(String, int)> byPlan;
+  final int revenueUgx;
+  final int failed;
+  final int reversed;
+  final int pending;
+  final int devices;
+  final int playing;
+}
+
+class AdminPayment {
+  const AdminPayment({
+    required this.id,
+    required this.userId,
+    required this.planName,
+    required this.amountUgx,
+    required this.state,
+    required this.createdAt,
+    this.method,
+    this.reference,
+    this.reason,
+    this.contact,
+  });
+
+  final String id;
+  final String userId;
+  final String planName;
+  final int amountUgx;
+  final String state;
+  final DateTime createdAt;
+  final String? method;
+  final String? reference;
+  final String? reason;
+
+  /// Masked by the API: a***@example.com.
+  final String? contact;
+}
+
+class AdminSubscriber {
+  const AdminSubscriber({
+    required this.userId,
+    required this.planName,
+    required this.endsAt,
+    required this.maxDevices,
+    required this.activeDevices,
+    this.contact,
+  });
+
+  final String userId;
+  final String planName;
+  final DateTime endsAt;
+  final int maxDevices;
+  final int activeDevices;
+  final String? contact;
+}
+
+class AdminDevice {
+  const AdminDevice({
+    required this.id,
+    required this.label,
+    required this.platform,
+    required this.lastActiveAt,
+    this.revokedAt,
+  });
+
+  final String id;
+  final String label;
+  final String platform;
+  final DateTime lastActiveAt;
+  final DateTime? revokedAt;
+}
+
+class PlanChangeEntry {
+  const PlanChangeEntry({
+    required this.planId,
+    required this.changedAt,
+    this.oldPriceUgx,
+    this.newPriceUgx,
+  });
+
+  final String planId;
+  final DateTime changedAt;
+  final int? oldPriceUgx;
+  final int? newPriceUgx;
 }
 
 class AdminEntry {
@@ -606,6 +724,12 @@ class AdminApi {
         id: _need<String>(row['id']),
         days: _need<int>(row['days']),
         priceUgx: _maybe<int>(row['price_ugx']),
+        displayName: _maybe<String>(row['display_name']),
+        maxDevices: _maybe<int>(row['max_devices']) ?? 1,
+        maxStreams: _maybe<int>(row['max_streams']) ?? 1,
+        featured: row['featured'] == true,
+        forSale: row['for_sale'] == true,
+        legacy: row['legacy'] == true,
       ),
   ];
 
@@ -613,6 +737,110 @@ class AdminApi {
   Future<void> setPassPrice(String planId, int? priceUgx) async {
     await _send('PATCH', '/pass-plans/${_id(planId)}', {'price_ugx': priceUgx});
   }
+
+  /// A plan's price, whether it's on sale, and whether it's featured. What
+  /// was already bought never changes.
+  Future<void> updatePlan(
+    String planId, {
+    required int? priceUgx,
+    required bool forSale,
+    required bool featured,
+  }) async {
+    await _send('PATCH', '/pass-plans/${_id(planId)}', {
+      'price_ugx': priceUgx,
+      'for_sale': forSale,
+      'featured': featured,
+    });
+  }
+
+  Future<BillingMetrics> billingMetrics() async {
+    final json = _need<Map<String, Object?>>(
+      await _send('GET', '/billing/metrics'),
+    );
+    return BillingMetrics(
+      activeSubscribers: _need<int>(json['active_subscribers']),
+      byPlan: [
+        for (final row in _rows(json['by_plan']))
+          (_need<String>(row['plan_name']), _need<int>(row['subscribers'])),
+      ],
+      revenueUgx: _need<int>(json['revenue_30_days_ugx']),
+      failed: _need<int>(json['failed_30_days']),
+      reversed: _need<int>(json['reversed_30_days']),
+      pending: _need<int>(json['pending_now']),
+      devices: _need<int>(json['active_devices']),
+      playing: _need<int>(json['live_sessions']),
+    );
+  }
+
+  /// Payments, newest first, or only those in [state].
+  Future<List<AdminPayment>> billingPayments({String? state}) async => [
+    for (final row in _rows(
+      await _send(
+        'GET',
+        state == null ? '/billing/payments' : '/billing/payments?state=$state',
+      ),
+    ))
+      AdminPayment(
+        id: _need<String>(row['id']),
+        userId: _need<String>(row['user_id']),
+        planName: _need<String>(row['plan_name']),
+        amountUgx: _need<int>(row['amount_ugx']),
+        state: _need<String>(row['state']),
+        createdAt: _time(row['created_at']),
+        method: _maybe<String>(row['payment_method']),
+        reference: _maybe<String>(row['provider_reference']),
+        reason: _maybe<String>(row['reason']),
+        contact: _maybe<String>(row['contact']),
+      ),
+  ];
+
+  Future<List<AdminSubscriber>> subscribers() async => [
+    for (final row in _rows(await _send('GET', '/billing/subscribers')))
+      AdminSubscriber(
+        userId: _need<String>(row['user_id']),
+        planName: _need<String>(row['plan_name']),
+        endsAt: _time(row['ends_at']),
+        maxDevices: _need<int>(row['max_devices']),
+        activeDevices: _need<int>(row['active_devices']),
+        contact: _maybe<String>(row['contact']),
+      ),
+  ];
+
+  /// One account's devices, removed ones included.
+  Future<List<AdminDevice>> devicesOf(String userId) async {
+    final json = _need<Map<String, Object?>>(
+      await _send('GET', '/billing/users/${_id(userId)}'),
+    );
+    return [
+      for (final row in _rows(json['devices']))
+        AdminDevice(
+          id: _need<String>(row['id']),
+          label: _need<String>(row['label']),
+          platform: _need<String>(row['platform']),
+          lastActiveAt: _time(row['last_active_at']),
+          revokedAt: row['revoked_at'] == null
+              ? null
+              : _time(row['revoked_at']),
+        ),
+    ];
+  }
+
+  Future<void> removeDeviceOf(String userId, String deviceId) async {
+    await _send(
+      'DELETE',
+      '/billing/users/${_id(userId)}/devices/${_id(deviceId)}',
+    );
+  }
+
+  Future<List<PlanChangeEntry>> planChanges() async => [
+    for (final row in _rows(await _send('GET', '/billing/plan-changes')))
+      PlanChangeEntry(
+        planId: _need<String>(row['plan_id']),
+        changedAt: _time(row['changed_at']),
+        oldPriceUgx: _maybe<int>(row['old_price_ugx']),
+        newPriceUgx: _maybe<int>(row['new_price_ugx']),
+      ),
+  ];
 
   Future<List<AdminEntry>> admins() async => [
     for (final row in _rows(await _send('GET', '/admins')))
@@ -695,9 +923,14 @@ class AdminApi {
       throw const AdminException(AdminFailure.unreachable);
     }
     if (token == null) throw const AdminException(AdminFailure.signedOut);
+    // A query, such as ?state=failed, stays a query.
+    final (route, query) = switch (path.indexOf('?')) {
+      -1 => (path, null),
+      final at => (path.substring(0, at), path.substring(at + 1)),
+    };
     final request = http.Request(
       method,
-      baseUrl.replace(path: '/api/v1/admin$path'),
+      baseUrl.replace(path: '/api/v1/admin$route', query: query),
     )..headers['Authorization'] = 'Bearer $token';
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
