@@ -65,7 +65,7 @@ The first two each ask for the owner string, as in the [API README](../services/
 
    ```powershell
    docker compose -f infra\compose.local.yaml --profile uploads up -d api
-   docker compose -f infra\compose.local.yaml exec api python -m app.pesapal register-ipn http://127.0.0.1:8000/api/v1/passes/ipn
+   docker compose -f infra\compose.local.yaml exec api python -m app.pesapal register-ipn https://api.veloraug.com/api/v1/passes/ipn
    ```
 
 4. Copy the printed `VELORAUG_PESAPAL_IPN_ID=...` line into `.env`, add the two lines below, and restart the API again:
@@ -75,7 +75,7 @@ The first two each ask for the owner string, as in the [API README](../services/
    VELORAUG_PASSES_REQUIRED=true
    ```
 
-**Expect:** `Registered with Pesapal's sandbox.` Pesapal can't reach `127.0.0.1`, so no notifications arrive: the app checks the payment itself.
+**Expect:** `Registered with Pesapal's sandbox.` Pesapal refuses a local address (found on 22 November 2026: `invalid_url ... not a local address`), so a public one is registered only to get an ID. Notifications go to the production API, which has no Pesapal keys and answers 503 without changing anything; on this PC, the app checks the payment itself.
 
 ## 3. The plans
 

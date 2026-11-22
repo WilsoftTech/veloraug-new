@@ -175,7 +175,7 @@ Migration `0006_passes`.
 ### At 10E
 
 1. Create a Pesapal **sandbox** account at Pesapal's developer site, or use the demo keys it publishes, and paste the consumer key and secret into `services/api/.env`. **Never in a message.**
-2. Run `register-ipn` with the address Pesapal will call. Locally there's none Pesapal can reach: register `http://127.0.0.1:8000/api/v1/passes/ipn` all the same. Checking from the app covers it. Paste the printed ID into `.env`.
+2. Run `register-ipn` with the address Pesapal will call. Locally there's none Pesapal can reach, and Pesapal refuses a local address (`invalid_url`, seen 22 November 2026): register `https://api.veloraug.com/api/v1/passes/ipn` to get an ID. Checking from the app covers it. Paste the printed ID into `.env`.
 3. Set the prices in **Admin → Settings → Pass prices**, and `VELORAUG_PASSES_REQUIRED=true`. Restart the API.
 
 ## Acceptance criteria
