@@ -134,6 +134,26 @@ npx --yes wrangler@4.157.0 deploy --config infra/cloudflare/app/wrangler.jsonc
 
 Clear `build\web` first: an incremental build can leave out `auth.html`. The app's Worker serves `/auth.html` as itself, because it is the registered sign-in redirect. Production's `assetlinks.json` comes from [`apps/auth_pages/assetlinks.prod.json`](../apps/auth_pages/assetlinks.prod.json), which stays `[]` until Step 11G adds `com.veloraug.app` and the release certificate. Run Wrangler from the repository root with `--config`, never from `services/media_gateway`, whose own configuration would deploy the gateway's code under these names.
 
+### Rate limiting
+
+One Cloudflare rate-limiting rule, the Free plan's only one, set in the dashboard: **veloraug.com → Security → Security rules → Rate limiting rules → Pesapal checkout**.
+
+| Setting | Value |
+| --- | --- |
+| Expression | `(http.host eq "api.veloraug.com" and http.request.uri.path eq "/api/v1/passes/checkout" and http.request.method eq "POST")` |
+| Characteristics | IP (and, always, the data centre) |
+| Rate | 5 requests per 10 seconds |
+| Action | Block for 10 seconds (`429`) |
+
+It stops a flood of payment orders from one address before it reaches the server. Behind it, the API limits each account: 6 checkouts in 10 minutes, 60 payment checks a minute, 10 device registrations an hour and 30 playback grants a minute (`services/api/app/ratelimit.py`). `OPTIONS` preflights aren't counted. Mobile networks put many phones behind one IP, which these numbers leave room for. To check it, from PowerShell:
+
+```powershell
+$body = '{\"plan_id\":\"velora_start\",\"email\":\"a@b.c\"}'
+1..15 | ForEach-Object { curl.exe -s -o NUL -w "%{http_code} " -X POST https://api.veloraug.com/api/v1/passes/checkout -H "Content-Type: application/json" --data-raw $body }
+```
+
+Expect `401`s from the API (not signed in, so nothing starts), then `429` from Cloudflare. Cloudflare counts approximately, so the first `429` can come a few requests late.
+
 ### Copy films to production
 
 [`copy_to_production.py`](../services/api/scripts/copy_to_production.py), Step 11F, copies each published, non-test edition from development to production: its rows with the same IDs, and its files inside R2 from `veloraug-dev` to `veloraug`, without downloading them. It is run on this PC, from `services/api`, with both **owner** connections (direct, not pooled) set in the terminal only:
