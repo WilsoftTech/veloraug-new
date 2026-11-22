@@ -11,7 +11,7 @@ Keys, connection strings and IPN IDs go into files on the server only, **never i
 - [x] Migration `0007` on the development branch: preflight 11/11, `check_database.py` 38/38
 - [x] A sandbox payment with Pesapal's test card: completed, confirmed by the API, Velora Flex active for exactly 14 days
 - [ ] Velora Flex set back to UGX 10,000 on development (Admin → Subscriptions)
-- [ ] **Watch** on the PC: the device registers itself and plays; Account → My devices shows it as **This device**
+- [x] **Watch** on the PC, as a non-admin account (admins skip devices): the device registers itself and plays; Account → My devices shows it as **This device**
 
 ## 1. Merge
 
