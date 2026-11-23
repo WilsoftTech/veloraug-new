@@ -63,6 +63,10 @@ STEP = 0.6
 # The lowest quality is left out when it would have this share of the top's
 # bitrate or more: it would save viewers almost nothing.
 NEAR_TOP = 0.8
+# An original this close to a quality's size counts as filling it: a VJ file
+# cropped to 1916×1076 is still 1080p. Its picture is then scaled up by at
+# most 1%, which adds no visible softness.
+FILL_TOLERANCE = 0.99
 # x264's quality target, under each quality's bitrate cap. 23 is x264's own
 # default; lower is better and larger.
 CRF = 23
@@ -229,8 +233,9 @@ def parse_probe(data: dict) -> Probe:
 def ladder(probe: Probe) -> list[Rung]:
     """The qualities made from an original, lowest first.
 
-    Only qualities the original can fill in at least one direction, so a
-    picture is only ever made smaller. A wide film, 1920×800, gets 1080p.
+    Only qualities the original can fill in at least one direction, within
+    FILL_TOLERANCE, so a picture is never made more than 1% larger. A wide
+    film, 1920×800, gets 1080p, and so does one cropped to 1916×1076.
 
     When the original's bitrate is known, the ladder is sized from it:
     - the top quality gets at most the original's bitrate;
@@ -240,7 +245,12 @@ def ladder(probe: Probe) -> list[Rung]:
     A typical VJ file, 1080p at 2.4 Mbit/s, gets 1080p at 2.4, 720p at 1.44
     and 360p at 0.8: about 2.6 GB for 75 minutes instead of 4.3 GB with
     480p and a 720p as large as 1080p. A rich original keeps the full table."""
-    rungs = [r for r in LADDER if probe.width >= r.width or probe.height >= r.height]
+    rungs = [
+        r
+        for r in LADDER
+        if probe.width >= r.width * FILL_TOLERANCE
+        or probe.height >= r.height * FILL_TOLERANCE
+    ]
     if probe.video_bps is None or not rungs:
         return rungs
     cap = max(probe.video_bps, MIN_VIDEO_BPS)
