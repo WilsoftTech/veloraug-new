@@ -11,6 +11,11 @@ Since Milestone 9 the grant's "m" names a playable item: a movie edition's
 one item, or one episode. Films from before then have items with their old
 movie IDs, and R2 still keeps every item's files under movies/<item ID>/.
 
+Downloads, on Android: the API gives a session-less grant for an hour, and
+an "offline until" date the app keeps beside the files and enforces. The
+app renews that date when it is online, and the API refuses to renew it
+for a removed device, an ended pass or a title taken down.
+
 The grant goes in the path of the playback address, so the relative entries
 in HLS playlists carry it to every file. See docs/step-08a-playback-plan.md.
 No user is named in a grant: the address appears in browser history.
@@ -45,6 +50,13 @@ SESSION_GRANT_SECONDS = 60 * 60
 GATEWAY_CONTEXT = b"veloraug-gateway-v1."
 GATEWAY_SKEW_SECONDS = 120
 PLAYLIST = "master.m3u8"
+# Downloads: a grant with no playback session, so a download never takes a
+# stream or replaces the player's session on the same device. The app asks
+# for a new one when it runs out, and carries on from the file it reached.
+DOWNLOAD_GRANT_SECONDS = 60 * 60
+# How long a download plays without the app checking in again, at most:
+# never past the end of the viewer's passes. See app/viewer_routes.py.
+OFFLINE_DAYS = 7
 
 
 def _b64(data: bytes) -> str:
@@ -87,11 +99,14 @@ class Granter:
         *,
         until: datetime | None = None,
         session_id: UUID | None = None,
+        seconds: int | None = None,
     ) -> Playback:
         """A grant for GRANT_SECONDS, or until `until` if that's sooner: the
         end of the viewer's pass, Step 10B. One bound to a playback session
-        lasts SESSION_GRANT_SECONDS at most."""
-        seconds = GRANT_SECONDS if session_id is None else SESSION_GRANT_SECONDS
+        lasts SESSION_GRANT_SECONDS at most. `seconds`, when given, replaces
+        either: a download's grant, DOWNLOAD_GRANT_SECONDS."""
+        if seconds is None:
+            seconds = GRANT_SECONDS if session_id is None else SESSION_GRANT_SECONDS
         expires = int(self._clock()) + seconds
         if until is not None:
             expires = min(expires, int(until.timestamp()))

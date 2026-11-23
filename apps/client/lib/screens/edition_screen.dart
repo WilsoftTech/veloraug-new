@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/catalogue_api.dart';
 import '../api/playback_api.dart';
 import '../auth/auth_controller.dart';
+import '../downloads/download_manager.dart';
+import '../downloads/download_ui.dart';
 import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
@@ -245,6 +247,14 @@ class _Details extends StatelessWidget {
           children: [
             if (edition.kind == EditionKind.movie)
               _WatchButton(edition: edition),
+            if (edition.kind == EditionKind.movie &&
+                edition.playable &&
+                edition.itemId != null &&
+                _canWatch(context) == _CanWatch.yes)
+              DownloadButton(
+                itemId: edition.itemId!,
+                info: downloadInfo(edition),
+              ),
             if (trailer != null)
               VeloraButton(
                 label: l.trailer,
@@ -337,6 +347,18 @@ _CanWatch _canWatch(BuildContext context) {
   if (auth.status != AuthStatus.signedIn) return _CanWatch.signInFirst;
   return _CanWatch.yes;
 }
+
+/// What a download of this edition, or one of its episodes, keeps with it.
+DownloadInfo downloadInfo(EditionDetail edition, [Episode? episode]) =>
+    DownloadInfo(
+      editionId: edition.card.id,
+      title: edition.title,
+      label: edition.card.label,
+      posterUrl: edition.card.posterUrl,
+      season: episode?.season,
+      episode: episode?.episode,
+      episodeTitle: episode?.title,
+    );
 
 /// Plays an item, with the series' episodes for Next Episode.
 void openPlayer(
@@ -492,18 +514,27 @@ class _SeasonsState extends State<_Seasons> {
                     ],
                   ),
                   episode.playable && can == _CanWatch.yes
-                      ? IconButton(
-                          tooltip: l.playEpisode(
-                            season.season,
-                            episode.episode,
-                          ),
-                          icon: const Icon(Icons.play_circle_outline),
-                          onPressed: () => openPlayer(
-                            context,
-                            itemId: episode.itemId,
-                            title: widget.edition.title,
-                            episodes: episodes,
-                          ),
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            EpisodeDownloadButton(
+                              itemId: episode.itemId,
+                              info: downloadInfo(widget.edition, episode),
+                            ),
+                            IconButton(
+                              tooltip: l.playEpisode(
+                                season.season,
+                                episode.episode,
+                              ),
+                              icon: const Icon(Icons.play_circle_outline),
+                              onPressed: () => openPlayer(
+                                context,
+                                itemId: episode.itemId,
+                                title: widget.edition.title,
+                                episodes: episodes,
+                              ),
+                            ),
+                          ],
                         )
                       : StatusBadge(
                           label: episode.playable

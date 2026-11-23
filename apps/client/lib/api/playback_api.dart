@@ -36,6 +36,16 @@ class PlaybackGrant {
   Uri qualityUrl(VideoQuality quality) => playlistUrl.resolve(quality.path);
 }
 
+/// Permission to download one item, Android only: a grant with no playback
+/// session, so the download takes no stream, and until when the download
+/// may be played offline. The app checks in again before then.
+class DownloadGrant {
+  const DownloadGrant({required this.grant, required this.offlineUntil});
+
+  final PlaybackGrant grant;
+  final DateTime offlineUntil;
+}
+
 /// Something playing on one of the viewer's devices.
 class LiveSession {
   const LiveSession({
@@ -257,29 +267,52 @@ class PlaybackApi {
   /// When the API asks for a registered device, this one registers itself
   /// once, and asks again.
   Future<PlaybackGrant> grant(String itemId, {bool preview = false}) async {
-    var answer = await _askForGrant(itemId, preview);
-    if (!preview && answer.status == 403 && answer.code == 'device_required') {
-      await registerDevice();
-      answer = await _askForGrant(itemId, preview);
-    }
-    final failure = switch (answer.status) {
-      200 => null,
-      401 => PlaybackFailure.refused,
-      402 => PlaybackFailure.needsPass,
-      403 => PlaybackFailure.notAdmin,
-      404 => PlaybackFailure.notFound,
-      409 => switch (answer.code) {
-        'device_limit' => PlaybackFailure.deviceLimit,
-        'stream_limit' => PlaybackFailure.streamLimit,
-        _ => PlaybackFailure.notReady,
-      },
-      429 =>
-        answer.code == 'device_switch_limit'
-            ? PlaybackFailure.deviceSwitchLimit
-            : PlaybackFailure.tooMany,
-      503 => PlaybackFailure.busy,
-      _ => PlaybackFailure.unexpected,
+    final id = Uri.encodeComponent(itemId);
+    final answer = await _askRegistering(
+      preview
+          ? '/api/v1/admin/items/$id/preview'
+          : '/api/v1/items/$id/playback',
+      register: !preview,
+    );
+    return _grantIn(answer);
+  }
+
+  /// A grant to download an item's video, on Android, and until when the
+  /// download may play offline. Refused as [grant] is, except that a
+  /// download takes no stream, so never [PlaybackFailure.streamLimit].
+  Future<DownloadGrant> downloadGrant(String itemId) async {
+    final answer = await _askRegistering(
+      '/api/v1/items/${Uri.encodeComponent(itemId)}/download',
+      register: true,
+    );
+    final grant = _grantIn(answer);
+    final until = switch (answer.json) {
+      {'offline_until': final String text} => DateTime.tryParse(text),
+      _ => null,
     };
+    if (until == null) {
+      throw const PlaybackException(PlaybackFailure.unexpected);
+    }
+    return DownloadGrant(grant: grant, offlineUntil: until.toUtc());
+  }
+
+  /// Asks for a grant. When the API asks for a registered device, this one
+  /// registers itself once, and asks again.
+  Future<ApiAnswer> _askRegistering(
+    String path, {
+    required bool register,
+  }) async {
+    var answer = await _askForGrant(path);
+    if (register && answer.status == 403 && answer.code == 'device_required') {
+      await registerDevice();
+      answer = await _askForGrant(path);
+    }
+    return answer;
+  }
+
+  /// The grant in an answer, or the refusal it means.
+  PlaybackGrant _grantIn(ApiAnswer answer) {
+    final failure = playbackFailureFor(answer);
     if (failure != null) {
       throw PlaybackException(
         failure,
@@ -309,14 +342,9 @@ class PlaybackApi {
     );
   }
 
-  Future<ApiAnswer> _askForGrant(String itemId, bool preview) async {
+  Future<ApiAnswer> _askForGrant(String path) async {
     try {
-      return await send(
-        'POST',
-        preview
-            ? '/api/v1/admin/items/${Uri.encodeComponent(itemId)}/preview'
-            : '/api/v1/items/${Uri.encodeComponent(itemId)}/playback',
-      );
+      return await send('POST', path);
     } on _SignedOut {
       throw const PlaybackException(PlaybackFailure.signedOut);
     } on _NoAnswer {
@@ -460,6 +488,27 @@ class PlaybackApi {
       !url.hasQuery &&
       !url.hasFragment;
 }
+
+/// The refusal an answer to a grant request means, or null for 200.
+PlaybackFailure? playbackFailureFor(ApiAnswer answer) =>
+    switch (answer.status) {
+      200 => null,
+      401 => PlaybackFailure.refused,
+      402 => PlaybackFailure.needsPass,
+      403 => PlaybackFailure.notAdmin,
+      404 => PlaybackFailure.notFound,
+      409 => switch (answer.code) {
+        'device_limit' => PlaybackFailure.deviceLimit,
+        'stream_limit' => PlaybackFailure.streamLimit,
+        _ => PlaybackFailure.notReady,
+      },
+      429 =>
+        answer.code == 'device_switch_limit'
+            ? PlaybackFailure.deviceSwitchLimit
+            : PlaybackFailure.tooMany,
+      503 => PlaybackFailure.busy,
+      _ => PlaybackFailure.unexpected,
+    };
 
 /// Nothing was sent: no session.
 class _SignedOut implements Exception {

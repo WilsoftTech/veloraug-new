@@ -1314,5 +1314,132 @@
       }
     }
   },
-  "noPrice": "no price"
+  "noPrice": "no price",
+  "downloads": "Downloads",
+  "@downloads": {
+    "description": "The Downloads tab, Android only."
+  },
+  "download": "Download",
+  "downloadEpisode": "Download season {season}, episode {episode}",
+  "@downloadEpisode": {
+    "description": "Screen reader label and tooltip.",
+    "placeholders": {
+      "season": {
+        "type": "int"
+      },
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadPreparing": "Getting the download ready…",
+  "downloadChooseQuality": "Download quality",
+  "downloadQualityHelp": "Higher quality looks sharper and takes more room on your phone.",
+  "downloadAbout": "About {size}",
+  "@downloadAbout": {
+    "description": "An estimated download size, such as About 1.2 GB.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeGb": "{size} GB",
+  "@sizeGb": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeMb": "{size} MB",
+  "@sizeMb": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadStarted": "Downloading {title}.",
+  "@downloadStarted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadCouldNotStart": "Couldn't start the download",
+  "downloadingPercent": "Downloading {percent}%",
+  "@downloadingPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadQueued": "Waiting to download",
+  "downloadWaiting": "Waiting for a connection",
+  "downloadPaused": "Paused",
+  "downloaded": "Downloaded",
+  "downloadStopped": "Download stopped",
+  "downloadUnavailable": "No longer available",
+  "playDownload": "Play {title}",
+  "@playDownload": {
+    "description": "Screen reader label.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pauseDownload": "Pause download",
+  "resumeDownload": "Resume download",
+  "deleteDownload": "Delete download",
+  "deleteDownloadTitle": "Delete this download?",
+  "deleteDownloadMessage": "{title} will be removed from this phone. You can download it again.",
+  "@deleteDownloadMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "delete": "Delete",
+  "downloadsEmptyTitle": "No downloads yet",
+  "downloadsEmptyMessage": "Download movies and episodes to watch them without a connection. Look for Download on a movie or an episode.",
+  "downloadsUsed": "{size} on this phone",
+  "@downloadsUsed": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsOfflineNote": "Downloads play without a connection for up to {days} days. Connect now and then to keep them playing.",
+  "@downloadsOfflineNote": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadProblemNoPass": "Your pass has ended. Choose a plan to watch your downloads again.",
+  "downloadProblemDeviceLimit": "Your account has more devices than your plan allows. Remove one to watch your downloads.",
+  "downloadProblemDeviceRemoved": "This phone was removed from your account, so its downloads can't be watched. Downloading again registers it.",
+  "downloadProblemStorageFull": "Your phone is full. Free up some room, then try again.",
+  "downloadProblemSignedOut": "Sign in to download.",
+  "downloadProblemOther": "Something went wrong with this download. Try again.",
+  "downloadCheckIn": "Connect to the internet to keep watching this download.",
+  "downloadClockChanged": "Your phone's clock has changed. Connect to the internet to keep watching.",
+  "checkNow": "Check now",
+  "checkInFailed": "VeloraUG couldn't be reached. Check your connection and try again.",
+  "playsOfflineUntil": "Plays offline until {date}",
+  "@playsOfflineUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "offlinePlaybackFailed": "This download can't be played. Delete it and download it again."
 }
