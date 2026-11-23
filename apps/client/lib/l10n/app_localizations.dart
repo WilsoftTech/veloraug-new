@@ -2986,6 +2986,12 @@ abstract class AppLocalizations {
   /// **'Not completed'**
   String get paymentStateAbandoned;
 
+  /// No description provided for @paymentStateRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get paymentStateRefunded;
+
   /// No description provided for @paymentReference.
   ///
   /// In en, this message translates to:
@@ -3088,6 +3094,12 @@ abstract class AppLocalizations {
   /// **'Reversed, last 30 days'**
   String get metricReversed;
 
+  /// No description provided for @metricRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded, last 30 days'**
+  String get metricRefunded;
+
   /// No description provided for @metricPending.
   ///
   /// In en, this message translates to:
@@ -3189,6 +3201,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Devices'**
   String get adminDevicesOf;
+
+  /// No description provided for @markRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark refunded'**
+  String get markRefunded;
+
+  /// No description provided for @markRefundedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark this payment refunded?'**
+  String get markRefundedTitle;
+
+  /// No description provided for @markRefundedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Do this only after refunding {amount} in full on Pesapal: Pesapal never tells VeloraUG about refunds. The {plan} pass bought with it ends now for {customer}, and anything playing on it stops. This can\'t be undone.'**
+  String markRefundedMessage(String plan, String amount, String customer);
+
+  /// No description provided for @paymentRefundedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked refunded. Its pass has ended.'**
+  String get paymentRefundedNotice;
 
   /// No description provided for @adminRemoveDeviceMessage.
   ///

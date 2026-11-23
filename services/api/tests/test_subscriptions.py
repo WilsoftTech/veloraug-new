@@ -262,13 +262,19 @@ def test_the_api_roles_cant_rewrite_a_payment(app_url, editor_url, api, fake, pr
             )
         conn.rollback()
     with psycopg.connect(editor_url) as conn:
-        for statement in (
-            "update public.payments set state = 'completed'",
-            "update public.passes set ends_at = now()",
-            "delete from public.payments",
-            "delete from public.plan_changes",
+        for statement, refusal in (
+            # Since 0008 it may mark a completed payment refunded, nothing else.
+            ("update public.payments set state = 'failed'", "privilege"),
+            # And end a pass, or move one still to come up, kept whole.
+            ("update public.passes set ends_at = now()", "check"),
+            ("delete from public.payments", "privilege"),
+            ("delete from public.plan_changes", "privilege"),
         ):
-            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            with pytest.raises(
+                psycopg.errors.InsufficientPrivilege
+                if refusal == "privilege"
+                else psycopg.errors.CheckViolation
+            ):
                 conn.execute(statement)
             conn.rollback()
     assert paid["state"] == "completed"

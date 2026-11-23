@@ -668,6 +668,102 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.requests.last.url.queryParameters['state'], 'failed');
     });
+
+    testWidgets('a completed payment is marked refunded only once confirmed', (
+      tester,
+    ) async {
+      final api = FakeApi()..isAdmin = true;
+      var state = 'completed';
+      final refunds = <String>[];
+      api.admin.addAll({
+        'GET /drafts': (_) => json({'editions': []}),
+        'GET /billing/metrics': (_) => json({
+          'active_subscribers': 1,
+          'by_plan': [],
+          'revenue_30_days_ugx': 6000,
+          'completed_30_days': 1,
+          'failed_30_days': 0,
+          'reversed_30_days': 0,
+          'refunded_30_days': state == 'refunded' ? 1 : 0,
+          'abandoned_30_days': 0,
+          'pending_now': 0,
+          'active_devices': 1,
+          'live_sessions': 0,
+        }),
+        'GET /pass-plans': (_) => json([]),
+        'GET /billing/payments': (_) => json([
+          {
+            'id': 'pay-1',
+            'user_id': 'u2',
+            'plan_id': 'velora_start',
+            'plan_name': 'Velora Start',
+            'amount_ugx': 6000,
+            'state': state,
+            'created_at': '2026-11-22T09:23:00Z',
+            'completed_at': '2026-11-22T09:23:52Z',
+            'payment_method': 'MTNUG',
+            'provider_reference': 'ABC',
+            'tracking_id': 't',
+            'reason': state == 'refunded' ? 'Refunded in full' : null,
+            'contact': 'v***@example.com',
+          },
+        ]),
+        'POST /billing/payments/pay-1/refund': (_) {
+          refunds.add('pay-1');
+          state = 'refunded';
+          return json({
+            'id': 'pay-1',
+            'user_id': 'u2',
+            'plan_id': 'velora_start',
+            'plan_name': 'Velora Start',
+            'amount_ugx': 6000,
+            'state': 'refunded',
+            'created_at': '2026-11-22T09:23:00Z',
+            'completed_at': '2026-11-22T09:23:52Z',
+            'payment_method': 'MTNUG',
+            'provider_reference': 'ABC',
+            'tracking_id': 't',
+            'reason': 'Refunded in full',
+            'contact': 'v***@example.com',
+          });
+        },
+        'GET /billing/subscribers': (_) => json([]),
+        'GET /billing/plan-changes': (_) => json([]),
+      });
+      await pumpApp(tester, api, signedIn: true);
+      await goTo(tester, 'Admin');
+      await tester.tap(find.text('Subscriptions'));
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const ValueKey('refund-pay-1'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(find.text('Mark this payment refunded?'), findsOneWidget);
+      expect(
+        find.textContaining('UGX 6,000 in full on Pesapal'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('v***@example.com, and'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(refunds, isEmpty);
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Mark refunded'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(refunds, ['pay-1']);
+      expect(find.text('Marked refunded. Its pass has ended.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('refund-pay-1')), findsNothing);
+      expect(find.textContaining('Refunded in full'), findsOneWidget);
+    });
   });
 }
 

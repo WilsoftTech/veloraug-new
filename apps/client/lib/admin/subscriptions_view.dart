@@ -17,8 +17,9 @@ import 'admin_common.dart';
 /// prices and sale flags, payments (all, failed or reversed), the accounts
 /// with an active plan and their devices, and price history.
 ///
-/// Nothing here can change a payment or a pass: the API's editor role is
-/// refused by the database.
+/// The one change to a payment made here is marking a completed one
+/// refunded, after it was refunded on Pesapal, which ends its pass. The
+/// database refuses the API's editor role anything else.
 class SubscriptionsView extends StatefulWidget {
   const SubscriptionsView({super.key});
 
@@ -127,6 +128,33 @@ class _SubscriptionsViewState extends State<SubscriptionsView> {
     await _load();
   }
 
+  Future<void> _markRefunded(AdminPayment payment) async {
+    final l = context.l10n;
+    final amount = formatUgx(context, payment.amountUgx);
+    if (!await confirm(
+      context,
+      title: l.markRefundedTitle,
+      message: l.markRefundedMessage(
+        payment.planName,
+        amount,
+        payment.contact ?? payment.userId,
+      ),
+      action: l.markRefunded,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _busy = true);
+    await runAdmin(
+      context,
+      (api) => api.refundPayment(payment.id),
+      done: l.paymentRefundedNotice,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _load();
+  }
+
   Future<void> _devicesOf(AdminSubscriber subscriber) async {
     final api = AdminScope.of(context);
     if (api == null) return;
@@ -191,6 +219,7 @@ class _SubscriptionsViewState extends State<SubscriptionsView> {
                 _Metric(l.metricPending, '${metrics.pending}'),
                 _Metric(l.metricFailed, '${metrics.failed}'),
                 _Metric(l.metricReversed, '${metrics.reversed}'),
+                _Metric(l.metricRefunded, '${metrics.refunded}'),
                 _Metric(l.metricDevices, '${metrics.devices}'),
                 _Metric(l.metricPlaying, '${metrics.playing}'),
               ],
@@ -288,6 +317,7 @@ class _SubscriptionsViewState extends State<SubscriptionsView> {
                   ('completed', l.paymentStateCompleted),
                   ('failed', l.paymentStateFailed),
                   ('reversed', l.paymentStateReversed),
+                  ('refunded', l.paymentStateRefunded),
                 ])
                   ChoiceChip(
                     label: Text(label),
@@ -315,15 +345,27 @@ class _SubscriptionsViewState extends State<SubscriptionsView> {
                     ?payment.reason,
                   ].join(' · '),
                 ),
-                trailing: StatusBadge(
-                  label: payment.state,
-                  tone: switch (payment.state) {
-                    'completed' => StatusTone.success,
-                    'failed' => StatusTone.danger,
-                    'reversed' => StatusTone.warning,
-                    'pending' || 'started' => StatusTone.info,
-                    _ => StatusTone.neutral,
-                  },
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: VeloraSpacing.xs,
+                  children: [
+                    if (payment.state == 'completed')
+                      TextButton(
+                        key: ValueKey('refund-${payment.id}'),
+                        onPressed: _busy ? null : () => _markRefunded(payment),
+                        child: Text(l.markRefunded),
+                      ),
+                    StatusBadge(
+                      label: payment.state,
+                      tone: switch (payment.state) {
+                        'completed' => StatusTone.success,
+                        'failed' => StatusTone.danger,
+                        'reversed' => StatusTone.warning,
+                        'pending' || 'started' => StatusTone.info,
+                        _ => StatusTone.neutral,
+                      },
+                    ),
+                  ],
                 ),
               ),
           ],

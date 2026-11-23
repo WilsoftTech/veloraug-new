@@ -394,6 +394,179 @@ def test_a_reversed_payment_ends_its_pass(api, fake, prices):
     assert state == "reversed"
 
 
+@pytest.fixture
+def admin_api(app_url, editor_url, fake, prices):
+    """The API with its editor role, and one admin. Answers (client, admin)."""
+    admin = uuid.uuid4()
+    clear_admins(prices)
+    prices.execute("insert into public.admins (user_id) values (%s)", (admin,))
+    try:
+        with TestClient(make_api(app_url, fake, editor_url)) as client:
+            yield client, admin
+    finally:
+        clear_admins(prices)
+
+
+def refund(api, admin, payment_id):
+    return api.post(
+        f"/api/v1/admin/billing/payments/{payment_id}/refund", headers=as_user(admin)
+    )
+
+
+def notify(api, fake, payment_id):
+    """Pesapal's notification for one payment, as it would send it."""
+    return api.get(
+        "/api/v1/passes/ipn",
+        params={
+            "OrderTrackingId": tracking_of(fake, payment_id),
+            "OrderNotificationType": "IPNCHANGE",
+            "OrderMerchantReference": payment_id,
+        },
+    )
+
+
+@needs_database
+def test_a_payment_marked_refunded_ends_its_pass_for_good(admin_api, fake, prices):
+    api, admin = admin_api
+    user = uuid.uuid4()
+    paid = pay(api, fake, user)
+    assert my_pass(api, user)["active"] is True
+
+    response = refund(api, admin, paid["id"])
+
+    assert response.status_code == 200, response.text
+    assert response.json()["state"] == "refunded"
+    assert response.json()["reason"] == "Refunded in full"
+    assert my_pass(api, user)["active"] is False
+    state, refunded_by, completed = prices.execute(
+        "select state, refunded_by, completed_at is not null from public.payments"
+    ).fetchone()
+    assert (state, refunded_by, completed) == ("refunded", admin, True)
+    # Pesapal still reports a refunded payment completed, and may notify:
+    # neither the payment nor the pass comes back.
+    fake.statuses[tracking_of(fake, paid["id"])] = COMPLETED
+    assert notify(api, fake, paid["id"]).json()["status"] == 200
+    fake.statuses[tracking_of(fake, paid["id"])] = REVERSED
+    assert notify(api, fake, paid["id"]).json()["status"] == 200
+    assert my_pass(api, user)["active"] is False
+    assert prices.execute("select state from public.payments").fetchone() == (
+        "refunded",
+    )
+    # A viewer's payment list says so too.
+    mine = api.get("/api/v1/me/payments", headers=as_user(user)).json()
+    assert [p["state"] for p in mine] == ["refunded"]
+
+
+@needs_database
+def test_refunding_a_running_pass_moves_the_next_one_up(admin_api, fake, prices):
+    api, admin = admin_api
+    user = uuid.uuid4()
+    first = pay(api, fake, user, "velora_start")
+    pay(api, fake, user, "velora_flex")
+    assert my_pass(api, user)["queued"]
+
+    assert refund(api, admin, first["id"]).status_code == 200
+
+    found = my_pass(api, user)
+    assert found["active"] is True
+    assert found["current"]["plan_id"] == "velora_flex"
+    assert found["queued"] == []
+    starts = datetime.fromisoformat(found["current"]["starts_at"])
+    assert abs(starts - datetime.now(UTC)) < timedelta(minutes=1)
+    assert datetime.fromisoformat(found["current"]["ends_at"]) == starts + timedelta(
+        days=14
+    )
+
+
+@needs_database
+def test_only_an_admin_marks_only_a_completed_payment_refunded(admin_api, fake, prices):
+    api, admin = admin_api
+    user = uuid.uuid4()
+    paid = pay(api, fake, user)
+    failed = pay(api, fake, user, "velora_flex", code=FAILED)
+
+    assert refund(api, user, paid["id"]).status_code == 403
+    assert refund(api, admin, str(uuid.uuid4())).status_code == 404
+    assert refund(api, admin, failed["id"]).status_code == 409
+    assert refund(api, admin, paid["id"]).status_code == 200
+    again = refund(api, admin, paid["id"])
+    assert again.status_code == 409
+    assert "refunded" in again.json()["detail"]
+    listed = api.get(
+        "/api/v1/admin/billing/payments",
+        params={"state": "refunded"},
+        headers=as_user(admin),
+    ).json()
+    assert [p["id"] for p in listed] == [paid["id"]]
+    metrics = api.get("/api/v1/admin/billing/metrics", headers=as_user(admin)).json()
+    assert metrics["refunded_30_days"] == 1
+    assert metrics["revenue_30_days_ugx"] == 0
+
+
+@needs_database
+def test_the_database_keeps_refunds_narrow(app_url, editor_url, prices):
+    """The admin role changes a payment only from completed to refunded, and
+    no API role can take a refund back."""
+    user, admin = uuid.uuid4(), uuid.uuid4()
+    (payment,) = prices.execute(
+        """
+        insert into public.payments (user_id, plan_id, days, amount_ugx, email,
+          plan_name, max_devices, max_streams, state, completed_at)
+        values (%s, 'velora_start', 7, 6000, 'a@b.c', 'Velora Start', 1, 1,
+          'completed', now())
+        returning id
+        """,
+        (user,),
+    ).fetchone()
+    with psycopg.connect(editor_url) as conn:
+        conn.execute("select set_config('app.user_id', %s, false)", (str(admin),))
+        # Not to any other state, nor any other column.
+        for change in (
+            "state = 'failed'",
+            "state = 'reversed'",
+            "amount_ugx = 500",
+            "email = 'x@y.z'",
+        ):
+            with pytest.raises(
+                (psycopg.errors.InsufficientPrivilege, psycopg.errors.CheckViolation)
+            ):
+                conn.execute(
+                    f"update public.payments set {change} where id = %s", (payment,)
+                )
+            conn.rollback()
+            conn.execute("select set_config('app.user_id', %s, false)", (str(admin),))
+        # Refunded needs when and by whom.
+        with pytest.raises(psycopg.errors.CheckViolation):
+            conn.execute(
+                "update public.payments set state = 'refunded' where id = %s",
+                (payment,),
+            )
+        conn.rollback()
+        conn.execute("select set_config('app.user_id', %s, false)", (str(admin),))
+        conn.execute(
+            "update public.payments set state = 'refunded', refunded_at = now(), "
+            "refunded_by = %s where id = %s",
+            (admin, payment),
+        )
+        conn.commit()
+        conn.execute("select set_config('app.user_id', %s, false)", (str(admin),))
+        # Once refunded, its update policy no longer matches: nothing changes.
+        changed = conn.execute(
+            "update public.payments set state = 'refunded', reason = 'x' where id = %s",
+            (payment,),
+        ).rowcount
+        assert changed == 0
+        conn.rollback()
+    with psycopg.connect(app_url) as conn:
+        conn.execute("select set_config('app.user_id', %s, false)", (str(user),))
+        with pytest.raises(psycopg.errors.CheckViolation):
+            conn.execute(
+                "update public.payments set state = 'completed' where id = %s",
+                (payment,),
+            )
+        conn.rollback()
+
+
 @needs_database
 def test_a_payment_left_for_a_day_is_given_up(api, fake, prices):
     user = uuid.uuid4()

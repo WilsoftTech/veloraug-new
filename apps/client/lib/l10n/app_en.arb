@@ -1200,6 +1200,7 @@
   "paymentStateFailed": "Failed",
   "paymentStateReversed": "Reversed",
   "paymentStateAbandoned": "Not completed",
+  "paymentStateRefunded": "Refunded",
   "paymentReference": "Ref. {reference}",
   "@paymentReference": {
     "placeholders": {
@@ -1231,6 +1232,7 @@
   "metricRevenue": "Revenue, last 30 days",
   "metricFailed": "Failed, last 30 days",
   "metricReversed": "Reversed, last 30 days",
+  "metricRefunded": "Refunded, last 30 days",
   "metricPending": "Being checked now",
   "metricDevices": "Registered devices",
   "metricPlaying": "Playing now",
@@ -1278,6 +1280,17 @@
     }
   },
   "adminDevicesOf": "Devices",
+  "markRefunded": "Mark refunded",
+  "markRefundedTitle": "Mark this payment refunded?",
+  "markRefundedMessage": "Do this only after refunding {amount} in full on Pesapal: Pesapal never tells VeloraUG about refunds. The {plan} pass bought with it ends now for {customer}, and anything playing on it stops. This can't be undone.",
+  "@markRefundedMessage": {
+    "placeholders": {
+      "plan": {"type": "String"},
+      "amount": {"type": "String"},
+      "customer": {"type": "String"}
+    }
+  },
+  "paymentRefundedNotice": "Marked refunded. Its pass has ended.",
   "adminRemoveDeviceMessage": "{device} stops playing within a minute. The account holder can register it again.",
   "@adminRemoveDeviceMessage": {
     "placeholders": {

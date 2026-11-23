@@ -1810,6 +1810,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentStateAbandoned => 'Not completed';
 
   @override
+  String get paymentStateRefunded => 'Refunded';
+
+  @override
   String paymentReference(String reference) {
     return 'Ref. $reference';
   }
@@ -1869,6 +1872,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get metricReversed => 'Reversed, last 30 days';
 
   @override
+  String get metricRefunded => 'Refunded, last 30 days';
+
+  @override
   String get metricPending => 'Being checked now';
 
   @override
@@ -1925,6 +1931,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminDevicesOf => 'Devices';
+
+  @override
+  String get markRefunded => 'Mark refunded';
+
+  @override
+  String get markRefundedTitle => 'Mark this payment refunded?';
+
+  @override
+  String markRefundedMessage(String plan, String amount, String customer) {
+    return 'Do this only after refunding $amount in full on Pesapal: Pesapal never tells VeloraUG about refunds. The $plan pass bought with it ends now for $customer, and anything playing on it stops. This can\'t be undone.';
+  }
+
+  @override
+  String get paymentRefundedNotice => 'Marked refunded. Its pass has ended.';
 
   @override
   String adminRemoveDeviceMessage(String device) {

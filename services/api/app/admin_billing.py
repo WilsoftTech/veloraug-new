@@ -3,8 +3,9 @@ subscribers, one subscriber's passes and devices, and price history.
 
 Every route needs an admin, checked on each request, and connects as
 veloraug_editor. That role can read payments, passes, devices and sessions,
-and can remove a device or end a session. It can't change a payment or a
-pass: the database refuses, so history can't be rewritten from here.
+and can remove a device or end a session. The one change it can make to a
+payment is to mark a completed one refunded, which ends its pass: the
+database refuses anything else, so history can't be rewritten from here.
 Contact details are masked: enough to recognise a customer, not to copy.
 """
 
@@ -18,13 +19,15 @@ import psycopg
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import BaseModel
 
-from app import audit, devices
+from app import audit, devices, passes
 from app.admin import AdminUser, EditorDatabase
 
 logger = logging.getLogger("veloraug.admin")
 router = APIRouter(prefix="/api/v1/admin/billing", tags=["admin"])
 
-State = Literal["started", "pending", "completed", "failed", "reversed", "abandoned"]
+State = Literal[
+    "started", "pending", "completed", "failed", "reversed", "abandoned", "refunded"
+]
 
 
 def _now() -> datetime:
@@ -60,6 +63,7 @@ class Metrics(BaseModel):
     completed_30_days: int
     failed_30_days: int
     reversed_30_days: int
+    refunded_30_days: int
     abandoned_30_days: int
     pending_now: int
     active_devices: int
@@ -228,6 +232,7 @@ def metrics(user: AdminUser, db: EditorDatabase) -> Metrics:
         completed_30_days=counts.states.get("completed", 0),
         failed_30_days=counts.states.get("failed", 0),
         reversed_30_days=counts.states.get("reversed", 0),
+        refunded_30_days=counts.states.get("refunded", 0),
         abandoned_30_days=counts.states.get("abandoned", 0),
         pending_now=pending,
         active_devices=device_count,
@@ -254,6 +259,39 @@ def payments(
             (state, state, limit),
         ).fetchall()
     return [_payment(row) for row in rows]
+
+
+@router.post(
+    "/payments/{payment_id}/refund",
+    responses={
+        404: {"description": "No such payment."},
+        409: {"description": "Only a completed payment can be marked refunded."},
+    },
+)
+def refund_payment(
+    payment_id: UUID, user: AdminUser, db: EditorDatabase
+) -> AdminPayment:
+    """Marks a completed payment refunded in full, once it has been refunded
+    on Pesapal, which never tells VeloraUG. Its pass ends at once and what
+    it was playing stops. It can't be undone."""
+    with db.as_user(user.user_id) as conn:
+        try:
+            passes.refund(conn, payment_id, user.user_id, _now())
+        except LookupError:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, "There's no such payment."
+            ) from None
+        except passes.NotRefundable as error:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Only a completed payment can be marked refunded. "
+                f"This one is {error}.",
+            ) from None
+        row = conn.execute(
+            f"select {PAYMENT_COLUMNS} from public.payments where id = %s",
+            (payment_id,),
+        ).fetchone()
+    return _payment(row)
 
 
 @router.get("/subscribers")

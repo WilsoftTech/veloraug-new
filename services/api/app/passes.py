@@ -53,6 +53,10 @@ class PlanChangeRefused(Exception):
     pass
 
 
+class NotRefundable(Exception):
+    """Only a completed payment can be marked refunded."""
+
+
 @dataclass(frozen=True)
 class Plan:
     id: str
@@ -363,6 +367,11 @@ def apply_status(
     payment = Payment(*row)
     details = (status.payment_method, status.confirmation_code)
 
+    if payment.state == "refunded":
+        # Pesapal still reports a refunded payment completed: an admin's
+        # refund is final.
+        return payment.state
+
     if status.code == pesapal.COMPLETED:
         if payment.state in ("completed", "reversed", "abandoned"):
             return payment.state
@@ -551,6 +560,59 @@ def _end_sessions_of_passes(
     )
 
 
+def refund(
+    conn: psycopg.Connection, payment_id: UUID, admin_id: UUID, now: datetime
+) -> Payment:
+    """Marks a completed payment refunded in full, after an admin refunded it
+    on Pesapal, which never reports refunds. Its pass ends at once, what it
+    was playing stops, and the passes queued behind it move up. Raises
+    LookupError for no such payment, NotRefundable unless it's completed."""
+    # Not `for update`: the admin role's update policy matches only completed
+    # payments, so that would hide any other. The update below takes the
+    # lock, and finds nothing if another refund got there first.
+    row = conn.execute(
+        f"select {PAYMENT_COLUMNS} from public.payments where id = %s",
+        (payment_id,),
+    ).fetchone()
+    if row is None:
+        raise LookupError(payment_id)
+    payment = Payment(*row)
+    row = conn.execute(
+        f"""
+        update public.payments set state = 'refunded', refunded_at = %s,
+          refunded_by = %s, reason = 'Refunded in full', updated_at = now()
+        where id = %s and state = 'completed'
+        returning {PAYMENT_COLUMNS}
+        """,
+        (now, admin_id, payment.id),
+    ).fetchone()
+    if row is None:
+        (state,) = conn.execute(
+            "select state from public.payments where id = %s", (payment.id,)
+        ).fetchone()
+        raise NotRefundable(state)
+    revoked = conn.execute(
+        """
+        update public.passes set revoked_at = %s
+        where payment_id = %s and revoked_at is null
+        returning id
+        """,
+        (now, payment.id),
+    ).fetchall()
+    if revoked:
+        _end_sessions_of_passes(conn, [r[0] for r in revoked], now)
+        _reschedule(conn, payment.user_id, now)
+    logger.info("payment %s refunded: its pass has ended", payment.id)
+    audit.event(
+        "payment.refunded",
+        payment_id=payment.id,
+        user_id=payment.user_id,
+        admin_id=admin_id,
+        amount_ugx=payment.amount_ugx,
+    )
+    return Payment(*row)
+
+
 # --- Asking Pesapal ----------------------------------------------------------
 
 
@@ -566,7 +628,9 @@ def refresh(
     """Asks Pesapal about one of the viewer's payments, outside any
     transaction, then records the answer. Answers the state afterwards.
     Raises PesapalUnavailable when Pesapal can't be asked."""
-    settled = ("reversed", "abandoned") + (() if even_if_completed else ("completed",))
+    settled = ("reversed", "abandoned", "refunded") + (
+        () if even_if_completed else ("completed",)
+    )
     if payment.state in settled or payment.tracking_id is None:
         return payment.state
     try:

@@ -355,6 +355,7 @@ class PaymentStateBadge extends StatelessWidget {
       PaymentState.failed => (l.paymentStateFailed, StatusTone.danger),
       PaymentState.reversed => (l.paymentStateReversed, StatusTone.warning),
       PaymentState.abandoned => (l.paymentStateAbandoned, StatusTone.neutral),
+      PaymentState.refunded => (l.paymentStateRefunded, StatusTone.neutral),
     };
     return StatusBadge(label: label, tone: tone);
   }

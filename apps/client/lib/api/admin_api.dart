@@ -266,6 +266,7 @@ class BillingMetrics {
     required this.pending,
     required this.devices,
     required this.playing,
+    this.refunded = 0,
   });
 
   final int activeSubscribers;
@@ -278,6 +279,9 @@ class BillingMetrics {
   final int pending;
   final int devices;
   final int playing;
+
+  /// Payments marked refunded in the last 30 days.
+  final int refunded;
 }
 
 class AdminPayment {
@@ -769,6 +773,7 @@ class AdminApi {
       pending: _need<int>(json['pending_now']),
       devices: _need<int>(json['active_devices']),
       playing: _need<int>(json['live_sessions']),
+      refunded: _maybe<int>(json['refunded_30_days']) ?? 0,
     );
   }
 
@@ -780,19 +785,29 @@ class AdminApi {
         state == null ? '/billing/payments' : '/billing/payments?state=$state',
       ),
     ))
-      AdminPayment(
-        id: _need<String>(row['id']),
-        userId: _need<String>(row['user_id']),
-        planName: _need<String>(row['plan_name']),
-        amountUgx: _need<int>(row['amount_ugx']),
-        state: _need<String>(row['state']),
-        createdAt: _time(row['created_at']),
-        method: _maybe<String>(row['payment_method']),
-        reference: _maybe<String>(row['provider_reference']),
-        reason: _maybe<String>(row['reason']),
-        contact: _maybe<String>(row['contact']),
-      ),
+      _payment(row),
   ];
+
+  /// Marks a completed payment refunded in full, after it was refunded on
+  /// Pesapal, which never tells VeloraUG. Its pass ends at once. Final.
+  Future<AdminPayment> refundPayment(String id) async => _payment(
+    _need<Map<String, Object?>>(
+      await _send('POST', '/billing/payments/${_id(id)}/refund'),
+    ),
+  );
+
+  AdminPayment _payment(Map<String, Object?> row) => AdminPayment(
+    id: _need<String>(row['id']),
+    userId: _need<String>(row['user_id']),
+    planName: _need<String>(row['plan_name']),
+    amountUgx: _need<int>(row['amount_ugx']),
+    state: _need<String>(row['state']),
+    createdAt: _time(row['created_at']),
+    method: _maybe<String>(row['payment_method']),
+    reference: _maybe<String>(row['provider_reference']),
+    reason: _maybe<String>(row['reason']),
+    contact: _maybe<String>(row['contact']),
+  );
 
   Future<List<AdminSubscriber>> subscribers() async => [
     for (final row in _rows(await _send('GET', '/billing/subscribers')))

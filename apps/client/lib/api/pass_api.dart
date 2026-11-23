@@ -91,7 +91,17 @@ class Checkout {
   final Uri paymentPage;
 }
 
-enum PaymentState { started, pending, completed, failed, reversed, abandoned }
+enum PaymentState {
+  started,
+  pending,
+  completed,
+  failed,
+  reversed,
+  abandoned,
+
+  /// Refunded in full: an admin marked it so, and its pass has ended.
+  refunded,
+}
 
 class PaymentCheck {
   const PaymentCheck({required this.state, this.passEndsAt});

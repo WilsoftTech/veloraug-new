@@ -494,7 +494,9 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
           _phase = _Phase.ready;
         });
         return;
-      case PaymentState.abandoned || PaymentState.reversed:
+      case PaymentState.abandoned ||
+          PaymentState.reversed ||
+          PaymentState.refunded:
         _timer?.cancel();
         setState(() => _phase = _Phase.gaveUp);
         return;
