@@ -3249,6 +3249,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'no price'**
   String get noPrice;
+
+  /// The Downloads tab, Android only.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get downloads;
+
+  /// No description provided for @download.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get download;
+
+  /// Screen reader label and tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Download season {season}, episode {episode}'**
+  String downloadEpisode(int season, int episode);
+
+  /// No description provided for @downloadPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting the download ready…'**
+  String get downloadPreparing;
+
+  /// No description provided for @downloadChooseQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Download quality'**
+  String get downloadChooseQuality;
+
+  /// No description provided for @downloadQualityHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Higher quality looks sharper and takes more room on your phone.'**
+  String get downloadQualityHelp;
+
+  /// An estimated download size, such as About 1.2 GB.
+  ///
+  /// In en, this message translates to:
+  /// **'About {size}'**
+  String downloadAbout(String size);
+
+  /// No description provided for @sizeGb.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} GB'**
+  String sizeGb(String size);
+
+  /// No description provided for @sizeMb.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} MB'**
+  String sizeMb(String size);
+
+  /// No description provided for @downloadStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading {title}.'**
+  String downloadStarted(String title);
+
+  /// No description provided for @downloadCouldNotStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t start the download'**
+  String get downloadCouldNotStart;
+
+  /// No description provided for @downloadingPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading {percent}%'**
+  String downloadingPercent(int percent);
+
+  /// No description provided for @downloadQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting to download'**
+  String get downloadQueued;
+
+  /// No description provided for @downloadWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for a connection'**
+  String get downloadWaiting;
+
+  /// No description provided for @downloadPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get downloadPaused;
+
+  /// No description provided for @downloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded'**
+  String get downloaded;
+
+  /// No description provided for @downloadStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Download stopped'**
+  String get downloadStopped;
+
+  /// No description provided for @downloadUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No longer available'**
+  String get downloadUnavailable;
+
+  /// Screen reader label.
+  ///
+  /// In en, this message translates to:
+  /// **'Play {title}'**
+  String playDownload(String title);
+
+  /// No description provided for @pauseDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause download'**
+  String get pauseDownload;
+
+  /// No description provided for @resumeDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume download'**
+  String get resumeDownload;
+
+  /// No description provided for @deleteDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete download'**
+  String get deleteDownload;
+
+  /// No description provided for @deleteDownloadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this download?'**
+  String get deleteDownloadTitle;
+
+  /// No description provided for @deleteDownloadMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{title} will be removed from this phone. You can download it again.'**
+  String deleteDownloadMessage(String title);
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @downloadsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No downloads yet'**
+  String get downloadsEmptyTitle;
+
+  /// No description provided for @downloadsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Download movies and episodes to watch them without a connection. Look for Download on a movie or an episode.'**
+  String get downloadsEmptyMessage;
+
+  /// No description provided for @downloadsUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} on this phone'**
+  String downloadsUsed(String size);
+
+  /// No description provided for @downloadsOfflineNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads play without a connection for up to {days} days. Connect now and then to keep them playing.'**
+  String downloadsOfflineNote(int days);
+
+  /// No description provided for @downloadProblemNoPass.
+  ///
+  /// In en, this message translates to:
+  /// **'Your pass has ended. Choose a plan to watch your downloads again.'**
+  String get downloadProblemNoPass;
+
+  /// No description provided for @downloadProblemDeviceLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has more devices than your plan allows. Remove one to watch your downloads.'**
+  String get downloadProblemDeviceLimit;
+
+  /// No description provided for @downloadProblemDeviceRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone was removed from your account, so its downloads can\'t be watched. Downloading again registers it.'**
+  String get downloadProblemDeviceRemoved;
+
+  /// No description provided for @downloadProblemStorageFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone is full. Free up some room, then try again.'**
+  String get downloadProblemStorageFull;
+
+  /// No description provided for @downloadProblemSignedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to download.'**
+  String get downloadProblemSignedOut;
+
+  /// No description provided for @downloadProblemOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong with this download. Try again.'**
+  String get downloadProblemOther;
+
+  /// No description provided for @downloadCheckIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to the internet to keep watching this download.'**
+  String get downloadCheckIn;
+
+  /// No description provided for @downloadClockChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone\'s clock has changed. Connect to the internet to keep watching.'**
+  String get downloadClockChanged;
+
+  /// No description provided for @checkNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get checkNow;
+
+  /// No description provided for @checkInFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'VeloraUG couldn\'t be reached. Check your connection and try again.'**
+  String get checkInFailed;
+
+  /// No description provided for @playsOfflineUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Plays offline until {date}'**
+  String playsOfflineUntil(String date);
+
+  /// No description provided for @offlinePlaybackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'This download can\'t be played. Delete it and download it again.'**
+  String get offlinePlaybackFailed;
 }
 
 class _AppLocalizationsDelegate

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import '../admin/admin_screen.dart';
 import '../api/admin_api.dart';
 import '../auth/auth_controller.dart';
+import '../downloads/download_manager.dart';
 import '../l10n/l10n.dart';
 import '../screens/account_screen.dart';
+import '../screens/downloads_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/search_screen.dart';
 import '../theme/tokens.dart';
@@ -45,6 +47,12 @@ class _AppShellState extends State<AppShell> {
   /// True once the API has said this person is an admin.
   bool _isAdmin = false;
 
+  /// Whether this phone keeps downloads: Android only.
+  bool _hasDownloads = false;
+
+  /// Home, Search, Downloads where kept, and Account. Admin comes after.
+  int get _viewerTabs => _hasDownloads ? 4 : 3;
+
   /// Who [_isAdmin] was checked for, so a change of person checks again.
   String? _checkedFor;
   int _check = 0;
@@ -60,6 +68,7 @@ class _AppShellState extends State<AppShell> {
     super.didChangeDependencies();
     final auth = AuthScope.of(context);
     final admin = AdminScope.of(context);
+    _syncDownloads();
     if (!identical(admin, _adminApi) || !identical(auth, _auth)) {
       _adminApi = admin;
       _auth = auth;
@@ -77,7 +86,7 @@ class _AppShellState extends State<AppShell> {
       _checkedFor = null;
       _check++;
       _isAdmin = false;
-      if (_selectedIndex > 2) _selectedIndex = 0;
+      if (_selectedIndex >= _viewerTabs) _selectedIndex = 0;
       return;
     }
     final who = auth.email ?? '';
@@ -100,10 +109,19 @@ class _AppShellState extends State<AppShell> {
       _isAdmin = isAdmin;
       if (isAdmin && _wantsAdmin) {
         _wantsAdmin = false;
-        _selectedIndex = 3;
+        _selectedIndex = _viewerTabs;
       }
-      if (!isAdmin && _selectedIndex > 2) _selectedIndex = 0;
+      if (!isAdmin && _selectedIndex >= _viewerTabs) _selectedIndex = 0;
     });
+  }
+
+  /// Downloads are found a moment after launch, on Android. The tab is
+  /// added before Account, so whatever was chosen stays chosen.
+  void _syncDownloads() {
+    final has = DownloadsScope.peek(context) != null;
+    if (has == _hasDownloads) return;
+    if (_selectedIndex >= 2) _selectedIndex += has ? 1 : -1;
+    _hasDownloads = has;
   }
 
   void _select(int index) => setState(() => _selectedIndex = index);
@@ -111,6 +129,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    _syncDownloads();
     final isWide = MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint;
     final destinations = [
       _Destination(l.home, Icons.home_outlined, Icons.home, const HomeScreen()),
@@ -120,6 +139,13 @@ class _AppShellState extends State<AppShell> {
         Icons.search,
         const SearchScreen(),
       ),
+      if (_hasDownloads)
+        _Destination(
+          l.downloads,
+          Icons.download_for_offline_outlined,
+          Icons.download_for_offline,
+          const DownloadsScreen(),
+        ),
       _Destination(
         l.account,
         Icons.person_outline,

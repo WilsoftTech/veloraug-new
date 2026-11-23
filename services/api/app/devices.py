@@ -295,6 +295,21 @@ def live_sessions(conn: psycopg.Connection, now: datetime) -> list[Session]:
     return [Session(*row) for row in rows]
 
 
+def check_device_limit(conn: psycopg.Connection, entitlement: Entitlement) -> None:
+    """Raises DeviceLimit if the account has more devices than the pass
+    allows, as start_session does, without starting anything: for
+    downloads, which take no stream."""
+    devices_allowed = allowance(entitlement)
+    count = len(active_devices(conn))
+    if count > devices_allowed:
+        raise DeviceLimit(
+            f"Your plan allows {devices_allowed} registered "
+            f"device{'s' if devices_allowed != 1 else ''}, and this account has "
+            f"{count}. Choose which to remove in Account, My devices.",
+            limit=devices_allowed,
+        )
+
+
 def start_session(
     conn: psycopg.Connection,
     user_id: UUID,

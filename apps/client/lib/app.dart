@@ -16,6 +16,8 @@ import 'auth/browser_step.dart';
 import 'auth/oauth_client.dart';
 import 'auth/oauth_config.dart';
 import 'auth/token_store.dart';
+import 'downloads/download_manager.dart';
+import 'downloads/download_storage.dart';
 import 'l10n/l10n.dart';
 import 'shell/app_shell.dart';
 import 'theme/velora_theme.dart';
@@ -28,6 +30,7 @@ class VeloraApp extends StatefulWidget {
     this.playbackApi,
     this.adminApi,
     this.uploadQueue,
+    this.downloadManager,
     this.pickVideos = uploads.pickVideos,
     this.showAdmin = adminScreensAvailable,
   });
@@ -50,6 +53,10 @@ class VeloraApp extends StatefulWidget {
   /// tests. The app doesn't dispose of it.
   final UploadQueue? uploadQueue;
 
+  /// Replaces the downloads built from this phone's storage, in tests. The
+  /// app doesn't dispose of it.
+  final DownloadManager? downloadManager;
+
   /// The file chooser for uploads. Tests replace it.
   final Future<List<PickedVideo>> Function() pickVideos;
 
@@ -71,6 +78,9 @@ class _VeloraAppState extends State<VeloraApp> {
   http.Client? _adminHttpClient;
   AdminApi? _ownAdmin;
   UploadQueue? _ownUploads;
+  DownloadManager? _ownDownloads;
+
+  DownloadManager? get _downloads => widget.downloadManager ?? _ownDownloads;
 
   UploadQueue? get _uploads => widget.uploadQueue ?? _ownUploads;
 
@@ -91,6 +101,20 @@ class _VeloraAppState extends State<VeloraApp> {
     if (widget.adminApi == null) _ownAdmin = _adminFromSettings();
     if (widget.uploadQueue == null) _ownUploads = _uploadsFromSettings();
     _auth?.restore();
+    if (widget.downloadManager == null) {
+      _downloadsFromStorage();
+    } else {
+      widget.downloadManager!.load();
+    }
+  }
+
+  /// Downloads, on Android only: once the app's private storage is found.
+  Future<void> _downloadsFromStorage() async {
+    final storage = await createPlatformDownloadStorage();
+    if (storage == null || !mounted) return;
+    final downloads = DownloadManager(storage: storage, api: _playback);
+    setState(() => _ownDownloads = downloads);
+    await downloads.load();
   }
 
   AuthController? _fromSettings() {
@@ -200,6 +224,7 @@ class _VeloraAppState extends State<VeloraApp> {
   @override
   void dispose() {
     _ownUploads?.dispose();
+    _ownDownloads?.dispose();
     _ownController?.dispose();
     _httpClient?.close();
     _catalogueHttpClient?.close();
@@ -218,19 +243,23 @@ class _VeloraAppState extends State<VeloraApp> {
         api: _catalogue,
         child: PlaybackScope(
           api: _playback,
-          child: AdminScope(
-            api: _admin,
-            child: UploadsScope(
-              queue: _uploads,
-              pick: widget.pickVideos,
-              child: MaterialApp(
-                onGenerateTitle: (context) => context.l10n.appName,
-                debugShowCheckedModeBanner: false,
-                theme: buildVeloraTheme(),
-                // English only for now. A Luganda app_lg.arb adds itself here.
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                home: AppShell(showAdmin: widget.showAdmin),
+          child: DownloadsScope(
+            manager: _downloads,
+            child: AdminScope(
+              api: _admin,
+              child: UploadsScope(
+                queue: _uploads,
+                pick: widget.pickVideos,
+                child: MaterialApp(
+                  onGenerateTitle: (context) => context.l10n.appName,
+                  debugShowCheckedModeBanner: false,
+                  theme: buildVeloraTheme(),
+                  // English only for now. A Luganda app_lg.arb adds itself here.
+                  localizationsDelegates:
+                      AppLocalizations.localizationsDelegates,
+                  supportedLocales: AppLocalizations.supportedLocales,
+                  home: AppShell(showAdmin: widget.showAdmin),
+                ),
               ),
             ),
           ),

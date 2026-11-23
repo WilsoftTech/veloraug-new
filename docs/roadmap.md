@@ -156,6 +156,13 @@ Planned in the [pilot deployment plan](step-11a-pilot-deployment-plan.md), **app
 - [ ] Set up production Neon Auth, sign-in pages, custom email and the production Android link
 - [ ] Measure real costs against the $20/month pilot target
 
+### Milestone 12: Downloads
+
+Downloading movies and episodes on Android to watch offline. Planned in the [downloads plan](step-12a-downloads.md), **not yet approved**: written and built on 23 November 2026 at the owner's request. Not encrypted or DRM-protected: see [what this does not protect against](step-12a-downloads.md#what-this-does-not-protect-against).
+
+- [x] 12A: Plan and build: the API's download grant without a playback session and its 7-day offline licences, the app's resumable downloader, Download on movies and episodes, the Downloads tab and the offline player (automated: 9 API tests on a local Postgres, 33 app tests; web and Android builds compile)
+- [ ] 12B: On a phone, against the development API and Worker: the [run sheet](step-12a-downloads.md#still-to-check-on-a-phone), especially playing a download in flight mode
+
 ## Check before launch
 
 - Rights to distribute each movie

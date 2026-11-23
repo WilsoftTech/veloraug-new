@@ -1961,4 +1961,160 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noPrice => 'no price';
+
+  @override
+  String get downloads => 'Downloads';
+
+  @override
+  String get download => 'Download';
+
+  @override
+  String downloadEpisode(int season, int episode) {
+    return 'Download season $season, episode $episode';
+  }
+
+  @override
+  String get downloadPreparing => 'Getting the download ready…';
+
+  @override
+  String get downloadChooseQuality => 'Download quality';
+
+  @override
+  String get downloadQualityHelp =>
+      'Higher quality looks sharper and takes more room on your phone.';
+
+  @override
+  String downloadAbout(String size) {
+    return 'About $size';
+  }
+
+  @override
+  String sizeGb(String size) {
+    return '$size GB';
+  }
+
+  @override
+  String sizeMb(String size) {
+    return '$size MB';
+  }
+
+  @override
+  String downloadStarted(String title) {
+    return 'Downloading $title.';
+  }
+
+  @override
+  String get downloadCouldNotStart => 'Couldn\'t start the download';
+
+  @override
+  String downloadingPercent(int percent) {
+    return 'Downloading $percent%';
+  }
+
+  @override
+  String get downloadQueued => 'Waiting to download';
+
+  @override
+  String get downloadWaiting => 'Waiting for a connection';
+
+  @override
+  String get downloadPaused => 'Paused';
+
+  @override
+  String get downloaded => 'Downloaded';
+
+  @override
+  String get downloadStopped => 'Download stopped';
+
+  @override
+  String get downloadUnavailable => 'No longer available';
+
+  @override
+  String playDownload(String title) {
+    return 'Play $title';
+  }
+
+  @override
+  String get pauseDownload => 'Pause download';
+
+  @override
+  String get resumeDownload => 'Resume download';
+
+  @override
+  String get deleteDownload => 'Delete download';
+
+  @override
+  String get deleteDownloadTitle => 'Delete this download?';
+
+  @override
+  String deleteDownloadMessage(String title) {
+    return '$title will be removed from this phone. You can download it again.';
+  }
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get downloadsEmptyTitle => 'No downloads yet';
+
+  @override
+  String get downloadsEmptyMessage =>
+      'Download movies and episodes to watch them without a connection. Look for Download on a movie or an episode.';
+
+  @override
+  String downloadsUsed(String size) {
+    return '$size on this phone';
+  }
+
+  @override
+  String downloadsOfflineNote(int days) {
+    return 'Downloads play without a connection for up to $days days. Connect now and then to keep them playing.';
+  }
+
+  @override
+  String get downloadProblemNoPass =>
+      'Your pass has ended. Choose a plan to watch your downloads again.';
+
+  @override
+  String get downloadProblemDeviceLimit =>
+      'Your account has more devices than your plan allows. Remove one to watch your downloads.';
+
+  @override
+  String get downloadProblemDeviceRemoved =>
+      'This phone was removed from your account, so its downloads can\'t be watched. Downloading again registers it.';
+
+  @override
+  String get downloadProblemStorageFull =>
+      'Your phone is full. Free up some room, then try again.';
+
+  @override
+  String get downloadProblemSignedOut => 'Sign in to download.';
+
+  @override
+  String get downloadProblemOther =>
+      'Something went wrong with this download. Try again.';
+
+  @override
+  String get downloadCheckIn =>
+      'Connect to the internet to keep watching this download.';
+
+  @override
+  String get downloadClockChanged =>
+      'Your phone\'s clock has changed. Connect to the internet to keep watching.';
+
+  @override
+  String get checkNow => 'Check now';
+
+  @override
+  String get checkInFailed =>
+      'VeloraUG couldn\'t be reached. Check your connection and try again.';
+
+  @override
+  String playsOfflineUntil(String date) {
+    return 'Plays offline until $date';
+  }
+
+  @override
+  String get offlinePlaybackFailed =>
+      'This download can\'t be played. Delete it and download it again.';
 }
