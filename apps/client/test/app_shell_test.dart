@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:veloraug/api/catalogue_api.dart';
 import 'package:veloraug/app.dart';
 import 'package:veloraug/shell/app_shell.dart';
+import 'package:veloraug/widgets/brand.dart';
 import 'package:veloraug/widgets/dev_connection_check.dart';
 
 const _narrow = Size(400, 800);
@@ -137,7 +138,12 @@ void main() {
       await _pumpApp(tester, _narrow);
 
       expect(find.text('Nothing to watch yet'), findsOneWidget);
-      expect(find.byType(Image), findsNothing);
+      // The logo is the only image; there is no title artwork.
+      final logo = find.descendant(
+        of: find.byType(VeloraMark),
+        matching: find.byType(Image),
+      );
+      expect(find.byType(Image).evaluate().length, logo.evaluate().length);
     });
 
     testWidgets('search says when nothing matches', (tester) async {

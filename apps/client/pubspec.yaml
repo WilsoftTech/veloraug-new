@@ -35,3 +35,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/tmdb_logo.png
+    - assets/brand/velora_mark.png

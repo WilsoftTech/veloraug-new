@@ -1,12 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
 import '../l10n/l10n.dart';
 
-/// The VeloraUG name with its two-stroke V. This is the first version of the
-/// identity, awaiting the owner's visual approval.
+/// The VeloraUG name beside its film-ribbon V mark.
 class VeloraWordmark extends StatelessWidget {
-  const VeloraWordmark({super.key, this.markSize = 24});
+  const VeloraWordmark({super.key, this.markSize = 28});
 
   final double markSize;
 
@@ -20,7 +21,7 @@ class VeloraWordmark extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CustomPaint(size: Size.square(markSize), painter: _MarkPainter()),
+          VeloraMark(size: markSize),
           const SizedBox(width: VeloraSpacing.xs),
           Flexible(
             child: Text.rich(
@@ -43,28 +44,61 @@ class VeloraWordmark extends StatelessWidget {
   }
 }
 
-class _MarkPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final left = Path()
-      ..moveTo(w * 0.04, h * 0.14)
-      ..lineTo(w * 0.32, h * 0.14)
-      ..lineTo(w * 0.60, h * 0.88)
-      ..lineTo(w * 0.40, h * 0.88)
-      ..close();
-    final right = Path()
-      ..moveTo(w * 0.68, h * 0.14)
-      ..lineTo(w * 0.96, h * 0.14)
-      ..lineTo(w * 0.66, h * 0.88)
-      ..lineTo(w * 0.53, h * 0.54)
-      ..close();
-    canvas
-      ..drawPath(left, Paint()..color = VeloraColors.textPrimary)
-      ..drawPath(right, Paint()..color = VeloraColors.accentText);
-  }
+/// The V mark on a transparent background.
+///
+/// The artwork is blue. It takes the hue of the theme's primary colour, so a
+/// change of accent recolours the logo with it; light and shade are kept.
+class VeloraMark extends StatelessWidget {
+  const VeloraMark({super.key, this.size = 28, this.color});
+
+  static const String asset = 'assets/brand/velora_mark.png';
+
+  /// The hue of the artwork as drawn, in degrees.
+  static const double _artworkHue = 217.7;
+
+  final double size;
+
+  /// The colour whose hue the mark takes; the theme's primary by default.
+  final Color? color;
 
   @override
-  bool shouldRepaint(_MarkPainter oldDelegate) => false;
+  Widget build(BuildContext context) {
+    final target = color ?? Theme.of(context).colorScheme.primary;
+    final image = Image.asset(
+      asset,
+      width: size,
+      height: size,
+      filterQuality: FilterQuality.medium,
+      excludeFromSemantics: true,
+    );
+    final shift = HSVColor.fromColor(target).hue - _artworkHue;
+    // Close enough to the artwork's own blue: show it untouched.
+    if (shift.abs() < 3) return image;
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix(_hueRotation(shift)),
+      child: image,
+    );
+  }
+}
+
+/// A colour matrix that turns hues by [degrees] and keeps luminance.
+List<double> _hueRotation(double degrees) {
+  final a = degrees * math.pi / 180;
+  final c = math.cos(a);
+  final s = math.sin(a);
+  return [
+    0.213 + c * 0.787 - s * 0.213,
+    0.715 - c * 0.715 - s * 0.715,
+    0.072 - c * 0.072 + s * 0.928,
+    0, 0, //
+    0.213 - c * 0.213 + s * 0.143,
+    0.715 + c * 0.285 + s * 0.140,
+    0.072 - c * 0.072 - s * 0.283,
+    0, 0, //
+    0.213 - c * 0.213 - s * 0.787,
+    0.715 - c * 0.715 + s * 0.715,
+    0.072 + c * 0.928 + s * 0.072,
+    0, 0, //
+    0, 0, 0, 1, 0,
+  ];
 }
