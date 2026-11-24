@@ -476,6 +476,13 @@ class _DraftScreenState extends State<DraftScreen> {
               variant: VeloraButtonVariant.secondary,
               onPressed: () => _typeDetails(edition),
             ),
+            if (edition.kind == EditionKind.movie)
+              VeloraButton(
+                label: l.reuseMovieDetails,
+                icon: Icons.copy_outlined,
+                variant: VeloraButtonVariant.secondary,
+                onPressed: _busy ? null : () => _reuseMovieDetails(edition),
+              ),
           ],
         ),
       ],
@@ -501,6 +508,64 @@ class _DraftScreenState extends State<DraftScreen> {
       _busy = false;
       if (result != null) _edition = result.edition;
     });
+  }
+
+  Future<void> _reuseMovieDetails(AdminEdition edition) async {
+    final l = context.l10n;
+    final query = await _ask(
+      title: l.reuseMovieDetails,
+      label: l.titleToSearch,
+      help: l.reuseMovieSearchHelp,
+    );
+    if (!mounted || query == null) return;
+    if (query.length < 2 || query.length > 120) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.reuseMovieQueryLength)));
+      return;
+    }
+    final options = await runAdmin(
+      context,
+      (api) => api.movieMetadataOptions(edition.id, query),
+    );
+    if (!mounted || options == null) return;
+    final donor = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(l.reuseMovieDetails),
+        scrollable: true,
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                options.isEmpty ? l.reuseMovieNoResults : l.reuseMovieConfirm,
+              ),
+              for (final option in options)
+                ListTile(
+                  leading: SizedBox(
+                    width: 36,
+                    child: MoviePoster(url: option.poster),
+                  ),
+                  title: Text(option.title),
+                  subtitle: option.vj == null ? null : Text(option.vj!),
+                  onTap: () => Navigator.pop(dialog, option.id),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: Text(l.cancel),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || donor == null) return;
+    await _change((api) => api.reuseMovieMetadata(edition.id, donor));
+    if (mounted) setState(() => _posters = null);
   }
 
   Future<void> _useTmdbId(AdminEdition edition) async {

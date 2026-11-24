@@ -68,6 +68,71 @@ VeloraButton button(WidgetTester tester, String label) =>
     tester.widget<VeloraButton>(find.widgetWithText(VeloraButton, label));
 
 void main() {
+  testWidgets(
+    'saves a movie and one episode and opens Watch List from Account',
+    (tester) async {
+      final api = catalogue()
+        ..watchListItems['item-m1'] = {
+          'item_id': 'item-m1',
+          'edition': card('m1'),
+          'season': null,
+          'episode': null,
+          'episode_title': null,
+        }
+        ..watchListItems['e11'] = {
+          'item_id': 'e11',
+          'edition': card('s1', kind: 'series', title: 'Kabaka'),
+          'season': 1,
+          'episode': 1,
+          'episode_title': 'The Crown',
+        };
+      final l = AppLocalizationsEn();
+      await pumpApp(tester, api, signedIn: true);
+      await openEdition(tester, 'Fast X');
+      await tester.tap(find.text(l.watchListAdd));
+      await tester.pumpAndSettle();
+      expect(find.text(l.watchListRemove), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await openEdition(tester, 'Kabaka');
+      final episode = find.byKey(const ValueKey('e11'));
+      final saveEpisode = find.descendant(
+        of: episode,
+        matching: find.byTooltip(l.watchListAdd),
+      );
+      await tester.ensureVisible(saveEpisode);
+      await tester.tap(saveEpisode);
+      await tester.pumpAndSettle();
+      expect(api.watchList.keys, unorderedEquals(['item-m1', 'e11']));
+      expect(
+        find.descendant(
+          of: episode,
+          matching: find.byTooltip(l.watchListRemove),
+        ),
+        findsOneWidget,
+      );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await goTo(tester, 'Account');
+      final watchList = find.text(l.watchListTitle);
+      await tester.ensureVisible(watchList);
+      await tester.tap(watchList);
+      await tester.pumpAndSettle();
+      expect(find.text('Fast X'), findsOneWidget);
+      expect(find.text(l.episodeHeading('Kabaka', 1, 1)), findsOneWidget);
+      final remove = find.descendant(
+        of: find.byKey(const ValueKey('e11')),
+        matching: find.byTooltip(l.watchListRemove),
+      );
+      await tester.tap(remove);
+      await tester.pumpAndSettle();
+      expect(api.watchList.keys, ['item-m1']);
+      expect(find.text(l.episodeHeading('Kabaka', 1, 1)), findsNothing);
+    },
+  );
+
   group('home', () {
     testWidgets('has Latest, Movies, Series and a row per VJ', (tester) async {
       final api = catalogue();

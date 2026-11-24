@@ -107,6 +107,65 @@ def history(conn: psycopg.Connection, user_id: UUID, limit: int) -> list[History
 _FROM_REST = _FROM.split("public.editions e", 1)[1]
 
 
+@dataclass(frozen=True)
+class SavedItem:
+    item_id: UUID
+    season: int | None
+    episode: int | None
+    episode_title: str | None
+    edition: EditionSummary
+
+
+def watch_list(conn: psycopg.Connection, user_id: UUID) -> list[SavedItem]:
+    rows = conn.execute(
+        f"""
+        select w.item_id, i.season, i.episode, i.episode_title, {_SUMMARY}
+        from public.watch_list w
+        join public.items i on i.id = w.item_id
+        join public.editions e on e.id = i.edition_id
+        {_FROM_REST}
+        where w.user_id = %s
+        order by w.added_at desc, w.item_id
+        """,
+        (user_id,),
+    ).fetchall()
+    return [SavedItem(*row[:4], edition=EditionSummary(*row[4:])) for row in rows]
+
+
+def saved_item_ids(
+    conn: psycopg.Connection, user_id: UUID, edition_id: UUID
+) -> list[UUID]:
+    rows = conn.execute(
+        """
+        select w.item_id from public.watch_list w
+        join public.items i on i.id = w.item_id
+        where w.user_id = %s and i.edition_id = %s
+        """,
+        (user_id, edition_id),
+    ).fetchall()
+    return [row[0] for row in rows]
+
+
+def add_to_watch_list(conn: psycopg.Connection, user_id: UUID, item_id: UUID) -> None:
+    conn.execute(
+        """
+        insert into public.watch_list (user_id, item_id)
+        select %s, i.id from public.items i where i.id = %s
+        on conflict (user_id, item_id) do nothing
+        """,
+        (user_id, item_id),
+    )
+
+
+def remove_from_watch_list(
+    conn: psycopg.Connection, user_id: UUID, item_id: UUID
+) -> None:
+    conn.execute(
+        "delete from public.watch_list where user_id = %s and item_id = %s",
+        (user_id, item_id),
+    )
+
+
 # --- Notifications -----------------------------------------------------------
 
 # Older events aren't shown.
@@ -283,6 +342,7 @@ def remove_account_data(conn: psycopg.Connection, user_id: UUID, now: datetime) 
         (now, user_id),
     )
     conn.execute("delete from public.watch_history where user_id = %s", (user_id,))
+    conn.execute("delete from public.watch_list where user_id = %s", (user_id,))
     conn.execute("delete from public.notification_reads where user_id = %s", (user_id,))
     conn.execute("delete from public.profiles where user_id = %s", (user_id,))
     conn.execute(

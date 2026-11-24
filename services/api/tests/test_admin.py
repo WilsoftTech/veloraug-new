@@ -370,33 +370,75 @@ def test_a_preview_works_before_publishing(api, admin, owner):
 
 
 @needs_database
-def test_the_same_vj_cant_have_two_editions_of_one_title(api, admin, owner, tmdb):
+def test_multiple_parts_share_movie_details_poster_and_vj(api, admin, owner, tmdb):
     tmdb_id = new_tmdb_id()
-    tmdb.add_movie(tmdb_id, "Fast X", 2023)
-    first, second = draft(api, admin), draft(api, admin)
-    for made in (first, second):
+    tmdb.add_movie(tmdb_id, "Kattalan", 2026)
+    first = draft(api, admin, title="Kattalan 1")
+    second = draft(api, admin, title="Kattalan 2")
+    part_one = f"/api/v1/admin/editions/{first['edition_id']}"
+    part_two = f"/api/v1/admin/editions/{second['edition_id']}"
+    headers = as_user(admin)
+    ready(owner, first["item_id"])
+    ready(owner, second["item_id"])
+    vj = api.post("/api/v1/admin/vjs", json={"name": "VJ Emmy"}, headers=headers).json()
+    assert (
         api.put(
-            f"/api/v1/admin/editions/{made['edition_id']}/source",
-            json={"tmdb_id": tmdb_id},
-            headers=as_user(admin),
-        )
-    vj = api.post(
-        "/api/v1/admin/vjs", json={"name": "VJ Emmy"}, headers=as_user(admin)
-    ).json()
-    api.put(
-        f"/api/v1/admin/editions/{first['edition_id']}/credit",
-        json={"vj_id": vj["id"]},
-        headers=as_user(admin),
+            f"{part_one}/source", json={"tmdb_id": tmdb_id}, headers=headers
+        ).status_code
+        == 200
+    )
+    poster = f"posters/{first['edition_id']}/abcdefghijklmnop.jpg"
+    assert (
+        api.put(
+            f"{part_one}/poster", json={"path": poster}, headers=headers
+        ).status_code
+        == 200
+    )
+    assert (
+        api.put(
+            f"{part_one}/credit", json={"vj_id": vj["id"]}, headers=headers
+        ).status_code
+        == 200
+    )
+    assert api.post(f"{part_one}/publish", headers=headers).status_code == 200
+    assert (
+        api.put(
+            f"{part_two}/credit", json={"vj_id": vj["id"]}, headers=headers
+        ).status_code
+        == 200
+    )
+    assert (
+        api.put(
+            f"{part_two}/source", json={"tmdb_id": tmdb_id}, headers=headers
+        ).status_code
+        == 200
+    )
+    assert (
+        api.put(
+            f"{part_two}/source",
+            json={"manual": {"title": "Temporary details"}},
+            headers=headers,
+        ).status_code
+        == 200
     )
 
-    again = api.put(
-        f"/api/v1/admin/editions/{second['edition_id']}/credit",
-        json={"vj_id": vj["id"]},
-        headers=as_user(admin),
+    options = api.get(
+        f"{part_two}/movie-metadata", params={"q": "Kattalan"}, headers=headers
     )
-
-    assert again.status_code == 400
-    assert "already has an edition" in again.json()["detail"]
+    assert options.status_code == 200, options.text
+    assert [option["id"] for option in options.json()] == [first["edition_id"]]
+    reused = api.put(
+        f"{part_two}/source",
+        json={"reuse_edition_id": first["edition_id"]},
+        headers=headers,
+    )
+    assert reused.status_code == 200, reused.text
+    assert reused.json()["display_title"] == "Kattalan 2"
+    assert reused.json()["source_tmdb_id"] == tmdb_id
+    assert reused.json()["poster_path"] == poster
+    assert reused.json()["vj_id"] == vj["id"]
+    assert api.post(f"{part_two}/publish", headers=headers).status_code == 200
+    assert first["item_id"] != second["item_id"]
 
 
 # --- Series ------------------------------------------------------------------

@@ -16,6 +16,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, Field, StringConstraints
 
 from app import admin_catalogue as work
@@ -97,6 +98,12 @@ def editing(db: Database, user: VerifiedUser) -> Iterator:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(missing)) from None
     except EditionError as error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from None
+    except UniqueViolation as error:
+        if error.diag.constraint_name != "editions_one_series_per_vj_idx":
+            raise
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "This VJ already has an edition of that series"
+        ) from None
 
 
 # --- Shapes ------------------------------------------------------------------
@@ -231,6 +238,14 @@ class ManualDetails(BaseModel):
 class SourceChoice(BaseModel):
     tmdb_id: int | None = Field(default=None, gt=0)
     manual: ManualDetails | None = None
+    reuse_edition_id: UUID | None = None
+
+
+class MovieMetadataChoice(BaseModel):
+    id: UUID
+    title: str
+    poster_url: str | None
+    vj_name: str | None
 
 
 class Lookup(BaseModel):
@@ -603,6 +618,27 @@ def search_tmdb(
     return Lookup(outcome=outcome, edition=_current(db, user, edition_id, images))
 
 
+@router.get("/editions/{edition_id}/movie-metadata")
+def movie_metadata_options(
+    edition_id: UUID,
+    q: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)
+    ],
+    user: AdminUser,
+    db: EditorDatabase,
+    images: Images,
+) -> list[MovieMetadataChoice]:
+    with editing(db, user) as conn:
+        return [
+            MovieMetadataChoice(
+                id=id_, title=title, poster_url=images.poster(poster), vj_name=vj
+            )
+            for id_, title, poster, vj in work.movie_metadata_candidates(
+                conn, edition_id, q
+            )
+        ]
+
+
 @router.put("/editions/{edition_id}/source")
 def choose_source(
     edition_id: UUID,
@@ -612,13 +648,21 @@ def choose_source(
     db: EditorDatabase,
     images: Images,
 ) -> Edition:
-    """Chooses a TMDB title, by a candidate's or any TMDB ID, or types the
-    details in when TMDB has nothing."""
-    if (body.tmdb_id is None) == (body.manual is None):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Give a TMDB ID, or typed-in details"
+    """Choose TMDB details, type them in, or reuse a published movie's details."""
+    if (
+        sum(
+            value is not None
+            for value in (body.tmdb_id, body.manual, body.reuse_edition_id)
         )
-    if body.manual is not None:
+        != 1
+    ):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Choose one source for the title details"
+        )
+    if body.reuse_edition_id is not None:
+        with editing(db, user) as conn:
+            work.reuse_movie_metadata(conn, edition_id, body.reuse_edition_id)
+    elif body.manual is not None:
         with editing(db, user) as conn:
             work.use_manual_details(conn, edition_id, **body.manual.model_dump())
     else:

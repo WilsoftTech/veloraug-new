@@ -193,14 +193,13 @@ class EditionRow extends StatelessWidget {
 }
 
 /// Opens an edition's page.
-void openEdition(BuildContext context, EditionCard edition) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) =>
-          EditionScreen(editionId: edition.id, title: edition.title),
-    ),
-  );
-}
+Future<void> openEdition(BuildContext context, EditionCard edition) =>
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            EditionScreen(editionId: edition.id, title: edition.title),
+      ),
+    );
 
 /// Placeholder cards while a page loads.
 class EditionGridSkeleton extends StatelessWidget {

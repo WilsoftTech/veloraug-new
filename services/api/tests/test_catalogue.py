@@ -456,7 +456,7 @@ def test_the_database_refuses_publishing_an_incomplete_edition(owner):
 
 
 @needs_database
-def test_one_edition_per_source_per_vj(owner):
+def test_movie_parts_can_share_a_source_and_vj(owner):
     first = create_draft(owner, kind="movie", title="Fast X")
     second = create_draft(owner, kind="movie", title="Fast X again")
     source = describe(owner, first.edition_id, tmdb_id=new_id())
@@ -464,11 +464,13 @@ def test_one_edition_per_source_per_vj(owner):
         "select vj_id from public.editions where id = %s", (first.edition_id,)
     ).fetchone()[0]
 
-    with pytest.raises(psycopg.errors.UniqueViolation):
+    assert (
         owner.execute(
             "update public.editions set source_id = %s, vj_id = %s where id = %s",
             (source, junior, second.edition_id),
-        )
+        ).rowcount
+        == 1
+    )
 
 
 @needs_database
@@ -747,7 +749,9 @@ def test_a_failed_refresh_keeps_a_copy_until_180_days_then_clears_it(owner):
             raise TmdbNotFound(f"TMDB has no movie {tmdb_id}")
         return details(tmdb_id)
 
-    result = refresh(owner, fetch)
+    # The fixture ages copies using PostgreSQL's transaction clock.
+    now = owner.execute("select now()").fetchone()[0]
+    result = refresh(owner, fetch, now=now)
 
     assert fetched(owner, young)[1] is not None
     assert fetched(owner, expired)[1] is None

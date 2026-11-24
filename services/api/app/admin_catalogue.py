@@ -626,21 +626,14 @@ def _set_source(
     outcome: str,
     poster: str | None,
 ) -> None:
-    try:
-        with conn.transaction():
-            conn.execute(
-                """
-                update public.editions set source_id = %s, tmdb_lookup = %s,
-                  tmdb_lookup_at = now(), poster_path = %s, updated_at = now()
-                where id = %s
-                """,
-                (source_id, outcome, poster, edition_id),
-            )
-    except psycopg.errors.UniqueViolation:
-        raise AdminError(
-            "This VJ already has an edition of that title. Replace that "
-            "edition's video instead"
-        ) from None
+    conn.execute(
+        """
+        update public.editions set source_id = %s, tmdb_lookup = %s,
+          tmdb_lookup_at = now(), poster_path = %s, updated_at = now()
+        where id = %s
+        """,
+        (source_id, outcome, poster, edition_id),
+    )
     conn.execute("delete from public.tmdb_matches where edition_id = %s", (edition_id,))
 
 
@@ -658,6 +651,53 @@ def source_of(
     if row is None:
         raise NotFound("No such edition")
     return row
+
+
+def movie_metadata_candidates(
+    conn: psycopg.Connection, edition_id: uuid.UUID, query: str
+) -> list[tuple[uuid.UUID, str, str | None, str | None]]:
+    return conn.execute(
+        """
+        select e.id, e.display_title, e.poster_path, v.name
+        from public.editions e
+        join public.sources s on s.id = e.source_id
+        left join public.vjs v on v.id = e.vj_id
+        where e.kind = 'movie' and e.status = 'published' and not e.test
+          and e.id <> %s
+          and (strpos(lower(e.display_title), lower(%s)) > 0
+               or strpos(lower(s.title), lower(%s)) > 0)
+        order by e.display_title, e.id
+        limit 20
+        """,
+        (edition_id, query, query),
+    ).fetchall()
+
+
+def reuse_movie_metadata(
+    conn: psycopg.Connection, edition_id: uuid.UUID, donor_id: uuid.UUID
+) -> None:
+    changed = conn.execute(
+        """
+        update public.editions target
+        set source_id = donor.source_id,
+            poster_path = coalesce(target.poster_path, donor.poster_path),
+            vj_id = coalesce(target.vj_id, donor.vj_id),
+            tmdb_lookup = case
+                when s.details_from = 'manual' then 'manual' else 'chosen'
+            end,
+            tmdb_lookup_at = now(),
+            updated_at = now()
+        from public.editions donor
+        join public.sources s on s.id = donor.source_id
+        where donor.id = %s and donor.kind = 'movie' and donor.status = 'published'
+          and not donor.test and target.id = %s and target.kind = 'movie'
+          and target.id <> donor.id
+        """,
+        (donor_id, edition_id),
+    ).rowcount
+    if not changed:
+        raise NotFound("No published movie to reuse for this edition")
+    conn.execute("delete from public.tmdb_matches where edition_id = %s", (edition_id,))
 
 
 def set_poster(conn: psycopg.Connection, edition_id: uuid.UUID, path: str) -> None:
@@ -695,18 +735,10 @@ def set_credit(
 ) -> None:
     if not conn.execute("select 1 from public.vjs where id = %s", (vj_id,)).fetchone():
         raise NotFound("No such VJ")
-    try:
-        with conn.transaction():
-            changed = conn.execute(
-                "update public.editions set vj_id = %s, updated_at = now() "
-                "where id = %s",
-                (vj_id, edition_id),
-            ).rowcount
-    except psycopg.errors.UniqueViolation:
-        raise AdminError(
-            "This VJ already has an edition of that title. Replace that "
-            "edition's video instead"
-        ) from None
+    changed = conn.execute(
+        "update public.editions set vj_id = %s, updated_at = now() where id = %s",
+        (vj_id, edition_id),
+    ).rowcount
     if not changed:
         raise NotFound("No such edition")
 
