@@ -22,12 +22,24 @@ Finder payButton(String price) => find.text('Pay UGX $price');
 
 void main() {
   late List<Uri> opened;
+  late List<Uri> shown;
+  VoidCallback? returnFromPesapal;
+  var browserOpens = true;
 
   setUp(() {
     opened = [];
+    shown = [];
+    returnFromPesapal = null;
+    browserOpens = true;
     BuyPassScreen.openPage = (page) async {
       opened.add(page);
-      return true;
+      return browserOpens;
+    };
+    // Pesapal's page inside the app, without a real web view.
+    BuyPassScreen.paymentView = (context, page, onReturned) {
+      if (shown.isEmpty || shown.last != page) shown.add(page);
+      returnFromPesapal = onReturned;
+      return Text('Pesapal form: $page');
     };
     BuyPassScreen.checkEvery = const Duration(seconds: 3);
     BuyPassScreen.checkFor = const Duration(minutes: 15);
@@ -265,7 +277,7 @@ void main() {
       });
     }
 
-    testWidgets('pays on Pesapal, waits, and shows the plan ready', (
+    testWidgets('pays on Pesapal inside the app, and shows the plan ready', (
       tester,
     ) async {
       final api = FakeApi();
@@ -278,15 +290,21 @@ void main() {
         'plan_id': 'velora_start',
         'email': 'owner@example.test',
       });
+      // Pesapal's page shows here: nothing opens outside the app.
+      expect(opened, isEmpty);
       expect(
-        opened.single.toString(),
+        shown.single.toString(),
         'https://cybqa.pesapal.com/iframe/pay-1',
       );
-      expect(find.text('Finish paying on Pesapal'), findsOneWidget);
+      expect(find.text('Pay for your plan'), findsOneWidget);
+      expect(
+        find.text('Pesapal form: https://cybqa.pesapal.com/iframe/pay-1'),
+        findsOneWidget,
+      );
 
-      // Coming back from Pesapal isn't proof: still waiting for the API.
+      // Paying isn't proof until the API says so.
       await checks(tester, 1);
-      expect(find.text('Finish paying on Pesapal'), findsOneWidget);
+      expect(find.textContaining('Pesapal form: '), findsOneWidget);
       await checks(tester, 1);
 
       expect(find.text('Your pass is ready'), findsOneWidget);
@@ -298,7 +316,7 @@ void main() {
       expect(find.text('Active'), findsOneWidget);
     });
 
-    testWidgets('a failed payment can be tried again on Pesapal', (
+    testWidgets('a failed try stays on Pesapal\'s page to try again', (
       tester,
     ) async {
       final api = FakeApi()..paymentStates = ['failed', 'failed', 'completed'];
@@ -307,14 +325,80 @@ void main() {
       await openPlans(tester);
       await pay(tester, '18,000');
 
+      // Pesapal's own page says it failed, and offers another try.
+      await checks(tester, 2);
+      expect(find.text("That payment didn't go through"), findsNothing);
+      expect(find.textContaining('Pesapal form: '), findsOneWidget);
+
+      await checks(tester, 1);
+      expect(find.text('Your pass is ready'), findsOneWidget);
+    });
+
+    testWidgets('Pesapal sending the viewer back checks at once', (
+      tester,
+    ) async {
+      final api = FakeApi()..paymentStates = ['pending', 'completed'];
+      await pumpApp(tester, api, signedIn: true);
+      await goTo(tester, 'Account');
+      await openPlans(tester);
+      await pay(tester, '6,000');
+      final before = api.paymentChecks;
+
+      returnFromPesapal!();
+      await settle(tester);
+      expect(api.paymentChecks, before + 1);
+      expect(find.text('Checking your payment'), findsWidgets);
+      expect(find.textContaining('Pesapal form: '), findsNothing);
+
+      await checks(tester, 1);
+      expect(find.text('Your pass is ready'), findsOneWidget);
+    });
+
+    testWidgets('can pay in the browser instead, and come back', (
+      tester,
+    ) async {
+      final api = FakeApi()..paymentStates = ['failed', 'failed', 'completed'];
+      await pumpApp(tester, api, signedIn: true);
+      await goTo(tester, 'Account');
+      await openPlans(tester);
+      await pay(tester, '18,000');
+
+      await tester.ensureVisible(find.text('Pay in my browser instead'));
+      await tester.tap(find.text('Pay in my browser instead'));
+      await settle(tester);
+      expect(opened.single, shown.single);
+      expect(find.text('Finish paying in your browser'), findsOneWidget);
+
+      // Paying in the browser, a failure is said here.
       await checks(tester, 1);
       expect(find.text("That payment didn't go through"), findsOneWidget);
-      await tester.tap(find.text('Open Pesapal again'));
+      await tester.tap(find.text('Try paying again'));
       await settle(tester);
-      expect(opened, hasLength(2));
+      expect(find.textContaining('Pesapal form: '), findsOneWidget);
 
       await checks(tester, 2);
       expect(find.text('Your pass is ready'), findsOneWidget);
+    });
+
+    testWidgets('a browser that won\'t open keeps paying in the app', (
+      tester,
+    ) async {
+      browserOpens = false;
+      await pumpApp(tester, FakeApi(), signedIn: true);
+      await goTo(tester, 'Account');
+      await openPlans(tester);
+      await pay(tester, '6,000');
+
+      await tester.ensureVisible(find.text('Pay in my browser instead'));
+      await tester.tap(find.text('Pay in my browser instead'));
+      await settle(tester);
+      expect(
+        find.text(
+          "Couldn't open your browser. You can pay here in the app instead.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Pesapal form: '), findsOneWidget);
     });
 
     testWidgets('a payment given up on goes back to the plans', (tester) async {
@@ -351,6 +435,7 @@ void main() {
 
         expect(find.text(message), findsOneWidget);
         expect(opened, isEmpty);
+        expect(shown, isEmpty);
       });
     }
 
@@ -364,6 +449,7 @@ void main() {
       await pay(tester, '6,000');
 
       expect(opened, isEmpty);
+      expect(shown, isEmpty);
       expect(find.text('Something went wrong. Try again.'), findsOneWidget);
     });
 

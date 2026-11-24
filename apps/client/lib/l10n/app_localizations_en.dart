@@ -1394,7 +1394,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get passIntro =>
-      'A pass lets you watch everything on VeloraUG until it ends. You pay on Pesapal\'s page, by mobile money or card.';
+      'A pass lets you watch everything on VeloraUG until it ends. You pay right here in the app, by mobile money or card, through Pesapal.';
 
   @override
   String get passChecking =>
@@ -1451,7 +1451,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get startingPayment => 'Starting your payment';
 
   @override
-  String get finishPaying => 'Finish paying on Pesapal';
+  String get finishPaying => 'Finish paying in your browser';
 
   @override
   String get finishPayingHelp =>
@@ -1459,6 +1459,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openPesapalAgain => 'Open Pesapal again';
+
+  @override
+  String get payingTitle => 'Pay for your plan';
+
+  @override
+  String get payHereHelp =>
+      'Choose MTN Mobile Money, Airtel Money or a card below. For mobile money, enter your number, then approve the prompt on your phone with your PIN. This page moves on by itself once you\'ve paid.';
+
+  @override
+  String get paymentFormLabel => 'Pesapal payment form';
+
+  @override
+  String get paymentFormCouldNotLoad =>
+      'Couldn\'t load the payment form. Check your connection and try again.';
+
+  @override
+  String get payInBrowser => 'Pay in my browser instead';
+
+  @override
+  String get payHereAgain => 'Pay here in the app';
+
+  @override
+  String get tryPayingAgain => 'Try paying again';
+
+  @override
+  String get confirmingPaymentHelp =>
+      'Pesapal has finished. We\'re confirming your payment, which usually takes a few seconds.';
 
   @override
   String get checkAgain => 'Check again';
@@ -1471,7 +1498,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentFailedHelp =>
-      'You can try another way to pay on Pesapal\'s page, or choose a pass again.';
+      'You can try again, with another number or a card, or choose a pass again.';
 
   @override
   String get paymentGivenUp =>
@@ -1508,7 +1535,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get couldNotOpenPesapal =>
-      'Couldn\'t open Pesapal\'s page. Use Open Pesapal again.';
+      'Couldn\'t open your browser. You can pay here in the app instead.';
 
   @override
   String get passNeededTitle => 'You need a pass to watch';
@@ -1550,7 +1577,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get choosePlanIntro =>
-      'Every plan unlocks the whole VeloraUG catalogue. Pay once on Pesapal\'s secure page with MTN Mobile Money, Airtel Money or a card. Nothing renews by itself.';
+      'Every plan unlocks the whole VeloraUG catalogue. Pay once, right here in the app, with MTN Mobile Money, Airtel Money or a card. Nothing renews by itself.';
 
   @override
   String get mostPopular => 'Most popular';
@@ -1613,7 +1640,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentSecureNote =>
-      'VeloraUG never sees your mobile money PIN or card number.';
+      'Payments are handled securely by Pesapal. VeloraUG never sees your mobile money PIN or card number.';
 
   @override
   String get tooManyAttempts =>
