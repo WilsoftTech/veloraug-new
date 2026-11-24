@@ -429,7 +429,19 @@ body {{ font-family: system-ui, sans-serif; background: #0b0b10; color: #f2f2f5;
   display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 16px; }}
 main {{ max-width: 28rem; text-align: center; }}
 </style></head>
-<body><main><h1>{title}</h1><p>{message}</p></main></body></html>
+<body><main><h1>{title}</h1><p>{message}</p></main>
+<script>
+// Shown inside VeloraUG, in the app's frame: tell the app, which checks the
+// payment itself, and don't ask the viewer to close a tab. The message
+// carries nothing secret, and the app only answers it by checking.
+if (window.top !== window.self) {{
+  document.querySelector("h1").textContent = "Confirming your payment";
+  document.querySelector("p").textContent =
+    "VeloraUG is checking with Pesapal. This takes a few seconds.";
+  try {{ window.parent.postMessage("veloraug:pesapal-returned", "*"); }}
+  catch (error) {{}}
+}}
+</script></body></html>
 """
 
 

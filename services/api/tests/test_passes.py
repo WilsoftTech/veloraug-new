@@ -645,7 +645,10 @@ def test_the_return_page_checks_the_payment_and_never_echoes(api, fake, prices):
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
     assert "Payment received" in page.text
-    assert "<script>" not in page.text
+    # Only the page's own script: nothing from the address is echoed.
+    assert "alert(1)" not in page.text
+    assert page.text.count("<script>") == 1
+    assert 'postMessage("veloraug:pesapal-returned", "*")' in page.text
     assert my_pass(api, user)["active"] is True
     # Unknown or malformed: the same polite page, nothing checked.
     other = api.get("/api/v1/passes/return", params={"OrderTrackingId": "x<y"})

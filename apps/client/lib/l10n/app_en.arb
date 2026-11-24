@@ -952,6 +952,7 @@
   "payInBrowser": "Pay in my browser instead",
   "payHereAgain": "Pay here in the app",
   "tryPayingAgain": "Try paying again",
+  "lastTryFailedHere": "That try didn't go through. You can try again below, with another number or a card, or choose a plan again.",
   "confirmingPaymentHelp": "Pesapal has finished. We're confirming your payment, which usually takes a few seconds.",
   "checkAgain": "Check again",
   "checkingPayment": "Checking your payment",

@@ -58,8 +58,9 @@ class _AppPesapalViewState extends State<_AppPesapalView> {
   }
 
   /// Pesapal's page and the bank's card checks load here. The return
-  /// address never does: the app takes over there. Anything that isn't a
-  /// secure web page, such as `intent:` or `tel:`, is refused.
+  /// address never does: the app takes over there. A main page that isn't
+  /// a secure web page, such as `intent:` or `tel:`, is refused. Android
+  /// can't refuse a frame inside the page, so those are let through.
   NavigationDecision _allow(NavigationRequest request) {
     final url = Uri.tryParse(request.url);
     if (url == null) return NavigationDecision.prevent;
