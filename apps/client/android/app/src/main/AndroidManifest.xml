@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Sign-in talks to Neon Auth over HTTPS. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Downloads, Step 12A: Android 9 and older need this to save a movie to
+         the phone's Downloads folder. Android 10 and newer don't ask. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
     <!-- allowBackup is off, so the saved sign-in is never copied to a backup or
          another device. Plain HTTP stays off: networkSecurityConfig lives in
          src/debug/ only. -->

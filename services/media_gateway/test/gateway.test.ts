@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 
-import { type Env, handle } from "../src/index.ts";
+import { type Env, attachment, handle } from "../src/index.ts";
 import { FakeBucket, signGrant } from "./support.ts";
 
 const SECRET = "a-test-signing-key-that-is-long-enough-000";
@@ -94,6 +94,8 @@ test("only published file names are served", async () => {
     `/v1/${grant}/2160p/index.m3u8`,
     `/v1/${grant}/720p/seg_1.ts`,
     `/v1/${grant}/720p/index.m3u8x`,
+    `/v1/${grant}/download.mp4`,
+    `/v1/${grant}/720p/download.mp4x`,
     `/v1/${grant}/master.m3u8/`,
     `/v1/${grant}//master.m3u8`,
     `/v2/${grant}/master.m3u8`,
@@ -105,6 +107,57 @@ test("only published file names are served", async () => {
     assert.equal((await get(path)).status, 404, path);
   }
   assert.deepEqual(bucket.requested, []);
+});
+
+test("a quality's download file is an attachment named as asked", async () => {
+  bucket.put(`${PREFIX}/720p/download.mp4`, "the whole film", "video/mp4");
+
+  const response = await get(
+    `/v1/${grant}/720p/download.mp4?name=${encodeURIComponent("Fast X - VJ Junior - 720p.mp4")}`,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Content-Type"), "video/mp4");
+  assert.equal(
+    response.headers.get("Content-Disposition"),
+    'attachment; filename="Fast X - VJ Junior - 720p.mp4"',
+  );
+  assert.equal(await response.text(), "the whole film");
+  assert.deepEqual(bucket.requested, [`${PREFIX}/720p/download.mp4`]);
+});
+
+test("a download resumes from where it stopped, with a range", async () => {
+  bucket.put(`${PREFIX}/720p/download.mp4`, "0123456789", "video/mp4");
+
+  const response = await get(`/v1/${grant}/720p/download.mp4`, { Range: "bytes=4-" });
+
+  assert.equal(response.status, 206);
+  assert.equal(response.headers.get("Content-Range"), "bytes 4-9/10");
+  assert.match(response.headers.get("Content-Disposition") ?? "", /^attachment;/);
+});
+
+test("HEAD on a download file gives its size, for the app to show", async () => {
+  bucket.put(`${PREFIX}/720p/download.mp4`, "0123456789", "video/mp4");
+
+  const response = await get(`/v1/${grant}/720p/download.mp4`, {}, "HEAD");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Content-Length"), "10");
+});
+
+test("a download file's name is made safe, and always ends in .mp4", () => {
+  assert.equal(attachment(null, "480p"), 'attachment; filename="VeloraUG - 480p.mp4"');
+  assert.equal(attachment("Kabaka - S01E02", "720p"), 'attachment; filename="Kabaka - S01E02 - 720p.mp4"');
+  assert.equal(
+    attachment('../evil"name\r\nX-Header: 1.mp4', "720p"),
+    'attachment; filename="evil name X-Header 1.mp4"',
+  );
+  assert.equal(attachment("???", "360p"), 'attachment; filename="VeloraUG - 360p.mp4"');
+});
+
+test("only the download file is an attachment", async () => {
+  const response = await get(`/v1/${grant}/720p/init_2.mp4?name=x.mp4`);
+  assert.equal(response.headers.get("Content-Disposition"), null);
 });
 
 test("a file that isn't in R2 is 404", async () => {

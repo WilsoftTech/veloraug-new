@@ -442,21 +442,18 @@ VELORAUG_MEDIA_GATEWAY_URL=http://127.0.0.1:8787
 
 ### Downloads
 
-The Android app downloads one quality of an item to watch offline. See the [downloads plan](../../docs/step-12a-downloads.md).
+Viewers download a movie's or an episode's video as one `.mp4` file, theirs to keep. See the [downloads plan](../../docs/step-12a-downloads.md).
 
 ```text
 POST /api/v1/items/{id}/download      Authorization: Bearer <token>, X-Velora-Device
 
-200 {"playlist_url": "...", "expires_at": "...", "offline_until": "..."}
+200 {"playlist_url": "<gateway>/v1/<grant>/master.m3u8", "expires_at": "...", "file_name": "Fast X - VJ Junior"}
 401   402 no pass   403 device_required   404   409 nothing ready, or device_limit   429   503
-
-POST /api/v1/me/offline-licences      {"items": [<up to 200 item IDs>]}
-
-200 {"licences": [{"item_id": "...", "offline_until": "..." | null}]}
-401   402 no pass   403 device_required   409 device_limit   429
 ```
 
-The download's grant has **no playback session**, so a download takes no stream and never stops the player on any device. It lasts an hour (`DOWNLOAD_GRANT_SECONDS`), and never past the pass. The Worker needs no change. `offline_until` is `OFFLINE_DAYS` (7) from now, and never later than the end of the viewer's passes. With passes off, or for an admin, there are no pass or device checks. `offline_until: null` means the item is no longer published or has no ready video: the app deletes it.
+The file is `<quality>/download.mp4` beside the playlist, under the same grant. The app adds `?name=<file_name> - <quality>.mp4`, which the media gateway sends as the attachment's name. The grant has **no playback session**, so a download takes no stream and never stops the player. It lasts 24 hours (`DOWNLOAD_GRANT_SECONDS`), and never past the pass, because the browser's or Android's downloader can't ask for a new one. With passes off, or for an admin, there are no pass or device checks.
+
+The media worker writes each quality's `download.mp4` when it converts. For films published before then, run `python -m app.download_files` in the media worker's container: see [making files for films already published](../../docs/step-12a-downloads.md#making-files-for-films-already-published).
 
 ## Passes
 
@@ -506,7 +503,7 @@ Paste the ID it prints into `.env` as `VELORAUG_PESAPAL_IPN_ID`, with `VELORAUG_
   - `GET /api/v1/vjs` lists VJs with something published; `GET /api/v1/vjs/{slug}` is a VJ's page, with their bio, movies and series.
   - `GET /api/v1/languages` lists languages with published editions.
   - `POST /api/v1/items/{id}/playback` grants a viewing of one item, a movie's video or one episode, It needs a token. A film from before Milestone 9 keeps its old movie ID as its edition's and item's.
-  - `POST /api/v1/items/{id}/download` and `POST /api/v1/me/offline-licences`, for the Android app's [downloads](#downloads).
+  - `POST /api/v1/items/{id}/download`, for [downloads](#downloads).
 - The Milestone 6 routes, `/api/v1/movies` and `/api/v1/movies/{id}/playback`, were removed in Step 9E, once the app used the routes above.
 
 The IDs are VeloraUG's own. TMDB's IDs and token never leave the API, and the image addresses point straight at TMDB's image server, or at the media gateway for images admins uploaded.

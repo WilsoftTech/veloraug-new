@@ -2,10 +2,15 @@
 //
 //   GET /v1/<grant>/master.m3u8
 //   GET /v1/<grant>/<quality>/index.m3u8 | init*.mp4 | seg_<n>.m4s
+//   GET /v1/<grant>/<quality>/download.mp4?name=<file name>
 //
 //   PUT /i/<upload grant>, GET /i/posters/..., GET /i/vjs/...
 //
 // The last are admins' uploaded images, from Step 9C: see src/images.ts.
+//
+// download.mp4, from Step 12A, is a quality's whole video as one file, for
+// viewers to download and keep. It is sent as an attachment named by
+// ?name=, so a browser saves it to disk rather than playing it.
 //
 // The grant is in the path, so the relative entries in each playlist carry
 // it to every file. The R2 path is built from the grant, never from the
@@ -65,7 +70,7 @@ export interface Env {
 
 const ROUTE = new RegExp(
   `^/v1/(${GRANT_PATTERN})/(master\\.m3u8|(?:360p|480p|720p|1080p)/` +
-    `(?:index\\.m3u8|init(?:_\\d{1,2})?\\.mp4|seg_\\d{1,6}\\.m4s))$`,
+    `(?:index\\.m3u8|init(?:_\\d{1,2})?\\.mp4|seg_\\d{1,6}\\.m4s|download\\.mp4))$`,
 );
 const MIN_KEY_LENGTH = 32;
 const UPLOAD_ROUTE = new RegExp(`^/i/(${UPLOAD_GRANT_PATTERN})$`);
@@ -103,6 +108,21 @@ function contentRange(range: R2Range, size: number): [number, number] {
   const start = range.offset ?? 0;
   const length = range.length ?? size - start;
   return [start, Math.min(size, start + length) - 1];
+}
+
+// "attachment; filename=..." with a name that is safe everywhere: letters,
+// digits, spaces and . , ' ( ) - only, ending in .mp4.
+export function attachment(name: string | null, quality: string): string {
+  let safe = (name ?? "")
+    .replace(/[^A-Za-z0-9 .,'()-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[ .-]+/, "")
+    .slice(0, 120)
+    .trim();
+  if (!safe.toLowerCase().endsWith(".mp4")) {
+    safe = `${safe.replace(/[ .-]+$/, "") || "VeloraUG"} - ${quality}.mp4`;
+  }
+  return `attachment; filename="${safe}"`;
 }
 
 export async function handle(
@@ -191,6 +211,11 @@ export async function handle(
   // Per viewer: the address holds their grant. Shared caches mustn't keep it.
   headers.set("Cache-Control", "private, max-age=3600");
   headers.set("X-Content-Type-Options", "nosniff");
+  if (match[2].endsWith("/download.mp4")) {
+    const quality = match[2].split("/")[0];
+    const name = new URL(request.url).searchParams.get("name");
+    headers.set("Content-Disposition", attachment(name, quality));
+  }
 
   if (request.method === "HEAD") {
     headers.set("Content-Length", String(object.size));

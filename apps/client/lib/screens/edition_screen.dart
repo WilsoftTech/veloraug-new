@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/catalogue_api.dart';
 import '../api/playback_api.dart';
 import '../auth/auth_controller.dart';
-import '../downloads/download_manager.dart';
+import '../downloads/downloads.dart';
 import '../downloads/download_ui.dart';
 import '../l10n/l10n.dart';
 import '../theme/tokens.dart';

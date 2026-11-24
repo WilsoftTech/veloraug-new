@@ -14,7 +14,8 @@ deletes anything left under originals/.
 Paths in R2 use VeloraUG's IDs only:
 
     movies/<item id>/<original id>/master.m3u8
-    movies/<item id>/<original id>/<quality>/index.m3u8, init_N.mp4, seg_*.m4s
+    movies/<item id>/<original id>/<quality>/index.m3u8, init_N.mp4, seg_*.m4s,
+        and download.mp4, the whole video as one file, since Step 12A
     originals/<original id>   (published before 19 November 2026 only)
 """
 
@@ -31,6 +32,7 @@ from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.db import Database
+from app.playback import DOWNLOAD_FILE
 
 logger = logging.getLogger("veloraug.media_worker")
 
@@ -60,6 +62,8 @@ class Store(Protocol):
     def size(self, key: str) -> int | None: ...
 
     def delete_prefix(self, prefix: str) -> int: ...
+
+    def download(self, key: str, path: Path) -> None: ...
 
 
 class R2Settings(BaseSettings):
@@ -191,6 +195,9 @@ class R2Store:
                 return None
             raise
 
+    def download(self, key: str, path: Path) -> None:
+        self.client.download_file(self.bucket, key, str(path), Config=self.transfer)
+
     def storage_class(self, key: str) -> str:
         head = self.client.head_object(Bucket=self.bucket, Key=key)
         return head.get("StorageClass", "STANDARD")
@@ -306,7 +313,13 @@ class Publisher:
 
         with self.database.anonymous() as conn:
             for quality in qualities:
-                size = sum(p.stat().st_size for p in (out / quality.name).iterdir())
+                # The streamed chunks only: the download file is the same
+                # video again.
+                size = sum(
+                    p.stat().st_size
+                    for p in (out / quality.name).iterdir()
+                    if p.name != DOWNLOAD_FILE
+                )
                 conn.execute(
                     """
                     insert into public.media_renditions

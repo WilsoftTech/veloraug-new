@@ -158,15 +158,15 @@ Planned in the [pilot deployment plan](step-11a-pilot-deployment-plan.md), **app
 
 ### Milestone 12: Downloads
 
-Downloading movies and episodes on Android to watch offline. Planned in the [downloads plan](step-12a-downloads.md), **not yet approved**: written and built on 23 November 2026 at the owner's request. Not encrypted or DRM-protected: see [what this does not protect against](step-12a-downloads.md#what-this-does-not-protect-against).
+Downloading movies and episodes as **ordinary .mp4 files, the viewer's to keep**: to the computer's Downloads folder from a browser, and to Downloads/VeloraUG on an Android phone. The owner's decision of 24 November 2026, replacing the first version (PR #4), which kept downloads private to the Android app for 7 days at a time. Planned in the [downloads plan](step-12a-downloads.md), see [what this means](step-12a-downloads.md#what-this-means).
 
-- [x] 12A: Plan and build: the API's download grant without a playback session and its 7-day offline licences, the app's resumable downloader, Download on movies and episodes, the Downloads tab and the offline player (automated: 9 API tests on a local Postgres, 33 app tests; web and Android builds compile)
-- [ ] 12B: On a phone, against the development API and Worker: the [run sheet](step-12a-downloads.md#still-to-check-on-a-phone), especially playing a download in flight mode
+- [x] 12A: The media worker joins each quality into one `download.mp4`, a command makes them for films already published, the API's 24-hour download grant without a playback session, the media gateway's named attachment, and the app's Download on movies and episodes: the browser's downloader on the web, Android's download manager on phones, and a Downloads tab on Android (automated: API, media gateway and app tests; web and Android builds compile; the FFmpeg join tried by hand on a real film)
+- [ ] 12B: Deploy, run the backfill on development and production, and the [checks still to do](step-12a-downloads.md#still-to-check) in browsers and on a phone
 
 ## Check before launch
 
 - Rights to distribute each movie
-- For each VJ edition, both the rights to the source film and the VJ's permission
+- For each VJ edition, both the rights to the source film and the VJ's permission, including for viewers to download and keep it as a file (Milestone 12)
 - TMDB's attribution and commercial-use terms: a signed TMDB agreement, or the [fallback](step-06a-catalogue-plan.md#the-licence-risk), before anyone is charged
 - Telegram's terms, if movies are fetched from a Telegram channel
 - R2 storage against the pilot budget: about $20 a month at 100 films. See the [uploads plan](step-07a-uploads-plan.md#cost)

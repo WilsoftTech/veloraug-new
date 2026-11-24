@@ -16,8 +16,8 @@ import 'auth/browser_step.dart';
 import 'auth/oauth_client.dart';
 import 'auth/oauth_config.dart';
 import 'auth/token_store.dart';
-import 'downloads/download_manager.dart';
-import 'downloads/download_storage.dart';
+import 'downloads/download_target.dart';
+import 'downloads/downloads.dart';
 import 'l10n/l10n.dart';
 import 'shell/app_shell.dart';
 import 'theme/velora_theme.dart';
@@ -30,7 +30,7 @@ class VeloraApp extends StatefulWidget {
     this.playbackApi,
     this.adminApi,
     this.uploadQueue,
-    this.downloadManager,
+    this.downloads,
     this.pickVideos = uploads.pickVideos,
     this.showAdmin = adminScreensAvailable,
   });
@@ -53,9 +53,9 @@ class VeloraApp extends StatefulWidget {
   /// tests. The app doesn't dispose of it.
   final UploadQueue? uploadQueue;
 
-  /// Replaces the downloads built from this phone's storage, in tests. The
-  /// app doesn't dispose of it.
-  final DownloadManager? downloadManager;
+  /// Replaces the downloads built for this platform, in tests. The app
+  /// doesn't dispose of it.
+  final Downloads? downloads;
 
   /// The file chooser for uploads. Tests replace it.
   final Future<List<PickedVideo>> Function() pickVideos;
@@ -78,9 +78,9 @@ class _VeloraAppState extends State<VeloraApp> {
   http.Client? _adminHttpClient;
   AdminApi? _ownAdmin;
   UploadQueue? _ownUploads;
-  DownloadManager? _ownDownloads;
+  Downloads? _ownDownloads;
 
-  DownloadManager? get _downloads => widget.downloadManager ?? _ownDownloads;
+  Downloads? get _downloads => widget.downloads ?? _ownDownloads;
 
   UploadQueue? get _uploads => widget.uploadQueue ?? _ownUploads;
 
@@ -101,18 +101,25 @@ class _VeloraAppState extends State<VeloraApp> {
     if (widget.adminApi == null) _ownAdmin = _adminFromSettings();
     if (widget.uploadQueue == null) _ownUploads = _uploadsFromSettings();
     _auth?.restore();
-    if (widget.downloadManager == null) {
-      _downloadsFromStorage();
+    if (widget.downloads == null) {
+      _downloadsForPlatform();
     } else {
-      widget.downloadManager!.load();
+      widget.downloads!.load();
     }
   }
 
-  /// Downloads, on Android only: once the app's private storage is found.
-  Future<void> _downloadsFromStorage() async {
-    final storage = await createPlatformDownloadStorage();
-    if (storage == null || !mounted) return;
-    final downloads = DownloadManager(storage: storage, api: _playback);
+  /// Downloads: the browser's downloader on the web, Android's download
+  /// manager on Android. Only with playback, which grants them.
+  Future<void> _downloadsForPlatform() async {
+    if (_playback == null) return;
+    final found = await createPlatformDownloadTarget();
+    if (found == null || !mounted) return;
+    final (target, records) = found;
+    final downloads = Downloads(
+      target: target,
+      api: _playback,
+      records: records,
+    );
     setState(() => _ownDownloads = downloads);
     await downloads.load();
   }
@@ -244,7 +251,7 @@ class _VeloraAppState extends State<VeloraApp> {
         child: PlaybackScope(
           api: _playback,
           child: DownloadsScope(
-            manager: _downloads,
+            downloads: _downloads,
             child: AdminScope(
               api: _admin,
               child: UploadsScope(

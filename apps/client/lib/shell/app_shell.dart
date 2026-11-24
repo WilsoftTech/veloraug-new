@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../admin/admin_screen.dart';
 import '../api/admin_api.dart';
 import '../auth/auth_controller.dart';
-import '../downloads/download_manager.dart';
+import '../downloads/downloads.dart';
 import '../l10n/l10n.dart';
 import '../screens/account_screen.dart';
 import '../screens/downloads_screen.dart';
@@ -47,7 +47,8 @@ class _AppShellState extends State<AppShell> {
   /// True once the API has said this person is an admin.
   bool _isAdmin = false;
 
-  /// Whether this phone keeps downloads: Android only.
+  /// Whether downloads are listed in a tab: on Android only. Browsers
+  /// list their own.
   bool _hasDownloads = false;
 
   /// Home, Search, Downloads where kept, and Account. Admin comes after.
@@ -115,10 +116,10 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
-  /// Downloads are found a moment after launch, on Android. The tab is
+  /// Downloads are set up a moment after launch. On Android the tab is
   /// added before Account, so whatever was chosen stays chosen.
   void _syncDownloads() {
-    final has = DownloadsScope.peek(context) != null;
+    final has = DownloadsScope.peek(context)?.followed ?? false;
     if (has == _hasDownloads) return;
     if (_selectedIndex >= 2) _selectedIndex += has ? 1 : -1;
     _hasDownloads = has;

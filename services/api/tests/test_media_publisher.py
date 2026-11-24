@@ -65,6 +65,13 @@ class FakeBucket:
         found = self.objects.get(key)
         return len(found[0]) if found else None
 
+    def download(self, key, path):
+        Path(path).write_bytes(self.objects[key][0])
+
+    def put(self, key, data: bytes):
+        """Puts a file there directly, as an earlier publish did."""
+        self.objects[key] = (data, "", IMMUTABLE, "STANDARD")
+
     def delete_prefix(self, prefix):
         keys = [k for k in self.objects if k.startswith(prefix)]
         for key in keys:
@@ -81,6 +88,7 @@ def converted(output: Path, uploads: Path, original_id, qualities=("360p", "720p
         for n in range(3):
             (out / name / f"seg_{n:05d}.m4s").write_bytes(os.urandom(1000 + n))
         (out / name / "index.m3u8").write_text("#EXTM3U\n")
+        (out / name / "download.mp4").write_bytes(os.urandom(4000))
     (out / "master.m3u8").write_text(MASTER)
     (uploads / str(original_id)).write_bytes(os.urandom(5000))
     (uploads / f"{original_id}.info").write_text("{}")
@@ -263,7 +271,7 @@ def test_publishing_uploads_everything_in_order_and_marks_it_ready(
 
     prefix = f"movies/{movie}/{original_id}"
     keys = bucket.order
-    assert len(keys) == 2 * 5 + 1
+    assert len(keys) == 2 * 6 + 1
     assert keys[-1] == f"{prefix}/master.m3u8"
     # The original isn't kept in R2: the owner keeps their own copy.
     assert not any(k.startswith("originals/") for k in keys)
@@ -280,8 +288,13 @@ def test_publishing_uploads_everything_in_order_and_marks_it_ready(
     )
     assert bucket.objects[f"{prefix}/master.m3u8"][1] == "application/vnd.apple.mpegurl"
     assert state_of(owner_url, original_id) == ("ready", None)
+    assert bucket.objects[f"{prefix}/720p/download.mp4"][1] == "video/mp4"
     heights = [(h, w, b) for h, w, b, _ in qualities_of(owner_url, original_id)]
     assert heights == [(360, 640, 895245), (720, 1280, 2914299)]
+    # A quality's size is what is streamed, not the download file as well.
+    streamed = 700 + 1000 + 1001 + 1002 + len("#EXTM3U" + os.linesep)
+    sizes = [size for *_, size in qualities_of(owner_url, original_id)]
+    assert sizes == [streamed, streamed]
     assert not (output / str(original_id)).exists()
     assert not (uploads / str(original_id)).exists()
     assert not (uploads / f"{original_id}.info").exists()

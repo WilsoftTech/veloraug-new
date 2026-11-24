@@ -31,6 +31,7 @@ from pathlib import Path
 from app.db import Database, DatabaseUnavailable
 from app.media_hooks import MediaSettings
 from app.media_publisher import Publisher, R2Settings, R2Store
+from app.playback import DOWNLOAD_FILE
 
 logger = logging.getLogger("veloraug.media_worker")
 
@@ -353,6 +354,27 @@ def ffmpeg_command(source: Path, rungs: list[Rung], has_audio: bool) -> list[str
     return command
 
 
+def download_command(quality: str) -> list[str]:
+    """Joins one quality's init file and chunks into <quality>/download.mp4,
+    copying the video and sound as they are, with the index at the start so
+    it plays before it has fully downloaded. Run from the output folder."""
+    return [
+        "ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-y",
+        "-i",
+        f"{quality}/index.m3u8",
+        "-map",
+        "0",
+        "-c",
+        "copy",
+        "-movflags",
+        "+faststart",
+        f"{quality}/{DOWNLOAD_FILE}",
+    ]
+
+
 def last_line(text: str, source: Path) -> str:
     """FFmpeg's last error line, without the server's paths."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -499,12 +521,35 @@ class Worker:
                 and not missing
                 and (out / "master.m3u8").exists()
             ):
-                return
+                problem = self.make_download_files(out, rungs)
+                if problem is None:
+                    return
+                error = problem
+                logger.warning("conversion attempt %s failed: %s", attempt, error)
+                continue
             error = last_line(result.stderr or "", source)
             if result.returncode == 0:
                 error = f"No playlist for {', '.join(missing) or 'the master'}"
             logger.warning("conversion attempt %s failed: %s", attempt, error)
         raise ConversionFailed(f"Converting failed {ATTEMPTS} times: {error}")
+
+    def make_download_files(self, out: Path, rungs: list[Rung]) -> str | None:
+        """Each quality's chunks joined into one .mp4 that viewers download
+        and keep. Copied, not converted again, so it takes seconds. Answers
+        what went wrong, or None."""
+        for rung in rungs:
+            result = self.run(
+                download_command(rung.name),
+                cwd=out,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0 or not (out / rung.name / DOWNLOAD_FILE).exists():
+                line = (result.stderr or "").strip().splitlines()
+                return f"Joining {rung.name} for download failed: " + (
+                    line[-1] if line else "no message"
+                )
+        return None
 
     def process(self, original_id: uuid.UUID) -> str:
         """Takes one claimed original as far as it can go. Returns its state."""

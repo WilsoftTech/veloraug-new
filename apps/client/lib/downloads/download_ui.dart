@@ -5,14 +5,12 @@ import '../api/playback_api.dart';
 import '../l10n/l10n.dart';
 import '../screens/devices_screen.dart';
 import '../screens/downloads_screen.dart';
-import '../screens/offline_player_screen.dart';
 import '../screens/pass_screen.dart';
 import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/velora_button.dart';
-import 'download_manager.dart';
-import 'hls.dart';
+import 'downloads.dart';
 
 /// "1.2 GB" or "350 MB".
 String formatBytes(BuildContext context, int bytes) {
@@ -27,116 +25,86 @@ String formatBytes(BuildContext context, int bytes) {
   );
 }
 
-String downloadProblemMessage(AppLocalizations l, DownloadProblem? problem) =>
-    switch (problem) {
-      DownloadProblem.noPass => l.downloadProblemNoPass,
-      DownloadProblem.deviceLimit => l.downloadProblemDeviceLimit,
-      DownloadProblem.deviceRemoved => l.downloadProblemDeviceRemoved,
-      DownloadProblem.storageFull => l.downloadProblemStorageFull,
-      DownloadProblem.signedOut => l.downloadProblemSignedOut,
-      DownloadProblem.unexpected || null => l.downloadProblemOther,
-    };
-
-/// One short line for where a download has got to.
+/// One short line for where a download on the phone has got to.
 String downloadStateLabel(AppLocalizations l, Download download) =>
     switch (download.state) {
-      DownloadState.queued => l.downloadQueued,
-      DownloadState.downloading => l.downloadingPercent(
+      FileState.waiting => l.downloadQueued,
+      FileState.running => l.downloadingPercent(
         ((download.progress ?? 0) * 100).floor(),
       ),
-      DownloadState.waiting => l.downloadWaiting,
-      DownloadState.paused => l.downloadPaused,
-      DownloadState.done => l.downloaded,
-      DownloadState.failed => l.downloadStopped,
-      DownloadState.unavailable => l.downloadUnavailable,
+      FileState.paused => l.downloadPaused,
+      FileState.done => l.downloaded,
+      FileState.failed => l.downloadFailed,
     };
 
-/// Asks which quality to download, then starts it, from a movie's or an
-/// episode's page.
+void _say(
+  ScaffoldMessengerState messenger,
+  String text, {
+  SnackBarAction? action,
+}) => messenger
+  ..hideCurrentSnackBar()
+  ..showSnackBar(SnackBar(content: Text(text), action: action));
+
+/// Asks which quality to download, then has the browser or the phone save
+/// it.
 Future<void> startDownload(
   BuildContext context, {
   required String itemId,
   required DownloadInfo info,
 }) async {
-  final downloads = DownloadsScope.of(context);
+  final downloads = DownloadsScope.peek(context);
   if (downloads == null) return;
   final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
   final l = context.l10n;
-  final chosen = await showModalBottomSheet<_Choice>(
+  final file = await showModalBottomSheet<DownloadFile>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (_) => _DownloadSheet(downloads: downloads, itemId: itemId),
   );
-  if (chosen == null) return;
-  await downloads.start(chosen.offer, chosen.quality, info);
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(l.downloadStarted(info.title)),
-        action: SnackBarAction(
-          label: l.downloads,
-          onPressed: () => DownloadsScreen.open(messenger.context),
-        ),
+  if (file == null) return;
+  try {
+    await downloads.start(itemId, file, info);
+  } on DownloadRefused catch (refusal) {
+    _say(
+      messenger,
+      refusal.reason == DownloadRefusal.noPermission
+          ? l.downloadNoPermission
+          : l.downloadStartFailed,
+    );
+    return;
+  }
+  if (downloads.followed) {
+    _say(
+      messenger,
+      l.downloadStartedPhone(file.fileName),
+      action: SnackBarAction(
+        label: l.downloads,
+        onPressed: () => DownloadsScreen.open(navigator.context),
       ),
     );
+  } else {
+    _say(messenger, l.downloadStartedBrowser(file.fileName));
+  }
 }
 
-/// Plays a finished download, or says why it can't play yet.
+/// Opens a finished download in the phone's video player, or says why not.
 Future<void> openDownload(BuildContext context, Download download) async {
-  final downloads = DownloadsScope.of(context);
+  final downloads = DownloadsScope.peek(context);
   if (downloads == null) return;
-  var watchable = downloads.watchable(download);
-  if (watchable == Watchable.checkIn || watchable == Watchable.clockChanged) {
-    // Online, this renews the licence at once.
-    await downloads.renewLicences(force: true);
-    if (!context.mounted) return;
-    watchable = downloads.watchable(download);
-  }
-  if (!context.mounted) return;
-  switch (watchable) {
-    case Watchable.yes:
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => OfflinePlayerScreen(download: download),
-        ),
-      );
-    case Watchable.notFinished:
-      await DownloadsScreen.open(context);
-    case Watchable.checkIn || Watchable.clockChanged:
-      final l = context.l10n;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              download.problem != null
-                  ? downloadProblemMessage(l, download.problem)
-                  : watchable == Watchable.clockChanged
-                  ? l.downloadClockChanged
-                  : l.downloadCheckIn,
-            ),
-          ),
-        );
-  }
-}
-
-/// What the viewer chose in the sheet.
-class _Choice {
-  const _Choice(this.offer, this.quality);
-
-  final DownloadOffer offer;
-  final DownloadQuality quality;
+  final messenger = ScaffoldMessenger.of(context);
+  final l = context.l10n;
+  if (!await downloads.open(download)) _say(messenger, l.openDownloadFailed);
 }
 
 enum _SheetPhase { preparing, choosing, failed }
 
-/// Gets a download ready, then offers its qualities with their sizes.
+/// Gets a download ready, then offers each quality with its size.
 class _DownloadSheet extends StatefulWidget {
   const _DownloadSheet({required this.downloads, required this.itemId});
 
-  final DownloadManager downloads;
+  final Downloads downloads;
   final String itemId;
 
   @override
@@ -157,7 +125,7 @@ class _DownloadSheetState extends State<_DownloadSheet> {
   Future<void> _prepare() async {
     setState(() => _phase = _SheetPhase.preparing);
     try {
-      final offer = await widget.downloads.prepare(widget.itemId);
+      final offer = await widget.downloads.offer(widget.itemId);
       if (!mounted) return;
       setState(() {
         _offer = offer;
@@ -210,7 +178,9 @@ class _DownloadSheetState extends State<_DownloadSheet> {
         padding: const EdgeInsets.all(VeloraSpacing.md),
         child: ErrorState(
           title: l.downloadCouldNotStart,
-          message: playbackFailureMessage(l, _failure!),
+          message: _failure == PlaybackFailure.notReady
+              ? l.downloadNotReady
+              : playbackFailureMessage(l, _failure!),
           onRetry: _fix,
           retryLabel: switch (_failure) {
             PlaybackFailure.needsPass => l.choosePlan,
@@ -237,7 +207,9 @@ class _DownloadSheetState extends State<_DownloadSheet> {
                   ),
                 ),
                 Text(
-                  l.downloadQualityHelp,
+                  widget.downloads.followed
+                      ? l.downloadKeepPhone
+                      : l.downloadKeepBrowser,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -246,24 +218,21 @@ class _DownloadSheetState extends State<_DownloadSheet> {
             ),
           ),
           const SizedBox(height: VeloraSpacing.xs),
-          for (final quality in offer!.qualities)
+          for (final file in offer!.files)
             ListTile(
-              key: ValueKey('download-${quality.quality.label}'),
+              key: ValueKey('download-${file.quality.label}'),
               leading: Icon(
-                quality.quality.height >= 720
+                file.quality.height >= 720
                     ? Icons.hd_outlined
                     : Icons.sd_outlined,
               ),
-              title: Text(quality.quality.label),
-              subtitle: switch (quality.estimatedBytes) {
-                final bytes? => Text(
-                  l.downloadAbout(formatBytes(context, bytes)),
-                ),
-                null =>
-                  quality.quality.height >= 720 ? Text(l.qualityHd) : null,
+              title: Text(file.quality.label),
+              subtitle: switch (file.bytes) {
+                final bytes? => Text(formatBytes(context, bytes)),
+                null => file.quality.height >= 720 ? Text(l.qualityHd) : null,
               },
               trailing: const Icon(Icons.download_outlined),
-              onTap: () => Navigator.of(context).pop(_Choice(offer, quality)),
+              onTap: () => Navigator.of(context).pop(file),
             ),
         ],
       ),
@@ -277,8 +246,8 @@ class _DownloadSheetState extends State<_DownloadSheet> {
   }
 }
 
-/// Download on a movie's page: Download, its progress, or Downloaded,
-/// which plays it. Nothing on the web.
+/// Download on a movie's page. On a phone it then shows the download's
+/// progress, and opens it once done.
 class DownloadButton extends StatelessWidget {
   const DownloadButton({super.key, required this.itemId, required this.info});
 
@@ -290,10 +259,10 @@ class DownloadButton extends StatelessWidget {
     final downloads = DownloadsScope.of(context);
     if (downloads == null) return const SizedBox.shrink();
     final l = context.l10n;
-    final download = downloads[itemId];
-    if (download == null || download.state == DownloadState.unavailable) {
+    final download = downloads.latestOf(itemId);
+    if (download == null || download.state == FileState.failed) {
       return VeloraButton(
-        label: l.download,
+        label: download == null ? l.download : l.downloadAgain,
         icon: Icons.download_outlined,
         variant: VeloraButtonVariant.secondary,
         onPressed: () => startDownload(context, itemId: itemId, info: info),
@@ -301,14 +270,11 @@ class DownloadButton extends StatelessWidget {
     }
     return VeloraButton(
       label: downloadStateLabel(l, download),
-      icon: switch (download.state) {
-        DownloadState.done => Icons.download_done,
-        DownloadState.failed => Icons.error_outline,
-        DownloadState.paused => Icons.pause_circle_outline,
-        _ => Icons.downloading,
-      },
+      icon: download.state == FileState.done
+          ? Icons.download_done
+          : Icons.downloading,
       variant: VeloraButtonVariant.secondary,
-      onPressed: () => download.state == DownloadState.done
+      onPressed: () => download.state == FileState.done
           ? openDownload(context, download)
           : DownloadsScreen.open(context),
     );
@@ -331,39 +297,36 @@ class EpisodeDownloadButton extends StatelessWidget {
     final downloads = DownloadsScope.of(context);
     if (downloads == null) return const SizedBox.shrink();
     final l = context.l10n;
-    final download = downloads[itemId];
+    final download = downloads.latestOf(itemId);
     final name = l.downloadEpisode(info.season ?? 0, info.episode ?? 0);
-    if (download == null || download.state == DownloadState.unavailable) {
+    if (download == null || download.state == FileState.failed) {
       return IconButton(
-        tooltip: name,
-        icon: const Icon(Icons.download_outlined),
+        tooltip: download == null ? name : '$name: ${l.downloadFailed}',
+        icon: Icon(
+          download == null ? Icons.download_outlined : Icons.error_outline,
+        ),
         onPressed: () => startDownload(context, itemId: itemId, info: info),
       );
     }
     final label = '$name: ${downloadStateLabel(l, download)}';
-    final busy =
-        download.state == DownloadState.downloading ||
-        download.state == DownloadState.queued ||
-        download.state == DownloadState.waiting;
+    if (download.state == FileState.done) {
+      return IconButton(
+        tooltip: label,
+        icon: const Icon(Icons.download_done),
+        onPressed: () => openDownload(context, download),
+      );
+    }
     return IconButton(
       tooltip: label,
-      onPressed: () => download.state == DownloadState.done
-          ? openDownload(context, download)
-          : DownloadsScreen.open(context),
-      icon: busy
-          ? SizedBox.square(
-              dimension: 24,
-              child: CircularProgressIndicator(
-                value: download.progress,
-                strokeWidth: 2.5,
-                semanticsLabel: label,
-              ),
-            )
-          : Icon(switch (download.state) {
-              DownloadState.done => Icons.download_done,
-              DownloadState.failed => Icons.error_outline,
-              _ => Icons.pause_circle_outline,
-            }),
+      onPressed: () => DownloadsScreen.open(context),
+      icon: SizedBox.square(
+        dimension: 24,
+        child: CircularProgressIndicator(
+          value: download.progress,
+          strokeWidth: 2.5,
+          semanticsLabel: label,
+        ),
+      ),
     );
   }
 }
