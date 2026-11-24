@@ -1,7 +1,7 @@
 name: veloraug
 description: "VeloraUG: Luganda-translated movies and series, by VJ, for web and Android."
 publish_to: 'none'
-version: 0.2.0+3
+version: 0.2.1+4
 
 environment:
   sdk: ^3.13.7
