@@ -22,6 +22,8 @@ dependencies:
   # Opens trailers on YouTube, outside the app.
   url_launcher: 6.3.3
   video_player: 2.14.1
+  # Pesapal's payment page inside the app on Android.
+  webview_flutter: 4.14.1
   web: 1.1.2
   # App lock: the phone's own fingerprint, face or screen-lock prompt.
   local_auth: 3.0.2

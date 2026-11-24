@@ -16,6 +16,7 @@ import '../widgets/screen_body.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
 import '../widgets/velora_text_field.dart';
+import 'pesapal_view.dart';
 
 /// "UGX 18,000".
 String formatUgx(BuildContext context, int amount) => context.l10n.passPrice(
@@ -321,12 +322,22 @@ enum _Phase {
   ready,
 }
 
-/// Choosing a plan, paying on Pesapal's page, and waiting until the API
-/// confirms it. Answers true, when popped, once a plan is ready.
+/// Where the viewer pays: Pesapal's page inside the app, Pesapal's page in
+/// the browser when they ask for that, or neither once Pesapal has sent them
+/// back and the payment is being confirmed.
+enum _PayIn { app, browser, returned }
+
+/// Choosing a plan, paying on Pesapal's page inside the app, and waiting
+/// until the API confirms it. Answers true, when popped, once a plan is
+/// ready.
 class BuyPassScreen extends StatefulWidget {
   const BuyPassScreen({super.key});
 
-  /// Opens Pesapal's page: a new tab on the web, the browser on Android.
+  /// Pesapal's page inside the app. Tests replace it.
+  static PesapalViewBuilder paymentView = platformPesapalView;
+
+  /// Opens Pesapal's page outside the app, when the viewer asks to pay in
+  /// their browser instead: a new tab on the web, the browser on Android.
   /// Tests replace it.
   static Future<bool> Function(Uri page) openPage = (page) => launchUrl(
     page,
@@ -356,6 +367,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
   String? _message;
   String? _buying;
   Checkout? _checkout;
+  _PayIn _payIn = _PayIn.app;
   DateTime? _endsAt;
   Timer? _timer;
   DateTime? _deadline;
@@ -442,20 +454,43 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
       if (!mounted) return;
       setState(() {
         _checkout = checkout;
+        _payIn = _PayIn.app;
         _phase = _Phase.waiting;
         _buying = null;
       });
       _deadline = DateTime.now().add(BuyPassScreen.checkFor);
-      await _openPesapal();
       _scheduleCheck();
     } on PassException catch (error) {
       _fail(passFailureMessage(l, error.failure));
     }
   }
 
+  /// Pesapal's page again, inside the app.
+  void _payHere() {
+    if (_checkout == null) return;
+    setState(() {
+      _payIn = _PayIn.app;
+      _message = null;
+      _phase = _Phase.waiting;
+    });
+  }
+
+  /// Pesapal has sent the viewer back: check now, not in a few seconds.
+  void _returned() {
+    if (!mounted || _phase != _Phase.waiting) return;
+    setState(() => _payIn = _PayIn.returned);
+    _timer?.cancel();
+    _check();
+  }
+
   Future<void> _openPesapal() async {
     final checkout = _checkout;
     if (checkout == null) return;
+    setState(() {
+      _payIn = _PayIn.browser;
+      _message = null;
+      if (_phase == _Phase.failed) _phase = _Phase.waiting;
+    });
     var opened = false;
     try {
       opened = await BuyPassScreen.openPage(checkout.paymentPage);
@@ -463,7 +498,10 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
       opened = false;
     }
     if (!opened && mounted) {
-      setState(() => _message = context.l10n.couldNotOpenPesapal);
+      setState(() {
+        _payIn = _PayIn.app;
+        _message = context.l10n.couldNotOpenPesapal;
+      });
     }
   }
 
@@ -501,7 +539,9 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
         setState(() => _phase = _Phase.gaveUp);
         return;
       case PaymentState.failed:
-        setState(() => _phase = _Phase.failed);
+        // While the viewer is on Pesapal's page here, it says so itself and
+        // lets them try again with the same order.
+        if (_payIn != _PayIn.app) setState(() => _phase = _Phase.failed);
       default:
         if (_phase == _Phase.failed) setState(() => _phase = _Phase.waiting);
     }
@@ -526,10 +566,11 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final wide = _phase == _Phase.loading || _phase == _Phase.choosing;
+    final paying = _phase == _Phase.waiting || _phase == _Phase.failed;
     return Scaffold(
       appBar: AppBar(title: Text(l.choosePlanTitle)),
       body: ScreenBody(
-        heading: l.choosePlanTitle,
+        heading: paying ? l.payingTitle : l.choosePlanTitle,
         maxWidth: wide ? VeloraLayout.browseWidth : VeloraLayout.readingWidth,
         children: [
           ...switch (_phase) {
@@ -538,13 +579,22 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
               const _PlanGrid.skeleton(),
             ],
             _Phase.choosing || _Phase.starting => _choosing(l),
+            _Phase.waiting when _payIn == _PayIn.app => _payingHere(l),
             _Phase.waiting => [
-              EmptyState(
-                icon: Icons.open_in_new,
-                title: l.finishPaying,
-                message: l.finishPayingHelp,
-                action: _waitingActions(l),
-              ),
+              if (_payIn == _PayIn.browser)
+                EmptyState(
+                  icon: Icons.open_in_new,
+                  title: l.finishPaying,
+                  message: l.finishPayingHelp,
+                  action: _waitingActions(l),
+                )
+              else
+                EmptyState(
+                  icon: Icons.hourglass_top,
+                  title: l.checkingPayment,
+                  message: l.confirmingPaymentHelp,
+                  action: _waitingActions(l),
+                ),
               Center(
                 child: VeloraLoadingRegion(
                   label: l.checkingPayment,
@@ -556,10 +606,15 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
               ErrorState(
                 title: l.paymentFailedTitle,
                 message: l.paymentFailedHelp,
-                onRetry: _chooseAgain,
-                retryLabel: l.choosePlan,
+                onRetry: _payHere,
+                retryLabel: l.tryPayingAgain,
               ),
-              _waitingActions(l),
+              Center(
+                child: TextButton(
+                  onPressed: _chooseAgain,
+                  child: Text(l.choosePlan),
+                ),
+              ),
             ],
             _Phase.gaveUp => [
               ErrorState(
@@ -608,6 +663,70 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     );
   }
 
+  /// Pesapal's page inside the app, as tall as the screen allows, with a
+  /// way out to the browser should it not work here.
+  List<Widget> _payingHere(AppLocalizations l) {
+    final checkout = _checkout!;
+    final height = (MediaQuery.sizeOf(context).height - 260).clamp(
+      480.0,
+      760.0,
+    );
+    final theme = Theme.of(context);
+    return [
+      Text(l.payHereHelp),
+      SizedBox(
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: VeloraColors.surface,
+            border: Border.all(color: VeloraColors.outlineSubtle),
+            borderRadius: BorderRadius.circular(VeloraRadii.lg),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(VeloraRadii.lg),
+            child: BuyPassScreen.paymentView(
+              context,
+              checkout.paymentPage,
+              _returned,
+            ),
+          ),
+        ),
+      ),
+      Row(
+        spacing: VeloraSpacing.xs,
+        children: [
+          Icon(
+            Icons.lock_outline,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          Expanded(
+            child: Text(
+              l.paymentSecureNote,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+      Wrap(
+        spacing: VeloraSpacing.sm,
+        runSpacing: VeloraSpacing.sm,
+        alignment: WrapAlignment.center,
+        children: [
+          VeloraButton(
+            label: l.payInBrowser,
+            icon: Icons.open_in_new,
+            variant: VeloraButtonVariant.secondary,
+            onPressed: _openPesapal,
+          ),
+          TextButton(onPressed: _chooseAgain, child: Text(l.cancel)),
+        ],
+      ),
+    ];
+  }
+
   Widget _waitingActions(AppLocalizations l) => Wrap(
     spacing: VeloraSpacing.sm,
     runSpacing: VeloraSpacing.sm,
@@ -615,11 +734,13 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     children: [
       VeloraButton(label: l.checkAgain, icon: Icons.refresh, onPressed: _check),
       VeloraButton(
-        label: l.openPesapalAgain,
-        icon: Icons.open_in_new,
+        label: l.payHereAgain,
+        icon: Icons.payment,
         variant: VeloraButtonVariant.secondary,
-        onPressed: _openPesapal,
+        onPressed: _payHere,
       ),
+      if (_payIn == _PayIn.browser)
+        TextButton(onPressed: _openPesapal, child: Text(l.openPesapalAgain)),
       TextButton(onPressed: _chooseAgain, child: Text(l.cancel)),
     ],
   );

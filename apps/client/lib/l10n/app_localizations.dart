@@ -2377,7 +2377,7 @@ abstract class AppLocalizations {
   /// No description provided for @passIntro.
   ///
   /// In en, this message translates to:
-  /// **'A pass lets you watch everything on VeloraUG until it ends. You pay on Pesapal\'s page, by mobile money or card.'**
+  /// **'A pass lets you watch everything on VeloraUG until it ends. You pay right here in the app, by mobile money or card, through Pesapal.'**
   String get passIntro;
 
   /// No description provided for @passChecking.
@@ -2479,7 +2479,7 @@ abstract class AppLocalizations {
   /// No description provided for @finishPaying.
   ///
   /// In en, this message translates to:
-  /// **'Finish paying on Pesapal'**
+  /// **'Finish paying in your browser'**
   String get finishPaying;
 
   /// No description provided for @finishPayingHelp.
@@ -2493,6 +2493,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Pesapal again'**
   String get openPesapalAgain;
+
+  /// No description provided for @payingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay for your plan'**
+  String get payingTitle;
+
+  /// No description provided for @payHereHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose MTN Mobile Money, Airtel Money or a card below. For mobile money, enter your number, then approve the prompt on your phone with your PIN. This page moves on by itself once you\'ve paid.'**
+  String get payHereHelp;
+
+  /// No description provided for @paymentFormLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal payment form'**
+  String get paymentFormLabel;
+
+  /// No description provided for @paymentFormCouldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the payment form. Check your connection and try again.'**
+  String get paymentFormCouldNotLoad;
+
+  /// No description provided for @payInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay in my browser instead'**
+  String get payInBrowser;
+
+  /// No description provided for @payHereAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay here in the app'**
+  String get payHereAgain;
+
+  /// No description provided for @tryPayingAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try paying again'**
+  String get tryPayingAgain;
+
+  /// No description provided for @confirmingPaymentHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal has finished. We\'re confirming your payment, which usually takes a few seconds.'**
+  String get confirmingPaymentHelp;
 
   /// No description provided for @checkAgain.
   ///
@@ -2515,7 +2563,7 @@ abstract class AppLocalizations {
   /// No description provided for @paymentFailedHelp.
   ///
   /// In en, this message translates to:
-  /// **'You can try another way to pay on Pesapal\'s page, or choose a pass again.'**
+  /// **'You can try again, with another number or a card, or choose a pass again.'**
   String get paymentFailedHelp;
 
   /// No description provided for @paymentGivenUp.
@@ -2575,7 +2623,7 @@ abstract class AppLocalizations {
   /// No description provided for @couldNotOpenPesapal.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t open Pesapal\'s page. Use Open Pesapal again.'**
+  /// **'Couldn\'t open your browser. You can pay here in the app instead.'**
   String get couldNotOpenPesapal;
 
   /// No description provided for @passNeededTitle.
@@ -2647,7 +2695,7 @@ abstract class AppLocalizations {
   /// No description provided for @choosePlanIntro.
   ///
   /// In en, this message translates to:
-  /// **'Every plan unlocks the whole VeloraUG catalogue. Pay once on Pesapal\'s secure page with MTN Mobile Money, Airtel Money or a card. Nothing renews by itself.'**
+  /// **'Every plan unlocks the whole VeloraUG catalogue. Pay once, right here in the app, with MTN Mobile Money, Airtel Money or a card. Nothing renews by itself.'**
   String get choosePlanIntro;
 
   /// No description provided for @mostPopular.
@@ -2713,7 +2761,7 @@ abstract class AppLocalizations {
   /// No description provided for @paymentSecureNote.
   ///
   /// In en, this message translates to:
-  /// **'VeloraUG never sees your mobile money PIN or card number.'**
+  /// **'Payments are handled securely by Pesapal. VeloraUG never sees your mobile money PIN or card number.'**
   String get paymentSecureNote;
 
   /// No description provided for @tooManyAttempts.
