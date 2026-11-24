@@ -6,7 +6,7 @@ docs/step-09a-vj-catalogue-plan.md, section 5. The routes from Milestone 6,
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -21,7 +21,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, StringConstraints
 from starlette.background import BackgroundTask
 
 from app import devices, passes, playback, ratelimit, viewer
@@ -396,46 +396,24 @@ def grant_playback(
 
 
 DEVICE_REQUIRED = "Register this device to watch on it."
-MAX_LICENCES = 200
 
 
 class DownloadOut(BaseModel):
     playlist_url: str
     expires_at: datetime
-    # The download may be played offline until then, and the app checks in
-    # again before. Never past the end of the viewer's passes.
-    offline_until: datetime
+    # Each quality's file is <quality>/download.mp4 beside the playlist. The
+    # app adds ?name=<file_name> - <quality>.mp4 to it.
+    file_name: str
 
 
-class LicencesIn(BaseModel):
-    items: Annotated[list[UUID], Field(max_length=MAX_LICENCES)]
-
-
-class LicenceOut(BaseModel):
-    item_id: UUID
-    # Null: this item may no longer be kept. The app deletes its files.
-    offline_until: datetime | None
-
-
-class LicencesOut(BaseModel):
-    licences: list[LicenceOut]
-
-
-def _offline_until(
-    conn,
-    user_id: UUID,
-    settings,
-    device_credential: str | None,
-    now: datetime,
-) -> datetime:
-    """Until when this device may play its downloads offline. With passes
-    off, or for an admin: OFFLINE_DAYS. With passes required: a running pass
-    (402), this device registered (403 `device_required`) and
-    no more devices than the pass allows (409 `device_limit`); then until
-    the end of the viewer's passes, OFFLINE_DAYS at most."""
-    limit = now + timedelta(days=playback.OFFLINE_DAYS)
+def _check_download(
+    conn, user_id: UUID, settings, device_credential: str | None, now: datetime
+):
+    """With passes required, and not an admin: a running pass (402), this
+    device registered (403 `device_required`) and no more devices than the
+    pass allows (409 `device_limit`). Answers the pass, or None."""
     if not settings.passes_required or passes.is_admin(conn, user_id):
-        return limit
+        return None
     entitlement = passes.current_entitlement(conn, user_id, now)
     if entitlement is None:
         raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, NEEDS_PASS)
@@ -449,8 +427,7 @@ def _offline_until(
         devices.check_device_limit(conn, entitlement)
     except devices.DeviceProblem as problem:
         raise device_refusal(problem) from None
-    ends = passes.pass_status(conn, user_id, now).ends_at or entitlement.ends_at
-    return min(limit, ends)
+    return entitlement
 
 
 @router.post(
@@ -475,13 +452,14 @@ def grant_download(
         str | None, Header(alias=devices.HEADER, max_length=100)
     ] = None,
 ) -> DownloadOut:
-    """An address to download one item's video from, on Android, and how
-    long the download may be played offline.
+    """Where to download one item's video as an .mp4 file, kept by the
+    viewer on their phone or computer.
 
-    The same checks as playback, except that a download takes no stream:
-    its grant has no playback session, so it never stops the player on this
-    or another device. It lasts DOWNLOAD_GRANT_SECONDS, and no later than
-    the pass; the app asks again when it runs out."""
+    The same checks as playback, but the grant has no playback session: a
+    download takes no stream, and the browser's or Android's own downloader,
+    which can't renew a grant, fetches the file. So it lasts
+    DOWNLOAD_GRANT_SECONDS, and no later than the pass. Once downloaded, the
+    file is the viewer's: nothing checks it again."""
     settings = request.app.state.settings
     limiter = request.app.state.rate_limiter
     limiter.check("playback", str(user.user_id), ratelimit.PLAYBACK)
@@ -489,72 +467,29 @@ def grant_download(
     with db.as_user(user.user_id) as conn:
         visible = viewer.playable_item(conn, item_id)
         original = playback.ready_original(conn, item_id) if visible else None
-        until = (
-            _offline_until(conn, user.user_id, settings, device_credential, now)
-            if visible and original is not None
-            else None
-        )
+        entitlement = None
+        name = None
+        if visible and original is not None:
+            entitlement = _check_download(
+                conn, user.user_id, settings, device_credential, now
+            )
+            name = viewer.download_name(conn, item_id)
     if not visible:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_AVAILABLE)
-    if original is None or until is None:
+    if original is None or name is None:
         raise HTTPException(status.HTTP_409_CONFLICT, NOT_READY)
     grant = granter.grant(
         item_id,
         original,
-        until=until if settings.passes_required else None,
+        until=entitlement.ends_at if entitlement else None,
         seconds=playback.DOWNLOAD_GRANT_SECONDS,
     )
     playback_logger.info("Download granted for item %s", item_id)
     return DownloadOut(
         playlist_url=grant.playlist_url,
         expires_at=grant.expires_at,
-        offline_until=until,
+        file_name=name,
     )
-
-
-@router.post(
-    "/me/offline-licences",
-    responses={
-        401: {"description": "Not signed in."},
-        402: {"description": NEEDS_PASS},
-        403: {"description": "This device isn't registered, or was removed."},
-        409: {"description": "A device limit."},
-        429: {"description": "Too many requests."},
-    },
-)
-def renew_offline_licences(
-    body: LicencesIn,
-    request: Request,
-    user: Annotated[VerifiedUser, Depends(current_user)],
-    db: AppDatabase,
-    device_credential: Annotated[
-        str | None, Header(alias=devices.HEADER, max_length=100)
-    ] = None,
-) -> LicencesOut:
-    """Renews how long this device's downloads may play offline, for every
-    item asked about at once. An item no longer published, or with no ready
-    video, gets null: the app deletes it. A refusal, 402, 403 or 409, says
-    the device may keep none: the app stops playing them, and keeps the
-    files until the viewer has a pass again, or deletes them for 403."""
-    settings = request.app.state.settings
-    limiter = request.app.state.rate_limiter
-    limiter.check("playback", str(user.user_id), ratelimit.PLAYBACK)
-    now = datetime.now(UTC)
-    with db.as_user(user.user_id) as conn:
-        until = _offline_until(conn, user.user_id, settings, device_credential, now)
-        licences = [
-            LicenceOut(
-                item_id=item_id,
-                offline_until=(
-                    until
-                    if viewer.playable_item(conn, item_id)
-                    and playback.ready_original(conn, item_id) is not None
-                    else None
-                ),
-            )
-            for item_id in dict.fromkeys(body.items)
-        ]
-    return LicencesOut(licences=licences)
 
 
 def device_refusal(problem: devices.DeviceProblem) -> HTTPException:

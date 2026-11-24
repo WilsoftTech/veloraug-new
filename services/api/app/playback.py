@@ -11,10 +11,9 @@ Since Milestone 9 the grant's "m" names a playable item: a movie edition's
 one item, or one episode. Films from before then have items with their old
 movie IDs, and R2 still keeps every item's files under movies/<item ID>/.
 
-Downloads, on Android: the API gives a session-less grant for an hour, and
-an "offline until" date the app keeps beside the files and enforces. The
-app renews that date when it is online, and the API refuses to renew it
-for a removed device, an ended pass or a title taken down.
+Downloads: the API gives a session-less grant for a day, and the viewer's
+browser or phone downloads <quality>/download.mp4, one ordinary .mp4 file
+that is theirs to keep. See docs/step-12a-downloads.md.
 
 The grant goes in the path of the playback address, so the relative entries
 in HLS playlists carry it to every file. See docs/step-08a-playback-plan.md.
@@ -51,12 +50,12 @@ GATEWAY_CONTEXT = b"veloraug-gateway-v1."
 GATEWAY_SKEW_SECONDS = 120
 PLAYLIST = "master.m3u8"
 # Downloads: a grant with no playback session, so a download never takes a
-# stream or replaces the player's session on the same device. The app asks
-# for a new one when it runs out, and carries on from the file it reached.
-DOWNLOAD_GRANT_SECONDS = 60 * 60
-# How long a download plays without the app checking in again, at most:
-# never past the end of the viewer's passes. See app/viewer_routes.py.
-OFFLINE_DAYS = 7
+# stream or replaces the player's session on the same device. The browser's
+# or Android's own downloader fetches the file, resuming where it stopped,
+# but can't ask for a new grant: so a day, for slow connections.
+DOWNLOAD_GRANT_SECONDS = 24 * 60 * 60
+# Each quality's whole video as one file, beside its playlist.
+DOWNLOAD_FILE = "download.mp4"
 
 
 def _b64(data: bytes) -> str:

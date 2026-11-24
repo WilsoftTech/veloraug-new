@@ -1,67 +1,67 @@
-# Step 12A: Downloads for watching offline
+# Step 12A: Downloads as files to keep
 
-Written and built on 23 November 2026, at the owner's request to implement movie downloads, UI and functionality. **Not yet approved, and not yet checked on a phone.** Code only: not deployed.
+Written and built on 23 and 24 November 2026, at the owner's request. **Not yet checked on a phone or in a browser against a real film.** Replaces the first version from the same step, merged in PR #4: that version kept downloads private to the Android app, playable for 7 days at a time. The owner then decided, on 24 November 2026:
+
+- Downloads are saved where viewers keep their own files: the **computer's Downloads folder** from a browser, and the **phone's storage** from the Android app.
+- They are **ordinary .mp4 files, theirs to keep**. They play in any video player, can be copied and shared, and never expire. The pass and the device are checked only when a download starts.
+- The server makes the files, in **every quality**.
 
 ## What viewers get
 
-On **Android only**, a signed-in viewer can download a movie, or any episode, to watch without a connection.
-
-- **Download** sits beside **Watch** on a movie's page, and a download icon sits beside each episode's play button. Tapping it gets the download ready, then offers each quality with about how much room it takes, such as "720p, About 1.2 GB".
-- While it downloads, the button shows its progress. When it's done, the button reads **Downloaded**, and tapping it plays the film from the phone.
-- A **Downloads** tab, between Search and Account, lists every download: poster, title, VJ label, quality, size, progress, and how long it plays offline. Each has pause, resume, try again, delete (confirmed) and play. The tab also shows how much room downloads take.
-- Downloads are not offered on the web. Browsers stream only.
+- **Download** beside **Watch** on a movie's page, and a download icon beside each episode's play button, in the browser and in the Android app. Tapping it lists each quality with its exact size, such as "720p, 1.2 GB".
+- **In a browser,** choosing a quality hands the file to the browser, which saves it to the Downloads folder and shows its progress, as for any download. The file is named, for example, `Fast X - VJ Junior - 720p.mp4`, or `Kabaka - S01E02 - VJ Emmy - 720p.mp4`.
+- **On Android,** Android's own download manager saves it to **Downloads/VeloraUG** on the phone. It shows a notification, carries on with the app closed and after a dropped connection, and keeps the file if the app is uninstalled. The Download button then shows the progress, then **Downloaded**, which opens the file in the phone's video player. A **Downloads** tab, between Search and Account, lists each download with its progress, size and file name, with **Open**, **Download again** after a failure, and **Delete**, which asks first and deletes the file.
 
 ## How it works
 
 | Part | What it does |
 | --- | --- |
-| `POST /api/v1/items/{id}/download` | The same checks as playback: published and ready, and with passes required, a running pass, this device registered and no more devices than the plan allows. It returns a grant **with no playback session**, for one hour and never past the pass, and `offline_until` |
-| `POST /api/v1/me/offline-licences` | Renews `offline_until` for up to 200 items at once. `null` for an item taken down. `402`, `403` or `409` if the device may keep none |
-| Media gateway | **No change.** A grant without a session is served exactly as before |
-| App: `lib/downloads/` | Fetches one quality's playlist, its init file and its chunks from the media gateway, three at a time, and keeps them in the app's private storage, laid out as on the gateway. The kept master playlist names only that quality. The player opens it as a `file://` address |
+| Media worker | After converting a film to HLS, joins each quality's chunks into one `<quality>/download.mp4` with FFmpeg, copying the video and sound as they are (`-c copy`), with the index at the start (`+faststart`). Tried on a real 1 h 43 min film: 29 seconds for 360p, 283 MB, H.264 and AAC. The publisher uploads it with the chunks |
+| `python -m app.download_files` | Makes the files for films published before this step: see [Making files for films already published](#making-files-for-films-already-published) |
+| `POST /api/v1/items/{id}/download` | The same checks as playback: published and ready, and with passes required, a running pass, this device registered, and no more devices than the plan allows. Returns a grant with **no playback session**, for **24 hours** and never past the pass, and a file name such as `Fast X - VJ Junior` |
+| Media gateway | Serves `<quality>/download.mp4` under the grant, with `Content-Disposition: attachment` and the file name from `?name=`, made safe. Ranges work, so downloads resume |
+| App | Reads the qualities from the master playlist, and each file's size with a `HEAD` request. A quality whose file isn't there yet is left out. Then: on the web, follows the file's address, which the browser saves; on Android, hands it to `DownloadManager` through `MainActivity.kt` |
 
 ### Decisions
 
 | # | Decision | Why |
 | --- | --- | --- |
-| 1 | A download's grant has no playback session | A session would take one of the viewer's streams for as long as the download ran. It would also replace the player's session on the same phone, so watching one thing while downloading another would stop one of them. The download checks pass and devices when it starts, and again whenever its one-hour grant runs out |
-| 2 | Downloads play offline for **7 days** at most (`OFFLINE_DAYS`), and never past the end of the viewer's passes | Long enough for a trip, short enough that an ended pass or a removed device stops downloads soon. The app renews every licence at once when it's online, at most every 6 hours |
-| 3 | A title taken down is deleted from the phone at the next check-in | Rights can be withdrawn |
-| 4 | An ended pass, too many devices or a removed device stops downloads playing, but keeps their files | Buying a pass or removing a device makes them play again, without downloading again. A device that was removed registers itself again on its next check-in, as playback already does, within the device-switch limit |
-| 5 | One quality per download, chosen by the viewer | Phones have little room. One fixed quality also plays the same with no connection |
-| 6 | One download at a time, three files at once, each file written whole and then renamed | A pause, a lost connection, the app being closed or a power cut loses at most the files being fetched. The download carries on from the last whole file |
-| 7 | A lost connection is retried by itself: 15 seconds, then longer each time, up to 5 minutes | Ugandan mobile data drops often |
-| 8 | A clock turned back by more than an hour stops downloads playing until the app checks in | Otherwise turning the clock back would extend a licence |
+| 1 | Files are joined on the server, once per film and quality | Works the same in every browser and on every phone, and lets the browser's and Android's own downloaders resume. Joining in the app would hold the whole film in memory in most browsers |
+| 2 | The grant lasts 24 hours, with no playback session | The browser's and Android's downloaders can't ask for a new grant, and a big film on a slow connection takes hours. A session would take one of the viewer's streams, and stop the player on the same phone |
+| 3 | On Android, the system's download manager, into Downloads/VeloraUG | Background downloading, resuming and notifications come free. The files are where viewers look for them, and stay theirs |
+| 4 | Android 9 and older are asked for storage permission once | Those versions need it to write to Downloads. Android 10 and newer don't ask |
+| 5 | The pass is checked when a download starts, and never again | The owner's decision: the files are the viewer's to keep |
 
-## What this does not protect against
+## What this means
 
-Downloads are **not encrypted and not DRM-protected.** The files are ordinary HLS in the app's private storage. Other apps can't read them, they aren't backed up (`allowBackup` is off), and uninstalling the app removes them. But someone with a **rooted** phone could copy them out and play them anywhere, with no expiry. The 7-day limit is enforced by the app, not by the files.
+- **Anyone holding a download's address can download the film for 24 hours**, without signing in. The address appears only in the viewer's browser or phone, but it can be shared.
+- **Downloaded films can be copied and shared freely, and never expire.** Each VJ's permission should cover this, as well as the rights to the source film. See [Check before launch](roadmap.md#check-before-launch).
+- **R2 storage roughly doubles** per film, since each quality is kept twice: as chunks for streaming, and as one file. At R2's price, about $0.015 per GB a month, 100 films at 2 to 5 GB each across all qualities adds roughly $3 to $8 a month. Downloads themselves cost nothing: R2 charges nothing for data leaving it.
 
-This is the same trust the streaming side already places in the app: a grant's address can be copied too. If rights holders require more, the next step is Widevine DRM with offline licences, through a DRM provider. That is a larger change to the media worker, the gateway and the player, and has a monthly cost.
+## Making files for films already published
 
-## Known limits
+Run once on the server, after deploying. It goes through every ready film, fetches each quality's chunks from R2 into a scratch folder, joins them, uploads `download.mp4`, checks its size, and deletes the scratch folder. A quality that already has its file is skipped, so a run that stops can be started again. One quality failing doesn't stop the others.
 
-- **Downloads run while the app is open.** Android may stop them soon after the app goes to the background, and always when it is closed. They carry on from where they stopped the next time the app opens. A background download service with a notification is the next step if viewers need it.
-- **Downloads aren't tied to the account.** Signing out, or signing in as someone else on the same phone, leaves them in the Downloads tab. They still need the device's check-in every 7 days, so they stop if that device's account loses its pass or removes the device.
-- **No check of free space before starting.** A full phone stops the download with "Your phone is full", and keeps what it has.
-- The size shown before downloading is an estimate, from the playlist's average bitrate and length.
+```bash
+cd /opt/veloraug/repo
+docker compose -f infra/compose.prod.yaml exec media-worker python -m app.download_files --list
+docker compose -f infra/compose.prod.yaml exec media-worker python -m app.download_files
+```
+
+The first lists what it would make. Until a film has its files, its Download says "This can't be downloaded yet".
 
 ## Checks done
 
-- API: 9 new tests in `services/api/tests/test_downloads.py`, on a local Postgres set up as Neon is: passes off and on, no pass, no device, a removed device, a pass ending, a title taken down, admins, at most 200 licences, and **a download never stops the player or takes a stream**. The whole API suite passes: 609 tests.
-- App: 33 new tests in `apps/client/test/downloads/`: playlist parsing that refuses anything the media worker doesn't write, downloading, carrying on after the app closes (only the missing files are fetched), renewing a refused grant, retrying, a full phone, pause, resume and delete, every licence case, and the screens. The whole app suite passes: 478 tests. `flutter analyze` is clean.
-- Both builds compile: the web release, and an Android debug APK (`--flavor dev`).
+- API: `tests/test_downloads.py` (10), `tests/test_download_files.py` (9), and new media worker and publisher tests, on a local Postgres. The full API suite passes.
+- Media gateway: 5 new tests, 44 in all.
+- App: 22 tests in `test/downloads/`. The full app suite passes: 468 tests. `flutter analyze` is clean.
+- Builds: the web release with production settings, and an Android debug APK, which compiles the Kotlin.
+- The FFmpeg join, run by hand on a real converted film in the media worker's image.
 
-## Still to check, on a phone
+## Still to check
 
-Not done: no phone or emulator was connected. **Playing a download on a phone is unverified.** The player hands ExoPlayer a `file://` address to the kept master playlist, with the HLS hint. ExoPlayer's default data source reads `file://` addresses, and that is how video_player 2.12 builds its media source, but it hasn't been run.
-
-1. Install the dev build on the phone, with passes off, against the development API and Worker. Sign in.
-2. Open a movie. Tap **Download**, check the qualities and sizes, and choose 360p.
-3. Watch the button count up. Open **Downloads** and check the progress bar, then **Pause** and **Resume**.
-4. While it downloads, turn on flight mode. It should say **Waiting for a connection**, then carry on by itself once flight mode is off.
-5. Close the app part way through, and open it again. It should carry on from where it was, not from the start.
-6. When it says **Downloaded**, turn on flight mode and tap it. The film should play, and seeking should work.
-7. Download an episode from a series. Check its icon shows progress, then a tick.
-8. Delete a download, and check the room shown in the Downloads tab goes down.
-9. With passes required (the 10E run sheet's set-up), check that a viewer without a pass is offered **Choose a plan** instead of qualities, and that removing the phone in **My devices** from another device stops its downloads playing after **Check now**.
+1. Deploy the API, worker and media gateway, run the backfill above on development, then on production.
+2. **In Chrome, Edge and Firefox on a computer:** Download a movie in each quality. The file should land in Downloads with its name, and play in VLC and in Windows' own player.
+3. **On an Android phone:** Download a movie and an episode. Check the notification, the progress in the Downloads tab, turning on flight mode part way through and off again, closing the app, and **Open**. Then find the file in the Files app under Downloads/VeloraUG.
+4. On a phone with Android 9 or older, if one is available: the permission question, and refusing it.
+5. With passes required: no pass offers **Choose a plan**, and a removed device can't start a download.

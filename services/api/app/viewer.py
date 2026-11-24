@@ -6,6 +6,8 @@ only. A source from TMDB whose copy is older than SERVE_FOR isn't shown,
 as in Milestone 6. See docs/step-09a-vj-catalogue-plan.md, section 5.
 """
 
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -264,3 +266,34 @@ def playable_item(conn: psycopg.Connection, item_id: UUID) -> bool:
         conn.execute("select 1 from public.items where id = %s", (item_id,)).fetchone()
         is not None
     )
+
+
+def download_name(conn: psycopg.Connection, item_id: UUID) -> str:
+    """A file name for an item's download, without its quality or ending:
+    "Fast X - VJ Junior", or "Kabaka - S01E02 - VJ Emmy" for an episode.
+    Plain ASCII, so every phone, computer and browser keeps it as it is."""
+    row = conn.execute(
+        "select edition_id, season, episode from public.items where id = %s",
+        (item_id,),
+    ).fetchone()
+    if row is None:
+        return "VeloraUG"
+    edition_id, season, episode = row
+    try:
+        detail = get_edition(conn, edition_id)
+    except DetailsUnavailable:
+        detail = None
+    parts = [detail.summary.title if detail else "VeloraUG"]
+    if season is not None and episode is not None:
+        parts.append(f"S{season:02d}E{episode:02d}")
+    if detail and detail.summary.vj_name:
+        parts.append(detail.summary.vj_name)
+    return safe_file_name(" - ".join(parts))
+
+
+def safe_file_name(text: str, limit: int = 100) -> str:
+    """Letters, digits, spaces and . , ' ( ) - only, accents dropped."""
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    kept = re.sub(r"[^A-Za-z0-9 .,'()-]+", " ", plain)
+    kept = re.sub(r"\s+", " ", kept).strip(" .-")
+    return kept[:limit].rstrip(" .-") or "VeloraUG"

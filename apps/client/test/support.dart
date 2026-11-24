@@ -15,7 +15,7 @@ import 'package:veloraug/auth/auth_controller.dart';
 import 'package:veloraug/auth/oauth_client.dart';
 import 'package:veloraug/auth/oauth_config.dart';
 import 'package:veloraug/auth/token_store.dart';
-import 'package:veloraug/downloads/download_manager.dart';
+import 'package:veloraug/downloads/downloads.dart';
 import 'package:veloraug/player/video_view.dart';
 
 const apiBase = 'http://127.0.0.1:8000';
@@ -410,7 +410,7 @@ Future<AuthController> pumpApp(
   Size size = const Size(1200, 1600),
   UploadQueue Function(AuthController auth)? uploads,
   Future<List<PickedVideo>> Function()? pickVideos,
-  DownloadManager? downloads,
+  Downloads? downloads,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -426,7 +426,7 @@ Future<AuthController> pumpApp(
       uploadQueue: uploads?.call(auth),
       pickVideos: pickVideos ?? () async => const [],
       showAdmin: showAdmin,
-      downloadManager: downloads,
+      downloads: downloads,
     ),
   );
   await tester.pumpAndSettle();

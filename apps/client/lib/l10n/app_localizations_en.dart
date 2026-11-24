@@ -1980,8 +1980,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadChooseQuality => 'Download quality';
 
   @override
-  String get downloadQualityHelp =>
-      'Higher quality looks sharper and takes more room on your phone.';
+  String get downloadKeepPhone =>
+      'Saved to your phone\'s Downloads/VeloraUG folder. It\'s yours to keep, and plays in any video player.';
+
+  @override
+  String get downloadKeepBrowser =>
+      'Your browser saves it to your computer\'s Downloads folder. It\'s yours to keep, and plays in any video player.';
 
   @override
   String downloadAbout(String size) {
@@ -1999,12 +2003,29 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String downloadStarted(String title) {
-    return 'Downloading $title.';
+  String downloadStartedPhone(String name) {
+    return 'Downloading $name.';
+  }
+
+  @override
+  String downloadStartedBrowser(String name) {
+    return 'Your browser is saving $name.';
   }
 
   @override
   String get downloadCouldNotStart => 'Couldn\'t start the download';
+
+  @override
+  String get downloadNotReady =>
+      'This can\'t be downloaded yet. Try again later.';
+
+  @override
+  String get downloadNoPermission =>
+      'VeloraUG needs permission to save to your phone\'s storage. Allow it, then try again.';
+
+  @override
+  String get downloadStartFailed =>
+      'Your phone couldn\'t start the download. Try again.';
 
   @override
   String downloadingPercent(int percent) {
@@ -2015,30 +2036,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadQueued => 'Waiting to download';
 
   @override
-  String get downloadWaiting => 'Waiting for a connection';
-
-  @override
-  String get downloadPaused => 'Paused';
+  String get downloadPaused => 'Waiting for a connection';
 
   @override
   String get downloaded => 'Downloaded';
 
   @override
-  String get downloadStopped => 'Download stopped';
+  String get downloadFailed => 'Download failed';
 
   @override
-  String get downloadUnavailable => 'No longer available';
+  String get downloadNoRoom =>
+      'Your phone is full. Free up some room, then download it again.';
 
   @override
-  String playDownload(String title) {
-    return 'Play $title';
+  String get openDownload => 'Open';
+
+  @override
+  String openDownloadNamed(String title) {
+    return 'Open $title';
   }
 
   @override
-  String get pauseDownload => 'Pause download';
+  String get openDownloadFailed =>
+      'This file can\'t be opened. It may have been deleted, or no app on this phone plays videos.';
 
   @override
-  String get resumeDownload => 'Resume download';
+  String get downloadAgain => 'Download again';
 
   @override
   String get deleteDownload => 'Delete download';
@@ -2047,8 +2070,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteDownloadTitle => 'Delete this download?';
 
   @override
-  String deleteDownloadMessage(String title) {
-    return '$title will be removed from this phone. You can download it again.';
+  String deleteDownloadMessage(String name) {
+    return '$name will be deleted from your phone.';
   }
 
   @override
@@ -2059,7 +2082,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadsEmptyMessage =>
-      'Download movies and episodes to watch them without a connection. Look for Download on a movie or an episode.';
+      'Download movies and episodes to keep them on your phone. Look for Download on a movie or an episode.';
 
   @override
   String downloadsUsed(String size) {
@@ -2067,54 +2090,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String downloadsOfflineNote(int days) {
-    return 'Downloads play without a connection for up to $days days. Connect now and then to keep them playing.';
-  }
-
-  @override
-  String get downloadProblemNoPass =>
-      'Your pass has ended. Choose a plan to watch your downloads again.';
-
-  @override
-  String get downloadProblemDeviceLimit =>
-      'Your account has more devices than your plan allows. Remove one to watch your downloads.';
-
-  @override
-  String get downloadProblemDeviceRemoved =>
-      'This phone was removed from your account, so its downloads can\'t be watched. Downloading again registers it.';
-
-  @override
-  String get downloadProblemStorageFull =>
-      'Your phone is full. Free up some room, then try again.';
-
-  @override
-  String get downloadProblemSignedOut => 'Sign in to download.';
-
-  @override
-  String get downloadProblemOther =>
-      'Something went wrong with this download. Try again.';
-
-  @override
-  String get downloadCheckIn =>
-      'Connect to the internet to keep watching this download.';
-
-  @override
-  String get downloadClockChanged =>
-      'Your phone\'s clock has changed. Connect to the internet to keep watching.';
-
-  @override
-  String get checkNow => 'Check now';
-
-  @override
-  String get checkInFailed =>
-      'VeloraUG couldn\'t be reached. Check your connection and try again.';
-
-  @override
-  String playsOfflineUntil(String date) {
-    return 'Plays offline until $date';
-  }
-
-  @override
-  String get offlinePlaybackFailed =>
-      'This download can\'t be played. Delete it and download it again.';
+  String get downloadsFolderNote =>
+      'Downloads are saved to your phone\'s Downloads/VeloraUG folder. They\'re yours to keep, and play in any video player, even without VeloraUG.';
 }

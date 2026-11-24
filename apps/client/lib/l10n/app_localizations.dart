@@ -3280,11 +3280,17 @@ abstract class AppLocalizations {
   /// **'Download quality'**
   String get downloadChooseQuality;
 
-  /// No description provided for @downloadQualityHelp.
+  /// No description provided for @downloadKeepPhone.
   ///
   /// In en, this message translates to:
-  /// **'Higher quality looks sharper and takes more room on your phone.'**
-  String get downloadQualityHelp;
+  /// **'Saved to your phone\'s Downloads/VeloraUG folder. It\'s yours to keep, and plays in any video player.'**
+  String get downloadKeepPhone;
+
+  /// No description provided for @downloadKeepBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Your browser saves it to your computer\'s Downloads folder. It\'s yours to keep, and plays in any video player.'**
+  String get downloadKeepBrowser;
 
   /// An estimated download size, such as About 1.2 GB.
   ///
@@ -3304,17 +3310,41 @@ abstract class AppLocalizations {
   /// **'{size} MB'**
   String sizeMb(String size);
 
-  /// No description provided for @downloadStarted.
+  /// Shown when Android starts a download.
   ///
   /// In en, this message translates to:
-  /// **'Downloading {title}.'**
-  String downloadStarted(String title);
+  /// **'Downloading {name}.'**
+  String downloadStartedPhone(String name);
+
+  /// Shown when the browser starts a download.
+  ///
+  /// In en, this message translates to:
+  /// **'Your browser is saving {name}.'**
+  String downloadStartedBrowser(String name);
 
   /// No description provided for @downloadCouldNotStart.
   ///
   /// In en, this message translates to:
   /// **'Couldn\'t start the download'**
   String get downloadCouldNotStart;
+
+  /// No description provided for @downloadNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be downloaded yet. Try again later.'**
+  String get downloadNotReady;
+
+  /// No description provided for @downloadNoPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'VeloraUG needs permission to save to your phone\'s storage. Allow it, then try again.'**
+  String get downloadNoPermission;
+
+  /// No description provided for @downloadStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone couldn\'t start the download. Try again.'**
+  String get downloadStartFailed;
 
   /// No description provided for @downloadingPercent.
   ///
@@ -3328,16 +3358,10 @@ abstract class AppLocalizations {
   /// **'Waiting to download'**
   String get downloadQueued;
 
-  /// No description provided for @downloadWaiting.
-  ///
-  /// In en, this message translates to:
-  /// **'Waiting for a connection'**
-  String get downloadWaiting;
-
   /// No description provided for @downloadPaused.
   ///
   /// In en, this message translates to:
-  /// **'Paused'**
+  /// **'Waiting for a connection'**
   String get downloadPaused;
 
   /// No description provided for @downloaded.
@@ -3346,35 +3370,41 @@ abstract class AppLocalizations {
   /// **'Downloaded'**
   String get downloaded;
 
-  /// No description provided for @downloadStopped.
+  /// No description provided for @downloadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Download stopped'**
-  String get downloadStopped;
+  /// **'Download failed'**
+  String get downloadFailed;
 
-  /// No description provided for @downloadUnavailable.
+  /// No description provided for @downloadNoRoom.
   ///
   /// In en, this message translates to:
-  /// **'No longer available'**
-  String get downloadUnavailable;
+  /// **'Your phone is full. Free up some room, then download it again.'**
+  String get downloadNoRoom;
+
+  /// No description provided for @openDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get openDownload;
 
   /// Screen reader label.
   ///
   /// In en, this message translates to:
-  /// **'Play {title}'**
-  String playDownload(String title);
+  /// **'Open {title}'**
+  String openDownloadNamed(String title);
 
-  /// No description provided for @pauseDownload.
+  /// No description provided for @openDownloadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Pause download'**
-  String get pauseDownload;
+  /// **'This file can\'t be opened. It may have been deleted, or no app on this phone plays videos.'**
+  String get openDownloadFailed;
 
-  /// No description provided for @resumeDownload.
+  /// No description provided for @downloadAgain.
   ///
   /// In en, this message translates to:
-  /// **'Resume download'**
-  String get resumeDownload;
+  /// **'Download again'**
+  String get downloadAgain;
 
   /// No description provided for @deleteDownload.
   ///
@@ -3391,8 +3421,8 @@ abstract class AppLocalizations {
   /// No description provided for @deleteDownloadMessage.
   ///
   /// In en, this message translates to:
-  /// **'{title} will be removed from this phone. You can download it again.'**
-  String deleteDownloadMessage(String title);
+  /// **'{name} will be deleted from your phone.'**
+  String deleteDownloadMessage(String name);
 
   /// No description provided for @delete.
   ///
@@ -3409,7 +3439,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadsEmptyMessage.
   ///
   /// In en, this message translates to:
-  /// **'Download movies and episodes to watch them without a connection. Look for Download on a movie or an episode.'**
+  /// **'Download movies and episodes to keep them on your phone. Look for Download on a movie or an episode.'**
   String get downloadsEmptyMessage;
 
   /// No description provided for @downloadsUsed.
@@ -3418,83 +3448,11 @@ abstract class AppLocalizations {
   /// **'{size} on this phone'**
   String downloadsUsed(String size);
 
-  /// No description provided for @downloadsOfflineNote.
+  /// No description provided for @downloadsFolderNote.
   ///
   /// In en, this message translates to:
-  /// **'Downloads play without a connection for up to {days} days. Connect now and then to keep them playing.'**
-  String downloadsOfflineNote(int days);
-
-  /// No description provided for @downloadProblemNoPass.
-  ///
-  /// In en, this message translates to:
-  /// **'Your pass has ended. Choose a plan to watch your downloads again.'**
-  String get downloadProblemNoPass;
-
-  /// No description provided for @downloadProblemDeviceLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'Your account has more devices than your plan allows. Remove one to watch your downloads.'**
-  String get downloadProblemDeviceLimit;
-
-  /// No description provided for @downloadProblemDeviceRemoved.
-  ///
-  /// In en, this message translates to:
-  /// **'This phone was removed from your account, so its downloads can\'t be watched. Downloading again registers it.'**
-  String get downloadProblemDeviceRemoved;
-
-  /// No description provided for @downloadProblemStorageFull.
-  ///
-  /// In en, this message translates to:
-  /// **'Your phone is full. Free up some room, then try again.'**
-  String get downloadProblemStorageFull;
-
-  /// No description provided for @downloadProblemSignedOut.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign in to download.'**
-  String get downloadProblemSignedOut;
-
-  /// No description provided for @downloadProblemOther.
-  ///
-  /// In en, this message translates to:
-  /// **'Something went wrong with this download. Try again.'**
-  String get downloadProblemOther;
-
-  /// No description provided for @downloadCheckIn.
-  ///
-  /// In en, this message translates to:
-  /// **'Connect to the internet to keep watching this download.'**
-  String get downloadCheckIn;
-
-  /// No description provided for @downloadClockChanged.
-  ///
-  /// In en, this message translates to:
-  /// **'Your phone\'s clock has changed. Connect to the internet to keep watching.'**
-  String get downloadClockChanged;
-
-  /// No description provided for @checkNow.
-  ///
-  /// In en, this message translates to:
-  /// **'Check now'**
-  String get checkNow;
-
-  /// No description provided for @checkInFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'VeloraUG couldn\'t be reached. Check your connection and try again.'**
-  String get checkInFailed;
-
-  /// No description provided for @playsOfflineUntil.
-  ///
-  /// In en, this message translates to:
-  /// **'Plays offline until {date}'**
-  String playsOfflineUntil(String date);
-
-  /// No description provided for @offlinePlaybackFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'This download can\'t be played. Delete it and download it again.'**
-  String get offlinePlaybackFailed;
+  /// **'Downloads are saved to your phone\'s Downloads/VeloraUG folder. They\'re yours to keep, and play in any video player, even without VeloraUG.'**
+  String get downloadsFolderNote;
 }
 
 class _AppLocalizationsDelegate

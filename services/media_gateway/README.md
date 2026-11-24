@@ -16,6 +16,7 @@ player --GET /v1/<grant>/720p/seg_00042.m4s--> the same, for every chunk
 | --- | --- |
 | `/v1/<grant>/master.m3u8` | `movies/<movie>/<original>/master.m3u8` |
 | `/v1/<grant>/<360p…1080p>/index.m3u8`, `init*.mp4`, `seg_<n>.m4s` | the same under `movies/<movie>/<original>/` |
+| `/v1/<grant>/<360p…1080p>/download.mp4?name=<file name>` | the same. A quality's whole video as one file, sent as an attachment named by `?name=`, made safe, so a browser saves it. [Downloads](../../docs/step-12a-downloads.md) |
 
 The movie and original come from the grant, never from the address, so a grant opens one movie and nothing else. Originals are never served. Any other address is `404`.
 

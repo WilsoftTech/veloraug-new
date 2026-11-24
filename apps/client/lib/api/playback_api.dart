@@ -36,14 +36,15 @@ class PlaybackGrant {
   Uri qualityUrl(VideoQuality quality) => playlistUrl.resolve(quality.path);
 }
 
-/// Permission to download one item, Android only: a grant with no playback
-/// session, so the download takes no stream, and until when the download
-/// may be played offline. The app checks in again before then.
+/// Permission to download one item's video as an .mp4 file: a grant with no
+/// playback session, so the download takes no stream, for a day.
 class DownloadGrant {
-  const DownloadGrant({required this.grant, required this.offlineUntil});
+  const DownloadGrant({required this.grant, required this.fileName});
 
   final PlaybackGrant grant;
-  final DateTime offlineUntil;
+
+  /// Such as "Fast X - VJ Junior": the file is named this, then its quality.
+  final String fileName;
 }
 
 /// Something playing on one of the viewer's devices.
@@ -277,23 +278,23 @@ class PlaybackApi {
     return _grantIn(answer);
   }
 
-  /// A grant to download an item's video, on Android, and until when the
-  /// download may play offline. Refused as [grant] is, except that a
-  /// download takes no stream, so never [PlaybackFailure.streamLimit].
+  /// A grant to download an item's video as a file, and the file's name.
+  /// Refused as [grant] is, except that a download takes no stream, so
+  /// never [PlaybackFailure.streamLimit].
   Future<DownloadGrant> downloadGrant(String itemId) async {
     final answer = await _askRegistering(
       '/api/v1/items/${Uri.encodeComponent(itemId)}/download',
       register: true,
     );
     final grant = _grantIn(answer);
-    final until = switch (answer.json) {
-      {'offline_until': final String text} => DateTime.tryParse(text),
+    final name = switch (answer.json) {
+      {'file_name': final String name} when name.trim().isNotEmpty => name,
       _ => null,
     };
-    if (until == null) {
+    if (name == null) {
       throw const PlaybackException(PlaybackFailure.unexpected);
     }
-    return DownloadGrant(grant: grant, offlineUntil: until.toUtc());
+    return DownloadGrant(grant: grant, fileName: name);
   }
 
   /// Asks for a grant. When the API asks for a registered device, this one

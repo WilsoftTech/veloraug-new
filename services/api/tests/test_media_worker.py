@@ -22,6 +22,7 @@ from app.media_worker import (
     Refused,
     Worker,
     WorkerSettings,
+    download_command,
     ffmpeg_command,
     ladder,
     last_line,
@@ -290,14 +291,25 @@ def test_the_worker_needs_the_media_role():
 class FakeTools:
     """Answers FFprobe with `probe`, and makes FFmpeg's files unless told to fail."""
 
-    def __init__(self, probe=None, ffmpeg_fails=0):
+    def __init__(self, probe=None, ffmpeg_fails=0, join_fails=0):
         self.probe = probe if probe is not None else probe_json()
         self.ffmpeg_fails = ffmpeg_fails
+        self.join_fails = join_fails
         self.ffmpeg_runs = 0
+        self.joined = []
 
     def __call__(self, command, **kwargs):
         if command[0] == "ffprobe":
             return subprocess.CompletedProcess(command, 0, json.dumps(self.probe), "")
+        if "+faststart" in command:
+            # Joining one quality into download.mp4.
+            if self.join_fails:
+                self.join_fails -= 1
+                return subprocess.CompletedProcess(command, 1, "", "Invalid data\n")
+            target = Path(kwargs["cwd"]) / command[-1]
+            target.write_bytes(b"whole film")
+            self.joined.append(command[-1])
+            return subprocess.CompletedProcess(command, 0, "", "")
         self.ffmpeg_runs += 1
         if self.ffmpeg_fails:
             self.ffmpeg_fails -= 1
@@ -403,8 +415,50 @@ def test_a_received_original_is_converted_and_waits_to_publish(
     )
     made = sorted(p.name for p in (output / str(original_id)).iterdir())
     assert made == ["360p", "480p", "720p", "master.m3u8"]
+    # Each quality is also joined into one file to download.
+    assert tools.joined == [f"{q}/download.mp4" for q in ("360p", "480p", "720p")]
+    for quality in ("360p", "480p", "720p"):
+        assert (output / str(original_id) / quality / "download.mp4").is_file()
     assert (uploads / str(original_id)).exists()
     assert worker.run_once() is False
+
+
+def test_joining_for_download_copies_and_puts_the_index_first():
+    command = download_command("720p")
+
+    assert command[:4] == ["ffmpeg", "-hide_banner", "-nostdin", "-y"]
+    assert command[command.index("-i") + 1] == "720p/index.m3u8"
+    assert command[command.index("-c") + 1] == "copy"
+    assert command[command.index("-movflags") + 1] == "+faststart"
+    assert command[-1] == "720p/download.mp4"
+
+
+@needs_database
+def test_a_failed_join_counts_as_a_failed_conversion(
+    owner_url, media_database, folders, quiet_queue
+):
+    uploads, output = folders
+    original_id = new_original(owner_url, uploads)
+    tools = FakeTools(join_fails=3)
+
+    Worker(media_database, uploads, output, run=tools).run_once()
+
+    state, *_, reason = row(owner_url, original_id)
+    assert state == "failed"
+    assert tools.ffmpeg_runs == 3
+    assert reason == (
+        "Converting failed 3 times: Joining 360p for download failed: Invalid data"
+    )
+
+
+@needs_database
+def test_a_failed_join_is_tried_again(owner_url, media_database, folders, quiet_queue):
+    uploads, output = folders
+    original_id = new_original(owner_url, uploads)
+
+    Worker(media_database, uploads, output, run=FakeTools(join_fails=1)).run_once()
+
+    assert row(owner_url, original_id)[0] == "publishing"
 
 
 @needs_database
