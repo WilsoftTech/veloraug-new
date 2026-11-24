@@ -11,6 +11,7 @@ class StoredSession {
     required this.refreshToken,
     required this.expiresAt,
     this.email,
+    this.emailVerified,
   });
 
   final String accessToken;
@@ -22,11 +23,16 @@ class StoredSession {
   /// For display only.
   final String? email;
 
+  /// Whether the sign-in provider said the email is verified, for display
+  /// only. Null when it didn't say.
+  final bool? emailVerified;
+
   String encode() => jsonEncode({
     'access_token': accessToken,
     'refresh_token': refreshToken,
     'expires_at': expiresAt.toUtc().toIso8601String(),
     'email': email,
+    'email_verified': emailVerified,
   });
 
   /// Returns null for anything unreadable, so a damaged entry means signed out.
@@ -38,6 +44,7 @@ class StoredSession {
       final refreshToken = value['refresh_token'];
       final expiresAt = DateTime.tryParse('${value['expires_at']}');
       final email = value['email'];
+      final emailVerified = value['email_verified'];
       if (accessToken is! String || accessToken.isEmpty || expiresAt == null) {
         return null;
       }
@@ -46,6 +53,7 @@ class StoredSession {
         refreshToken: refreshToken is String ? refreshToken : null,
         expiresAt: expiresAt,
         email: email is String ? email : null,
+        emailVerified: emailVerified is bool ? emailVerified : null,
       );
     } on FormatException {
       return null;

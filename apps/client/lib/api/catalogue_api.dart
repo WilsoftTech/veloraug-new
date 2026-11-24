@@ -176,6 +176,15 @@ class Language {
   final int editions;
 }
 
+/// A genre with published editions, exactly as the catalogue stores it, so
+/// it can be passed back to [CatalogueApi.editions] as `genre`.
+class Genre {
+  const Genre({required this.name, this.editions = 0});
+
+  final String name;
+  final int editions;
+}
+
 enum CatalogueFailure {
   /// 404: it doesn't exist, or isn't published.
   notFound,
@@ -308,6 +317,23 @@ class CatalogueApi {
           ),
     ];
   }
+
+  /// Genres with published editions, most editions first.
+  Future<List<Genre>> genres() async {
+    final json = await _get('/api/v1/genres');
+    return [
+      for (final row in _need<List<Object?>>(json))
+        if (_need<Map<String, Object?>>(row) case final genre)
+          Genre(
+            name: _need<String>(genre['name']),
+            editions: _need<int>(genre['editions'] ?? 0),
+          ),
+    ];
+  }
+
+  /// An edition card in another route's answer, such as watch history,
+  /// checked as the catalogue's own are.
+  EditionCard cardFrom(Object? value) => _card(value);
 
   EditionCard _card(Object? value) {
     final json = _need<Map<String, Object?>>(value);

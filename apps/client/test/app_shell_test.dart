@@ -213,9 +213,19 @@ void main() {
       ) async {
         await _pumpApp(tester, size);
 
-        // Home has nothing else to focus, so the first Tab presses move
-        // through the navigation items in order: Home, then Search.
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        bool inMenu() {
+          final focused = FocusManager.instance.primaryFocus?.context;
+          return focused?.findAncestorWidgetOfExactType<NavigationBar>() !=
+                  null ||
+              focused?.findAncestorWidgetOfExactType<NavigationRail>() != null;
+        }
+
+        // Tab until the menu's first item, Home, then once more to Search.
+        for (var i = 0; i < 20 && !inMenu(); i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(inMenu(), isTrue);
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -229,7 +239,7 @@ void main() {
       tester,
     ) async {
       Future<bool> tabReachesField() async {
-        for (var i = 0; i < 10; i++) {
+        for (var i = 0; i < 20; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
           final focused = FocusManager.instance.primaryFocus?.context;

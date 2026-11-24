@@ -2092,4 +2092,521 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get downloadsFolderNote =>
       'Downloads are saved to your phone\'s Downloads/VeloraUG folder. They\'re yours to keep, and play in any video player, even without VeloraUG.';
+
+  @override
+  String get startingApp => 'Starting VeloraUG';
+
+  @override
+  String get filter => 'Filter';
+
+  @override
+  String get searchShortcut => 'Search titles';
+
+  @override
+  String get loadingMoreShelves => 'Loading more rows…';
+
+  @override
+  String get filterHeading => 'Filter';
+
+  @override
+  String get filterIntro =>
+      'Choose what to show, then see every title that matches.';
+
+  @override
+  String get filterType => 'Type';
+
+  @override
+  String get filterAll => 'All';
+
+  @override
+  String get filterGenre => 'Genre';
+
+  @override
+  String get filterAnyGenre => 'Any genre';
+
+  @override
+  String get filterVj => 'VJ';
+
+  @override
+  String get filterAnyVj => 'Any VJ';
+
+  @override
+  String get filterLanguage => 'Language';
+
+  @override
+  String get filterAnyLanguage => 'Any language';
+
+  @override
+  String get filterClear => 'Clear';
+
+  @override
+  String get filterShowResults => 'Show results';
+
+  @override
+  String get filterAllTitles => 'All titles';
+
+  @override
+  String filterOptionsFailed(String filter) {
+    return 'Couldn\'t load $filter choices';
+  }
+
+  @override
+  String filterOptionsLoading(String filter) {
+    return 'Loading $filter choices';
+  }
+
+  @override
+  String get movieBadge => 'Movie';
+
+  @override
+  String get storyline => 'Storyline';
+
+  @override
+  String get readMore => 'Read more';
+
+  @override
+  String get readLess => 'Show less';
+
+  @override
+  String get downloadingStarted => 'Downloading';
+
+  @override
+  String get downloadWaitingToRetry => 'Waiting to try again';
+
+  @override
+  String get downloadPausedOther => 'Paused';
+
+  @override
+  String downloadBytesOf(String done, String total) {
+    return '$done of $total';
+  }
+
+  @override
+  String get downloadsInProgress => 'In progress';
+
+  @override
+  String get downloadsCompleted => 'Completed';
+
+  @override
+  String get downloadsFailed => 'Failed';
+
+  @override
+  String downloadsGroup(String group, int count) {
+    return '$group ($count)';
+  }
+
+  @override
+  String get downloadsRowHelp => 'Movies and episodes saved on this phone';
+
+  @override
+  String get membershipGroup => 'Membership';
+
+  @override
+  String get libraryGroup => 'Your library';
+
+  @override
+  String get accountGroup => 'Account';
+
+  @override
+  String get plansTitle => 'Plans & membership';
+
+  @override
+  String get plansRowHelp => 'Your plan, when it ends, renewing or changing';
+
+  @override
+  String get payments => 'Payments';
+
+  @override
+  String get historyTitle => 'Watch history';
+
+  @override
+  String get notificationsTitle => 'Notifications';
+
+  @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String get accountStatusTitle => 'Account status';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get dangerZoneTitle => 'Danger zone';
+
+  @override
+  String get signInEmail => 'Sign-in email';
+
+  @override
+  String get signInToSeeThis => 'Sign in to see this page.';
+
+  @override
+  String get androidOnlyTitle => 'Only in the Android app';
+
+  @override
+  String get androidOnlyMessage =>
+      'Open VeloraUG on your Android phone to use this.';
+
+  @override
+  String get historyIntro =>
+      'What you watched with this account, latest first.';
+
+  @override
+  String get historyEmptyTitle => 'Nothing watched yet';
+
+  @override
+  String get historyEmptyMessage =>
+      'Movies and episodes you watch appear here. Downloads played in your phone\'s own player aren\'t included.';
+
+  @override
+  String get historyLoadFailed => 'Couldn\'t load your history';
+
+  @override
+  String watchedAt(String when) {
+    return 'Watched $when';
+  }
+
+  @override
+  String get notificationsIntro =>
+      'Updates about your payments, plan and devices from the last 90 days.';
+
+  @override
+  String get notificationsEmptyTitle => 'No notifications';
+
+  @override
+  String get notificationsEmptyMessage =>
+      'When something changes on your account, such as a payment going through, it shows here.';
+
+  @override
+  String get notificationsLoadFailed => 'Couldn\'t load your notifications';
+
+  @override
+  String notificationsUnread(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unread',
+      one: '1 unread',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get markAllRead => 'Mark all as read';
+
+  @override
+  String get unread => 'Unread';
+
+  @override
+  String get yourPlan => 'your plan';
+
+  @override
+  String get aDevice => 'A device';
+
+  @override
+  String get noticePaymentCompletedTitle => 'Payment confirmed';
+
+  @override
+  String noticePaymentCompletedBody(String plan) {
+    return 'Your payment for $plan went through.';
+  }
+
+  @override
+  String get noticePaymentRefundedTitle => 'Payment refunded';
+
+  @override
+  String noticePaymentRefundedBody(String plan) {
+    return 'Your payment for $plan was refunded, and its plan has ended.';
+  }
+
+  @override
+  String get noticePassEndingTitle => 'Plan ending soon';
+
+  @override
+  String noticePassEndingBody(String plan) {
+    return '$plan ends within 3 days. Renew to keep watching.';
+  }
+
+  @override
+  String get noticePassEndedTitle => 'Plan ended';
+
+  @override
+  String noticePassEndedBody(String plan) {
+    return '$plan has ended.';
+  }
+
+  @override
+  String get noticeDeviceRemovedTitle => 'Device removed';
+
+  @override
+  String noticeDeviceRemovedBody(String device) {
+    return '$device was removed from your account by VeloraUG.';
+  }
+
+  @override
+  String get accountStatusIntro =>
+      'What our systems say about your account. Sign-in and membership are checked separately.';
+
+  @override
+  String get statusSignIn => 'Sign-in';
+
+  @override
+  String get statusMembership => 'Membership';
+
+  @override
+  String get statusDeletion => 'Account deletion';
+
+  @override
+  String get statusUnknown => 'Unknown: couldn\'t be checked';
+
+  @override
+  String get emailVerified => 'Email verified';
+
+  @override
+  String get emailNotVerified => 'Email not verified';
+
+  @override
+  String get emailVerificationUnknown => 'Email verification unknown';
+
+  @override
+  String get statusFromSignIn =>
+      'From your sign-in provider, when you last signed in.';
+
+  @override
+  String get statusFromVeloraUG => 'From VeloraUG, now.';
+
+  @override
+  String membershipRenewsUntil(String date) {
+    return 'Plans bought in advance run until $date';
+  }
+
+  @override
+  String get deletionPending => 'Started, not finished';
+
+  @override
+  String get deletionCompleted => 'Completed';
+
+  @override
+  String get devicesGroup => 'Devices';
+
+  @override
+  String get securityGroup => 'Security and notifications';
+
+  @override
+  String get aboutGroup => 'About';
+
+  @override
+  String get myDevicesRowHelp =>
+      'See and remove the devices signed in to your plan';
+
+  @override
+  String get appLockTitle => 'App lock';
+
+  @override
+  String get appLockHelp =>
+      'Ask for your fingerprint, face or phone\'s screen lock to open VeloraUG.';
+
+  @override
+  String get appLockUnavailable =>
+      'Set up a screen lock in your phone settings, then return here and try again.';
+
+  @override
+  String get appLockNotChanged => 'Not changed: the check was cancelled.';
+
+  @override
+  String get appLockFailed => 'That didn\'t work. Try again.';
+
+  @override
+  String get appLockLockedOut =>
+      'Too many tries. Wait a moment, then try again.';
+
+  @override
+  String get appLockCancelled => 'Cancelled. Tap Unlock to try again.';
+
+  @override
+  String get appLockReasonUnlock => 'Unlock VeloraUG';
+
+  @override
+  String get appLockReasonTurnOn => 'Confirm to turn on App lock';
+
+  @override
+  String get appLockReasonTurnOff => 'Confirm to turn off App lock';
+
+  @override
+  String get appLockLockedTitle => 'VeloraUG is locked';
+
+  @override
+  String get appLockLockedMessage =>
+      'Use your fingerprint, face or phone\'s screen lock to open it.';
+
+  @override
+  String get appLockUnlock => 'Unlock';
+
+  @override
+  String get appLockChecking => 'Checking…';
+
+  @override
+  String get appLockSignOutInstead => 'Can\'t unlock? Sign out';
+
+  @override
+  String get pushTitle => 'Push notifications';
+
+  @override
+  String get pushNotSetUp => 'VeloraUG can\'t send push notifications yet.';
+
+  @override
+  String get pushNotOnWeb =>
+      'Push notifications are only offered in the Android app.';
+
+  @override
+  String get pushOsAllowed => 'Android allows notifications from VeloraUG.';
+
+  @override
+  String get pushOsBlocked =>
+      'Notifications from VeloraUG are off in Android\'s settings.';
+
+  @override
+  String get pushOsUnknown => 'Couldn\'t read Android\'s notification setting.';
+
+  @override
+  String get pushInboxStillWorks =>
+      'Your inbox in Account › Notifications works either way.';
+
+  @override
+  String get passwordResetTitle => 'Reset password';
+
+  @override
+  String get passwordResetHelp =>
+      'Opens the VeloraUG sign-in page, which emails you a code.';
+
+  @override
+  String get passwordResetUnavailable =>
+      'Password reset isn\'t set up in this version of the app.';
+
+  @override
+  String get shareApp => 'Share VeloraUG';
+
+  @override
+  String shareAppText(String link) {
+    return 'Watch Luganda-translated movies and series on VeloraUG: $link';
+  }
+
+  @override
+  String get shareAppCopied => 'Link copied.';
+
+  @override
+  String get shareAppUnavailable =>
+      'Sharing isn\'t set up in this version of the app.';
+
+  @override
+  String get copyLink => 'Copy link';
+
+  @override
+  String get rateOnPlay => 'Rate on Google Play';
+
+  @override
+  String get rateOnPlayUnavailable => 'VeloraUG isn\'t on Google Play yet.';
+
+  @override
+  String get privacyPolicy => 'Privacy policy';
+
+  @override
+  String get privacyPolicyUnavailable =>
+      'The privacy policy isn\'t published in the app yet.';
+
+  @override
+  String get linkCouldNotOpen => 'Couldn\'t open the link.';
+
+  @override
+  String get dangerZoneIntro =>
+      'Permanently delete your VeloraUG account. This can\'t be undone.';
+
+  @override
+  String get deletionWhatGoes => 'What is deleted';
+
+  @override
+  String get deletionGoesProfile => 'Your profile and display name';
+
+  @override
+  String get deletionGoesHistory =>
+      'Your watch history and notification read marks';
+
+  @override
+  String get deletionGoesDevices =>
+      'Your registered devices, and anything playing on them';
+
+  @override
+  String get deletionGoesSignIn =>
+      'Your sign-in account, so you can no longer sign in with it';
+
+  @override
+  String get deletionWhatStays => 'What is kept';
+
+  @override
+  String get deletionStaysPayments =>
+      'Records of your payments, which the law and payment checks require';
+
+  @override
+  String get deletionStaysDownloads =>
+      'Files already downloaded to this phone\'s Downloads folder: they are yours';
+
+  @override
+  String get deletionStaysPlan =>
+      'Time left on a plan is not refunded by deleting';
+
+  @override
+  String get deletionUnderstand =>
+      'I understand that my account will be deleted permanently.';
+
+  @override
+  String get deleteAccountButton => 'Delete my account';
+
+  @override
+  String get deletionTryAgain => 'Finish deleting my account';
+
+  @override
+  String get deletingAccount => 'Deleting…';
+
+  @override
+  String get deleteAccountConfirmTitle => 'Delete your account?';
+
+  @override
+  String get deleteAccountConfirmMessage =>
+      'You\'ll be asked to sign in again to confirm it\'s you. Then your account is deleted for good.';
+
+  @override
+  String get deleteAccountConfirmButton => 'Delete';
+
+  @override
+  String get deletionDone => 'Your account has been deleted.';
+
+  @override
+  String get deletionPendingHelp =>
+      'A deletion you started didn\'t finish. Nothing more was removed. You can finish it now.';
+
+  @override
+  String get deletionStatusFailed => 'Couldn\'t check account deletion';
+
+  @override
+  String get deletionUnavailableTitle =>
+      'Account deletion isn\'t available yet';
+
+  @override
+  String get deletionUnavailableMessage =>
+      'Deleting an account from the app isn\'t switched on yet. Nothing has been changed.';
+
+  @override
+  String get deletionIncompleteMessage =>
+      'Your account couldn\'t be deleted completely. Try again: nothing more is removed until you do.';
+
+  @override
+  String get reauthNeeded => 'Sign in again to confirm it\'s you.';
+
+  @override
+  String get reauthFailed =>
+      'The sign-in didn\'t finish, so nothing was deleted.';
+
+  @override
+  String get reauthDifferentAccount =>
+      'You signed in with a different account, so nothing was deleted.';
 }

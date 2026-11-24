@@ -62,6 +62,7 @@ class OAuthTokens {
     required this.expiresIn,
     required this.idTokenNonceMatched,
     this.email,
+    this.emailVerified,
   });
 
   final String accessToken;
@@ -74,6 +75,10 @@ class OAuthTokens {
 
   /// The `email` claim of the ID token, for display only.
   final String? email;
+
+  /// The `email_verified` claim of the ID token, for display only. Null
+  /// when the reply had no ID token or no such claim.
+  final bool? emailVerified;
 }
 
 class _Endpoints {
@@ -135,7 +140,10 @@ class OAuthClient {
     );
   }
 
-  Future<OAuthTokens> signIn() async {
+  /// Signs in. With [forceLogin], asks Neon Auth to make the person enter
+  /// their credentials again even if the browser is still signed in, for a
+  /// step such as deleting the account that needs a recent sign-in.
+  Future<OAuthTokens> signIn({bool forceLogin = false}) async {
     final endpoints = await _discover();
     final verifier = randomUrlSafe();
     final state = randomUrlSafe();
@@ -153,6 +161,8 @@ class OAuthClient {
         'code_challenge': pkceS256Challenge(verifier),
         'code_challenge_method': 'S256',
         'resource': config.resource,
+        if (forceLogin) 'prompt': 'login',
+        if (forceLogin) 'max_age': '0',
       },
     );
 
@@ -311,9 +321,9 @@ class OAuthClient {
     }
     // Used only to show who is signed in. The token came straight from the
     // token endpoint over HTTPS, but its signature isn't checked here.
-    final email = idToken is String
-        ? (readJwtPayload(idToken)?['email'])
-        : null;
+    final claims = idToken is String ? readJwtPayload(idToken) : null;
+    final email = claims?['email'];
+    final emailVerified = claims?['email_verified'];
 
     final refreshToken = body['refresh_token'];
     final expiresIn = body['expires_in'];
@@ -323,6 +333,7 @@ class OAuthClient {
       expiresIn: expiresIn is int ? expiresIn : null,
       idTokenNonceMatched: nonceMatched,
       email: email is String ? email : null,
+      emailVerified: emailVerified is bool ? emailVerified : null,
     );
   }
 

@@ -24,7 +24,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints
 from starlette.background import BackgroundTask
 
-from app import devices, passes, playback, ratelimit, viewer
+from app import account, devices, passes, playback, ratelimit, viewer
 from app.auth import VerifiedUser, current_user
 from app.db import Database
 from app.images import ImageUrls
@@ -132,6 +132,12 @@ class EditionDetailOut(EditionCard):
 
 class LanguageOut(BaseModel):
     code: str
+    name: str
+    editions: int
+
+
+class GenreOut(BaseModel):
+    # Exactly as stored, so it can be passed back as /editions?genre=.
     name: str
     editions: int
 
@@ -309,6 +315,18 @@ def list_languages(db: AppDatabase) -> list[LanguageOut]:
         ]
 
 
+@router.get("/genres")
+def list_genres(db: AppDatabase) -> list[GenreOut]:
+    """Genres with published editions, most editions first, for browsing and
+    filtering by genre. Each name is the exact value /editions?genre=
+    matches. Needs no sign-in."""
+    with db.anonymous() as conn:
+        return [
+            GenreOut(name=name, editions=count)
+            for name, count in viewer.list_genres(conn)
+        ]
+
+
 def granter(request: Request) -> Granter:
     granter: Granter | None = request.app.state.granter
     if granter is None:
@@ -380,6 +398,8 @@ def grant_playback(
             except devices.DeviceProblem as problem:
                 raise device_refusal(problem) from None
             until = entitlement.ends_at
+        if visible and original is not None:
+            account.record_playback_grant(conn, user.user_id, item_id)
     if not visible:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_AVAILABLE)
     if original is None:

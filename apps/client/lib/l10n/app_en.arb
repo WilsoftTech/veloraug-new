@@ -1285,9 +1285,15 @@
   "markRefundedMessage": "Do this only after refunding {amount} in full on Pesapal: Pesapal never tells VeloraUG about refunds. The {plan} pass bought with it ends now for {customer}, and anything playing on it stops. This can't be undone.",
   "@markRefundedMessage": {
     "placeholders": {
-      "plan": {"type": "String"},
-      "amount": {"type": "String"},
-      "customer": {"type": "String"}
+      "plan": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "customer": {
+        "type": "String"
+      }
     }
   },
   "paymentRefundedNotice": "Marked refunded. Its pass has ended.",
@@ -1429,5 +1435,676 @@
       }
     }
   },
-  "downloadsFolderNote": "Downloads are saved to your phone's Downloads/VeloraUG folder. They're yours to keep, and play in any video player, even without VeloraUG."
+  "downloadsFolderNote": "Downloads are saved to your phone's Downloads/VeloraUG folder. They're yours to keep, and play in any video player, even without VeloraUG.",
+  "startingApp": "Starting VeloraUG",
+  "@startingApp": {
+    "description": "Screen reader label for the startup loading ring."
+  },
+  "filter": "Filter",
+  "@filter": {
+    "description": "Navigation destination: narrow the catalogue by type, genre, VJ and language."
+  },
+  "searchShortcut": "Search titles",
+  "@searchShortcut": {
+    "description": "Home shortcut to the Search screen."
+  },
+  "loadingMoreShelves": "Loading more rows…",
+  "@loadingMoreShelves": {
+    "description": "Screen reader label while Home loads its genre, VJ and language rows."
+  },
+  "filterHeading": "Filter",
+  "@filterHeading": {
+    "description": "Filter screen heading."
+  },
+  "filterIntro": "Choose what to show, then see every title that matches.",
+  "@filterIntro": {
+    "description": "Filter screen introduction."
+  },
+  "filterType": "Type",
+  "@filterType": {
+    "description": "Filter section: movies, series or both."
+  },
+  "filterAll": "All",
+  "@filterAll": {
+    "description": "Filter choice: movies and series."
+  },
+  "filterGenre": "Genre",
+  "@filterGenre": {
+    "description": "Filter section heading."
+  },
+  "filterAnyGenre": "Any genre",
+  "@filterAnyGenre": {
+    "description": "Filter choice: no genre chosen."
+  },
+  "filterVj": "VJ",
+  "@filterVj": {
+    "description": "Filter section heading: the VJ who translated the title."
+  },
+  "filterAnyVj": "Any VJ",
+  "@filterAnyVj": {
+    "description": "Filter choice: no VJ chosen."
+  },
+  "filterLanguage": "Language",
+  "@filterLanguage": {
+    "description": "Filter section heading."
+  },
+  "filterAnyLanguage": "Any language",
+  "@filterAnyLanguage": {
+    "description": "Filter choice: no language chosen."
+  },
+  "filterClear": "Clear",
+  "@filterClear": {
+    "description": "Button: clears every filter choice."
+  },
+  "filterShowResults": "Show results",
+  "@filterShowResults": {
+    "description": "Button: shows the titles matching the filter."
+  },
+  "filterAllTitles": "All titles",
+  "@filterAllTitles": {
+    "description": "Results page title when no filter is chosen."
+  },
+  "filterOptionsFailed": "Couldn't load {filter} choices",
+  "@filterOptionsFailed": {
+    "description": "Error title when a filter list fails to load.",
+    "placeholders": {
+      "filter": {
+        "type": "String"
+      }
+    }
+  },
+  "filterOptionsLoading": "Loading {filter} choices",
+  "@filterOptionsLoading": {
+    "description": "Screen reader label while a filter list loads.",
+    "placeholders": {
+      "filter": {
+        "type": "String"
+      }
+    }
+  },
+  "movieBadge": "Movie",
+  "@movieBadge": {
+    "description": "Badge on a movie edition's page."
+  },
+  "storyline": "Storyline",
+  "@storyline": {
+    "description": "Heading above a title's overview."
+  },
+  "readMore": "Read more",
+  "@readMore": {
+    "description": "Button: shows the whole storyline."
+  },
+  "readLess": "Show less",
+  "@readLess": {
+    "description": "Button: shortens the storyline again."
+  },
+  "downloadingStarted": "Downloading",
+  "@downloadingStarted": {
+    "description": "A download running before its size is known."
+  },
+  "downloadWaitingToRetry": "Waiting to try again",
+  "@downloadWaitingToRetry": {
+    "description": "A download Android paused after a failed connection, which it retries by itself."
+  },
+  "downloadPausedOther": "Paused",
+  "@downloadPausedOther": {
+    "description": "A download Android paused for another reason."
+  },
+  "downloadBytesOf": "{done} of {total}",
+  "@downloadBytesOf": {
+    "description": "How much of a download has arrived, such as \"120 MB of 700 MB\".",
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsInProgress": "In progress",
+  "@downloadsInProgress": {
+    "description": "Downloads group: queued, downloading or paused."
+  },
+  "downloadsCompleted": "Completed",
+  "@downloadsCompleted": {
+    "description": "Downloads group: finished downloads."
+  },
+  "downloadsFailed": "Failed",
+  "@downloadsFailed": {
+    "description": "Downloads group: downloads that stopped with an error."
+  },
+  "downloadsGroup": "{group} ({count})",
+  "@downloadsGroup": {
+    "description": "A downloads group heading with how many it has.",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadsRowHelp": "Movies and episodes saved on this phone",
+  "@downloadsRowHelp": {
+    "description": "Account row help for Downloads."
+  },
+  "membershipGroup": "Membership",
+  "@membershipGroup": {
+    "description": "Account group heading."
+  },
+  "libraryGroup": "Your library",
+  "@libraryGroup": {
+    "description": "Account group heading: downloads, history and notifications."
+  },
+  "accountGroup": "Account",
+  "@accountGroup": {
+    "description": "Account group heading: profile, status, settings."
+  },
+  "plansTitle": "Plans & membership",
+  "@plansTitle": {
+    "description": "Account row and page title."
+  },
+  "plansRowHelp": "Your plan, when it ends, renewing or changing",
+  "@plansRowHelp": {
+    "description": "Account row help for plans."
+  },
+  "payments": "Payments",
+  "@payments": {
+    "description": "Account row and page title."
+  },
+  "historyTitle": "Watch history",
+  "@historyTitle": {
+    "description": "Account row and page title."
+  },
+  "notificationsTitle": "Notifications",
+  "@notificationsTitle": {
+    "description": "Account row and page title: the in-app inbox."
+  },
+  "profileTitle": "Profile",
+  "@profileTitle": {
+    "description": "Account row and page title."
+  },
+  "accountStatusTitle": "Account status",
+  "@accountStatusTitle": {
+    "description": "Account row and page title."
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Account row and page title."
+  },
+  "dangerZoneTitle": "Danger zone",
+  "@dangerZoneTitle": {
+    "description": "Account row and page title: deleting the account."
+  },
+  "signInEmail": "Sign-in email",
+  "@signInEmail": {
+    "description": "Profile card title: the email used to sign in."
+  },
+  "signInToSeeThis": "Sign in to see this page.",
+  "@signInToSeeThis": {
+    "description": "Shown on an account page that needs a sign-in."
+  },
+  "androidOnlyTitle": "Only in the Android app",
+  "@androidOnlyTitle": {
+    "description": "Title on a page that exists only on Android."
+  },
+  "androidOnlyMessage": "Open VeloraUG on your Android phone to use this.",
+  "@androidOnlyMessage": {
+    "description": "Message on a page that exists only on Android."
+  },
+  "historyIntro": "What you watched with this account, latest first.",
+  "@historyIntro": {
+    "description": "Watch history introduction."
+  },
+  "historyEmptyTitle": "Nothing watched yet",
+  "@historyEmptyTitle": {
+    "description": "Watch history empty state title."
+  },
+  "historyEmptyMessage": "Movies and episodes you watch appear here. Downloads played in your phone's own player aren't included.",
+  "@historyEmptyMessage": {
+    "description": "Watch history empty state message."
+  },
+  "historyLoadFailed": "Couldn't load your history",
+  "@historyLoadFailed": {
+    "description": "Watch history error title."
+  },
+  "watchedAt": "Watched {when}",
+  "@watchedAt": {
+    "description": "When a title was last watched, such as \"Watched 24 Nov 2026, 14:05\".",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationsIntro": "Updates about your payments, plan and devices from the last 90 days.",
+  "@notificationsIntro": {
+    "description": "Notifications introduction."
+  },
+  "notificationsEmptyTitle": "No notifications",
+  "@notificationsEmptyTitle": {
+    "description": "Notifications empty state title."
+  },
+  "notificationsEmptyMessage": "When something changes on your account, such as a payment going through, it shows here.",
+  "@notificationsEmptyMessage": {
+    "description": "Notifications empty state message."
+  },
+  "notificationsLoadFailed": "Couldn't load your notifications",
+  "@notificationsLoadFailed": {
+    "description": "Notifications error title."
+  },
+  "notificationsUnread": "{count, plural, =1{1 unread} other{{count} unread}}",
+  "@notificationsUnread": {
+    "description": "How many notifications are unread.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "markAllRead": "Mark all as read",
+  "@markAllRead": {
+    "description": "Button in the notifications inbox."
+  },
+  "unread": "Unread",
+  "@unread": {
+    "description": "Marks an unread notification."
+  },
+  "yourPlan": "your plan",
+  "@yourPlan": {
+    "description": "Stands in for a plan name the server didn't give."
+  },
+  "aDevice": "A device",
+  "@aDevice": {
+    "description": "Stands in for a device name the server didn't give."
+  },
+  "noticePaymentCompletedTitle": "Payment confirmed",
+  "@noticePaymentCompletedTitle": {
+    "description": "Notification title."
+  },
+  "noticePaymentCompletedBody": "Your payment for {plan} went through.",
+  "@noticePaymentCompletedBody": {
+    "description": "Notification body.",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "noticePaymentRefundedTitle": "Payment refunded",
+  "@noticePaymentRefundedTitle": {
+    "description": "Notification title."
+  },
+  "noticePaymentRefundedBody": "Your payment for {plan} was refunded, and its plan has ended.",
+  "@noticePaymentRefundedBody": {
+    "description": "Notification body.",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "noticePassEndingTitle": "Plan ending soon",
+  "@noticePassEndingTitle": {
+    "description": "Notification title."
+  },
+  "noticePassEndingBody": "{plan} ends within 3 days. Renew to keep watching.",
+  "@noticePassEndingBody": {
+    "description": "Notification body.",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "noticePassEndedTitle": "Plan ended",
+  "@noticePassEndedTitle": {
+    "description": "Notification title."
+  },
+  "noticePassEndedBody": "{plan} has ended.",
+  "@noticePassEndedBody": {
+    "description": "Notification body.",
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "noticeDeviceRemovedTitle": "Device removed",
+  "@noticeDeviceRemovedTitle": {
+    "description": "Notification title."
+  },
+  "noticeDeviceRemovedBody": "{device} was removed from your account by VeloraUG.",
+  "@noticeDeviceRemovedBody": {
+    "description": "Notification body.",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "accountStatusIntro": "What our systems say about your account. Sign-in and membership are checked separately.",
+  "@accountStatusIntro": {
+    "description": "Account status introduction."
+  },
+  "statusSignIn": "Sign-in",
+  "@statusSignIn": {
+    "description": "Account status card: the sign-in account."
+  },
+  "statusMembership": "Membership",
+  "@statusMembership": {
+    "description": "Account status card: the plan."
+  },
+  "statusDeletion": "Account deletion",
+  "@statusDeletion": {
+    "description": "Account status card: a deletion in progress."
+  },
+  "statusUnknown": "Unknown: couldn't be checked",
+  "@statusUnknown": {
+    "description": "A value no source could confirm."
+  },
+  "emailVerified": "Email verified",
+  "@emailVerified": {
+    "description": "Sign-in status badge."
+  },
+  "emailNotVerified": "Email not verified",
+  "@emailNotVerified": {
+    "description": "Sign-in status badge."
+  },
+  "emailVerificationUnknown": "Email verification unknown",
+  "@emailVerificationUnknown": {
+    "description": "Sign-in status badge when the provider didn't say."
+  },
+  "statusFromSignIn": "From your sign-in provider, when you last signed in.",
+  "@statusFromSignIn": {
+    "description": "Where the sign-in status comes from."
+  },
+  "statusFromVeloraUG": "From VeloraUG, now.",
+  "@statusFromVeloraUG": {
+    "description": "Where the membership status comes from."
+  },
+  "membershipRenewsUntil": "Plans bought in advance run until {date}",
+  "@membershipRenewsUntil": {
+    "description": "Account status: the end of the last queued plan.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "deletionPending": "Started, not finished",
+  "@deletionPending": {
+    "description": "Account status badge: a deletion that stopped part way."
+  },
+  "deletionCompleted": "Completed",
+  "@deletionCompleted": {
+    "description": "Account status badge: a finished deletion."
+  },
+  "devicesGroup": "Devices",
+  "@devicesGroup": {
+    "description": "Settings group heading."
+  },
+  "securityGroup": "Security and notifications",
+  "@securityGroup": {
+    "description": "Settings group heading."
+  },
+  "aboutGroup": "About",
+  "@aboutGroup": {
+    "description": "Settings group heading."
+  },
+  "myDevicesRowHelp": "See and remove the devices signed in to your plan",
+  "@myDevicesRowHelp": {
+    "description": "Settings row help."
+  },
+  "appLockTitle": "App lock",
+  "@appLockTitle": {
+    "description": "Settings switch: ask for the phone's screen lock or biometrics to open VeloraUG."
+  },
+  "appLockHelp": "Ask for your fingerprint, face or phone's screen lock to open VeloraUG.",
+  "@appLockHelp": {
+    "description": "App lock help."
+  },
+  "appLockUnavailable": "Set up a screen lock in your phone settings, then return here and try again.",
+  "@appLockUnavailable": {
+    "description": "App lock unavailable."
+  },
+  "appLockNotChanged": "Not changed: the check was cancelled.",
+  "@appLockNotChanged": {
+    "description": "App lock switch result."
+  },
+  "appLockFailed": "That didn't work. Try again.",
+  "@appLockFailed": {
+    "description": "App lock check failed."
+  },
+  "appLockLockedOut": "Too many tries. Wait a moment, then try again.",
+  "@appLockLockedOut": {
+    "description": "App lock check locked out."
+  },
+  "appLockCancelled": "Cancelled. Tap Unlock to try again.",
+  "@appLockCancelled": {
+    "description": "App lock check cancelled on the lock screen."
+  },
+  "appLockReasonUnlock": "Unlock VeloraUG",
+  "@appLockReasonUnlock": {
+    "description": "The reason Android's prompt shows when unlocking."
+  },
+  "appLockReasonTurnOn": "Confirm to turn on App lock",
+  "@appLockReasonTurnOn": {
+    "description": "The reason Android's prompt shows when turning App lock on."
+  },
+  "appLockReasonTurnOff": "Confirm to turn off App lock",
+  "@appLockReasonTurnOff": {
+    "description": "The reason Android's prompt shows when turning App lock off."
+  },
+  "appLockLockedTitle": "VeloraUG is locked",
+  "@appLockLockedTitle": {
+    "description": "Lock screen title."
+  },
+  "appLockLockedMessage": "Use your fingerprint, face or phone's screen lock to open it.",
+  "@appLockLockedMessage": {
+    "description": "Lock screen message."
+  },
+  "appLockUnlock": "Unlock",
+  "@appLockUnlock": {
+    "description": "Lock screen button."
+  },
+  "appLockChecking": "Checking…",
+  "@appLockChecking": {
+    "description": "Lock screen button while the prompt shows."
+  },
+  "appLockSignOutInstead": "Can't unlock? Sign out",
+  "@appLockSignOutInstead": {
+    "description": "Signs out of the account while the installation stays locked."
+  },
+  "pushTitle": "Push notifications",
+  "@pushTitle": {
+    "description": "Settings switch."
+  },
+  "pushNotSetUp": "VeloraUG can't send push notifications yet.",
+  "@pushNotSetUp": {
+    "description": "Push notifications not available in this version."
+  },
+  "pushNotOnWeb": "Push notifications are only offered in the Android app.",
+  "@pushNotOnWeb": {
+    "description": "Push notifications on the web."
+  },
+  "pushOsAllowed": "Android allows notifications from VeloraUG.",
+  "@pushOsAllowed": {
+    "description": "The phone's notification setting."
+  },
+  "pushOsBlocked": "Notifications from VeloraUG are off in Android's settings.",
+  "@pushOsBlocked": {
+    "description": "The phone's notification setting."
+  },
+  "pushOsUnknown": "Couldn't read Android's notification setting.",
+  "@pushOsUnknown": {
+    "description": "The phone's notification setting."
+  },
+  "pushInboxStillWorks": "Your inbox in Account › Notifications works either way.",
+  "@pushInboxStillWorks": {
+    "description": "Push notifications help."
+  },
+  "passwordResetTitle": "Reset password",
+  "@passwordResetTitle": {
+    "description": "Settings row."
+  },
+  "passwordResetHelp": "Opens the VeloraUG sign-in page, which emails you a code.",
+  "@passwordResetHelp": {
+    "description": "Settings row help."
+  },
+  "passwordResetUnavailable": "Password reset isn't set up in this version of the app.",
+  "@passwordResetUnavailable": {
+    "description": "Settings row help when unavailable."
+  },
+  "shareApp": "Share VeloraUG",
+  "@shareApp": {
+    "description": "Settings row."
+  },
+  "shareAppText": "Watch Luganda-translated movies and series on VeloraUG: {link}",
+  "@shareAppText": {
+    "description": "Text shared with the app link.",
+    "placeholders": {
+      "link": {
+        "type": "String"
+      }
+    }
+  },
+  "shareAppCopied": "Link copied.",
+  "@shareAppCopied": {
+    "description": "Snack bar after copying the app link."
+  },
+  "shareAppUnavailable": "Sharing isn't set up in this version of the app.",
+  "@shareAppUnavailable": {
+    "description": "Settings row help when unavailable."
+  },
+  "copyLink": "Copy link",
+  "@copyLink": {
+    "description": "Tooltip: copies the app link."
+  },
+  "rateOnPlay": "Rate on Google Play",
+  "@rateOnPlay": {
+    "description": "Settings row."
+  },
+  "rateOnPlayUnavailable": "VeloraUG isn't on Google Play yet.",
+  "@rateOnPlayUnavailable": {
+    "description": "Settings row help when no listing is set."
+  },
+  "privacyPolicy": "Privacy policy",
+  "@privacyPolicy": {
+    "description": "Settings row."
+  },
+  "privacyPolicyUnavailable": "The privacy policy isn't published in the app yet.",
+  "@privacyPolicyUnavailable": {
+    "description": "Settings row help when no policy address is set."
+  },
+  "linkCouldNotOpen": "Couldn't open the link.",
+  "@linkCouldNotOpen": {
+    "description": "Snack bar when a link fails to open."
+  },
+  "dangerZoneIntro": "Permanently delete your VeloraUG account. This can't be undone.",
+  "@dangerZoneIntro": {
+    "description": "Danger zone introduction."
+  },
+  "deletionWhatGoes": "What is deleted",
+  "@deletionWhatGoes": {
+    "description": "Danger zone heading."
+  },
+  "deletionGoesProfile": "Your profile and display name",
+  "@deletionGoesProfile": {
+    "description": "What deletion removes."
+  },
+  "deletionGoesHistory": "Your watch history and notification read marks",
+  "@deletionGoesHistory": {
+    "description": "What deletion removes."
+  },
+  "deletionGoesDevices": "Your registered devices, and anything playing on them",
+  "@deletionGoesDevices": {
+    "description": "What deletion removes."
+  },
+  "deletionGoesSignIn": "Your sign-in account, so you can no longer sign in with it",
+  "@deletionGoesSignIn": {
+    "description": "What deletion removes."
+  },
+  "deletionWhatStays": "What is kept",
+  "@deletionWhatStays": {
+    "description": "Danger zone heading."
+  },
+  "deletionStaysPayments": "Records of your payments, which the law and payment checks require",
+  "@deletionStaysPayments": {
+    "description": "What deletion keeps."
+  },
+  "deletionStaysDownloads": "Files already downloaded to this phone's Downloads folder: they are yours",
+  "@deletionStaysDownloads": {
+    "description": "What deletion keeps."
+  },
+  "deletionStaysPlan": "Time left on a plan is not refunded by deleting",
+  "@deletionStaysPlan": {
+    "description": "What deletion keeps."
+  },
+  "deletionUnderstand": "I understand that my account will be deleted permanently.",
+  "@deletionUnderstand": {
+    "description": "Danger zone checkbox."
+  },
+  "deleteAccountButton": "Delete my account",
+  "@deleteAccountButton": {
+    "description": "Danger zone button."
+  },
+  "deletionTryAgain": "Finish deleting my account",
+  "@deletionTryAgain": {
+    "description": "Danger zone button after a deletion stopped part way."
+  },
+  "deletingAccount": "Deleting…",
+  "@deletingAccount": {
+    "description": "Danger zone button while deleting."
+  },
+  "deleteAccountConfirmTitle": "Delete your account?",
+  "@deleteAccountConfirmTitle": {
+    "description": "Final confirmation title."
+  },
+  "deleteAccountConfirmMessage": "You'll be asked to sign in again to confirm it's you. Then your account is deleted for good.",
+  "@deleteAccountConfirmMessage": {
+    "description": "Final confirmation message."
+  },
+  "deleteAccountConfirmButton": "Delete",
+  "@deleteAccountConfirmButton": {
+    "description": "Final confirmation button."
+  },
+  "deletionDone": "Your account has been deleted.",
+  "@deletionDone": {
+    "description": "Shown once the server confirms the deletion."
+  },
+  "deletionPendingHelp": "A deletion you started didn't finish. Nothing more was removed. You can finish it now.",
+  "@deletionPendingHelp": {
+    "description": "Danger zone: a deletion stopped part way."
+  },
+  "deletionStatusFailed": "Couldn't check account deletion",
+  "@deletionStatusFailed": {
+    "description": "Danger zone error title."
+  },
+  "deletionUnavailableTitle": "Account deletion isn't available yet",
+  "@deletionUnavailableTitle": {
+    "description": "Danger zone when the server can't delete accounts."
+  },
+  "deletionUnavailableMessage": "Deleting an account from the app isn't switched on yet. Nothing has been changed.",
+  "@deletionUnavailableMessage": {
+    "description": "Danger zone when the server can't delete accounts."
+  },
+  "deletionIncompleteMessage": "Your account couldn't be deleted completely. Try again: nothing more is removed until you do.",
+  "@deletionIncompleteMessage": {
+    "description": "A deletion that stopped part way."
+  },
+  "reauthNeeded": "Sign in again to confirm it's you.",
+  "@reauthNeeded": {
+    "description": "The server needs a recent sign-in."
+  },
+  "reauthFailed": "The sign-in didn't finish, so nothing was deleted.",
+  "@reauthFailed": {
+    "description": "The confirming sign-in was cancelled or failed."
+  },
+  "reauthDifferentAccount": "You signed in with a different account, so nothing was deleted.",
+  "@reauthDifferentAccount": {
+    "description": "The confirming sign-in was someone else."
+  }
 }

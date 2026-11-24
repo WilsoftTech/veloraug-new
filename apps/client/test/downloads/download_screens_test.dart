@@ -64,7 +64,16 @@ void main() {
   ) async {
     final downloads = phone();
     await pumpApp(tester, catalogue(), signedIn: true, downloads: downloads);
-    expect(find.text('Downloads'), findsOneWidget);
+    // In the menu, beside Home's shortcut to it.
+    expect(
+      find.descendant(
+        of: find.byType(NavigationBar).hitTestable().evaluate().isEmpty
+            ? find.byType(NavigationRail)
+            : find.byType(NavigationBar),
+        matching: find.text('Downloads'),
+      ),
+      findsOneWidget,
+    );
     await openEdition(tester, 'Fast X');
 
     await tester.tap(find.text('Download'));

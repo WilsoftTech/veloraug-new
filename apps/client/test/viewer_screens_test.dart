@@ -222,7 +222,10 @@ void main() {
 
       expect(find.byType(EditionScreen), findsOneWidget);
       expect(find.text('Luganda · VJ Junior'), findsOneWidget);
-      expect(find.text('2023 · 2 h 21 min'), findsOneWidget);
+      // The year under the title, and the runtime among the badges.
+      expect(find.text('2023'), findsOneWidget);
+      expect(find.text('2 h 21 min'), findsOneWidget);
+      expect(find.text('Movie'), findsOneWidget);
       expect(find.text('Dom races again.'), findsOneWidget);
       expect(find.text('Trailer'), findsOneWidget);
     });
@@ -653,9 +656,11 @@ void main() {
     });
   });
 
-  testWidgets('Account credits TMDB with its exact notice', (tester) async {
+  testWidgets('Settings credits TMDB with its exact notice', (tester) async {
     await pumpApp(tester, catalogue());
     await goTo(tester, 'Account');
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
 
     final l = AppLocalizationsEn();
     // Folded away until Credits is tapped.

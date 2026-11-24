@@ -12,6 +12,7 @@ kind of failure.
 import logging
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
 import jwt
@@ -61,6 +62,10 @@ class KeysUnavailable(Exception):
 class VerifiedUser:
     user_id: UUID
     client_id: str
+    # When the person last entered their credentials, from the token's
+    # `auth_time` claim. None when the token doesn't say. A refreshed token
+    # keeps it, so it shows a recent sign-in, not a recent refresh.
+    auth_time: datetime | None = None
 
 
 class TokenVerifier:
@@ -120,7 +125,15 @@ class TokenVerifier:
         sub = claims["sub"]
         if not isinstance(sub, str) or not _UUID.fullmatch(sub):
             raise InvalidToken("subject")
-        return VerifiedUser(user_id=UUID(sub), client_id=client_id)
+        auth_time = claims.get("auth_time")
+        signed_in_at = (
+            datetime.fromtimestamp(auth_time, UTC)
+            if isinstance(auth_time, int) and not isinstance(auth_time, bool)
+            else None
+        )
+        return VerifiedUser(
+            user_id=UUID(sub), client_id=client_id, auth_time=signed_in_at
+        )
 
     def _signing_key(self, kid: str):
         # First make sure the keys themselves are available, from the cache or

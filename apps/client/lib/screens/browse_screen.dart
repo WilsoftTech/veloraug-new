@@ -42,6 +42,10 @@ class _BrowseScreenState extends State<BrowseScreen> {
   CatalogueFailure? _moreFailure;
   bool _started = false;
 
+  /// Starting again from the first page gets a new number, so a page asked
+  /// for before can't land in the new list.
+  int _generation = 0;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -54,6 +58,13 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Future<void> _fetch(int offset) async {
     final api = CatalogueScope.of(context);
     final filter = widget.filter;
+    if (offset == 0) {
+      _generation++;
+      _editions.clear();
+      _nextOffset = null;
+      _moreFailure = null;
+    }
+    final generation = _generation;
     if (api == null) {
       setState(() {
         _failure = CatalogueFailure.unreachable;
@@ -75,7 +86,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         language: filter.language,
         genre: filter.genre,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         final seen = {for (final edition in _editions) edition.id};
         _editions.addAll(page.editions.where((e) => !seen.contains(e.id)));
@@ -83,7 +94,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         _phase = _Phase.ready;
       });
     } on CatalogueException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         if (offset > 0) {
           _moreFailure = error.failure;

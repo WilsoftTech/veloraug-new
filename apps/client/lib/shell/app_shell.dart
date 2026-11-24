@@ -8,6 +8,7 @@ import '../downloads/downloads.dart';
 import '../l10n/l10n.dart';
 import '../screens/account_screen.dart';
 import '../screens/downloads_screen.dart';
+import '../screens/filter_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/search_screen.dart';
 import '../theme/tokens.dart';
@@ -19,13 +20,48 @@ const double wideLayoutBreakpoint = VeloraLayout.mediumBreakpoint;
 /// The admin screens are on the web only in the first release.
 const bool adminScreensAvailable = kIsWeb;
 
-class _Destination {
-  const _Destination(this.label, this.icon, this.selectedIcon, this.screen);
+/// Each place in the main menu, by a stable identity: entries that come and
+/// go, such as Downloads and Admin, never shift which one is chosen.
+enum AppDestination { home, search, filter, downloads, account, admin }
 
+class _Destination {
+  const _Destination(
+    this.id,
+    this.label,
+    this.icon,
+    this.selectedIcon,
+    this.screen,
+  );
+
+  final AppDestination id;
   final String label;
   final IconData icon;
   final IconData selectedIcon;
   final Widget screen;
+}
+
+/// Lets screens inside the shell move to another of its destinations, such
+/// as Home's shortcuts to Search and Downloads.
+class ShellScope extends InheritedWidget {
+  const ShellScope({
+    super.key,
+    required this.available,
+    required this.select,
+    required super.child,
+  });
+
+  /// The destinations showing now.
+  final Set<AppDestination> available;
+
+  /// Shows a destination if it is available. Answers whether it was.
+  final bool Function(AppDestination destination) select;
+
+  static ShellScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShellScope>();
+
+  @override
+  bool updateShouldNotify(ShellScope oldWidget) =>
+      !setEquals(available, oldWidget.available);
 }
 
 class AppShell extends StatefulWidget {
@@ -39,7 +75,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _selectedIndex = 0;
+  AppDestination _selected = AppDestination.home;
+  bool _openedFilter = false;
 
   AuthController? _auth;
   AdminApi? _adminApi;
@@ -47,12 +84,9 @@ class _AppShellState extends State<AppShell> {
   /// True once the API has said this person is an admin.
   bool _isAdmin = false;
 
-  /// Whether downloads are listed in a tab: on Android only. Browsers
+  /// Whether downloads are listed in the menu: on Android only. Browsers
   /// list their own.
   bool _hasDownloads = false;
-
-  /// Home, Search, Downloads where kept, and Account. Admin comes after.
-  int get _viewerTabs => _hasDownloads ? 4 : 3;
 
   /// Who [_isAdmin] was checked for, so a change of person checks again.
   String? _checkedFor;
@@ -69,7 +103,6 @@ class _AppShellState extends State<AppShell> {
     super.didChangeDependencies();
     final auth = AuthScope.of(context);
     final admin = AdminScope.of(context);
-    _syncDownloads();
     if (!identical(admin, _adminApi) || !identical(auth, _auth)) {
       _adminApi = admin;
       _auth = auth;
@@ -87,12 +120,13 @@ class _AppShellState extends State<AppShell> {
       _checkedFor = null;
       _check++;
       _isAdmin = false;
-      if (_selectedIndex >= _viewerTabs) _selectedIndex = 0;
       return;
     }
-    final who = auth.email ?? '';
+    final who = auth.accountKey ?? '';
     if (_checkedFor == who) return;
     _checkedFor = who;
+    // A different person: not an admin until the API says so.
+    _isAdmin = false;
     final check = ++_check;
     admin.isAdmin().then(
       (isAdmin) {
@@ -110,44 +144,64 @@ class _AppShellState extends State<AppShell> {
       _isAdmin = isAdmin;
       if (isAdmin && _wantsAdmin) {
         _wantsAdmin = false;
-        _selectedIndex = _viewerTabs;
+        _selected = AppDestination.admin;
       }
-      if (!isAdmin && _selectedIndex >= _viewerTabs) _selectedIndex = 0;
     });
   }
 
-  /// Downloads are set up a moment after launch. On Android the tab is
-  /// added before Account, so whatever was chosen stays chosen.
-  void _syncDownloads() {
-    final has = DownloadsScope.peek(context)?.followed ?? false;
-    if (has == _hasDownloads) return;
-    if (_selectedIndex >= 2) _selectedIndex += has ? 1 : -1;
-    _hasDownloads = has;
-  }
+  Set<AppDestination> get _available => {
+    AppDestination.home,
+    AppDestination.search,
+    AppDestination.filter,
+    if (_hasDownloads) AppDestination.downloads,
+    AppDestination.account,
+    if (_isAdmin) AppDestination.admin,
+  };
 
-  void _select(int index) => setState(() => _selectedIndex = index);
+  bool _selectIfAvailable(AppDestination destination) {
+    if (!_available.contains(destination)) return false;
+    setState(() => _selected = destination);
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    _syncDownloads();
+    // Downloads are set up a moment after launch, without a sign-in.
+    _hasDownloads = DownloadsScope.peek(context)?.followed ?? false;
     final isWide = MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint;
     final destinations = [
-      _Destination(l.home, Icons.home_outlined, Icons.home, const HomeScreen()),
       _Destination(
+        AppDestination.home,
+        l.home,
+        Icons.home_outlined,
+        Icons.home,
+        const HomeScreen(),
+      ),
+      _Destination(
+        AppDestination.search,
         l.search,
         Icons.search_outlined,
         Icons.search,
         const SearchScreen(),
       ),
+      _Destination(
+        AppDestination.filter,
+        l.filter,
+        Icons.tune_outlined,
+        Icons.tune,
+        const FilterScreen(),
+      ),
       if (_hasDownloads)
         _Destination(
+          AppDestination.downloads,
           l.downloads,
           Icons.download_for_offline_outlined,
           Icons.download_for_offline,
           const DownloadsScreen(),
         ),
       _Destination(
+        AppDestination.account,
         l.account,
         Icons.person_outline,
         Icons.person,
@@ -155,65 +209,88 @@ class _AppShellState extends State<AppShell> {
       ),
       if (_isAdmin)
         _Destination(
+          AppDestination.admin,
           l.admin,
           Icons.admin_panel_settings_outlined,
           Icons.admin_panel_settings,
           const AdminScreen(),
         ),
     ];
-    final selected = _selectedIndex.clamp(0, destinations.length - 1);
+    var selected = destinations.indexWhere((d) => d.id == _selected);
+    if (selected < 0) {
+      // The chosen entry has gone, such as Admin after signing out.
+      _selected = AppDestination.home;
+      selected = 0;
+    }
+    if (_selected == AppDestination.filter) _openedFilter = true;
+    void select(int index) =>
+        setState(() => _selected = destinations[index].id);
 
-    return Scaffold(
-      appBar: AppBar(title: const VeloraWordmark()),
-      body: SafeArea(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (isWide) ...[
-              NavigationRail(
+    return ShellScope(
+      available: _available,
+      select: _selectIfAvailable,
+      child: Scaffold(
+        appBar: AppBar(title: const VeloraWordmark()),
+        body: SafeArea(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isWide) ...[
+                NavigationRail(
+                  selectedIndex: selected,
+                  onDestinationSelected: select,
+                  labelType: NavigationRailLabelType.all,
+                  scrollable: true,
+                  destinations: [
+                    for (final destination in destinations)
+                      NavigationRailDestination(
+                        icon: Icon(destination.icon),
+                        selectedIcon: Icon(destination.selectedIcon),
+                        label: Text(destination.label),
+                      ),
+                  ],
+                ),
+                const VerticalDivider(width: 1),
+              ],
+              // IndexedStack keeps hidden screens alive, so search text and
+              // filter choices survive changing screen, and it keeps them out
+              // of the Tab order. Each screen is keyed by its destination, so
+              // one added or removed beside it never replaces its state.
+              Expanded(
+                child: IndexedStack(
+                  index: selected,
+                  children: [
+                    for (final destination in destinations)
+                      KeyedSubtree(
+                        key: ValueKey(destination.id),
+                        child:
+                            destination.id == AppDestination.filter &&
+                                !_openedFilter
+                            ? const SizedBox.shrink()
+                            : destination.screen,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: isWide
+            ? null
+            : NavigationBar(
+                animationDuration: VeloraMotion.of(context, VeloraMotion.slow),
                 selectedIndex: selected,
-                onDestinationSelected: _select,
-                labelType: NavigationRailLabelType.all,
-                scrollable: true,
+                onDestinationSelected: select,
                 destinations: [
                   for (final destination in destinations)
-                    NavigationRailDestination(
+                    NavigationDestination(
                       icon: Icon(destination.icon),
                       selectedIcon: Icon(destination.selectedIcon),
-                      label: Text(destination.label),
+                      label: destination.label,
                     ),
                 ],
               ),
-              const VerticalDivider(width: 1),
-            ],
-            // IndexedStack keeps hidden screens alive, so search text survives
-            // changing screen, and it keeps them out of the Tab order.
-            Expanded(
-              child: IndexedStack(
-                index: selected,
-                children: [
-                  for (final destination in destinations) destination.screen,
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
-      bottomNavigationBar: isWide
-          ? null
-          : NavigationBar(
-              animationDuration: VeloraMotion.of(context, VeloraMotion.slow),
-              selectedIndex: selected,
-              onDestinationSelected: _select,
-              destinations: [
-                for (final destination in destinations)
-                  NavigationDestination(
-                    icon: Icon(destination.icon),
-                    selectedIcon: Icon(destination.selectedIcon),
-                    label: destination.label,
-                  ),
-              ],
-            ),
     );
   }
 }

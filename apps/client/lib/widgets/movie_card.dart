@@ -46,9 +46,14 @@ class MovieCard extends StatefulWidget {
     this.status,
     this.artwork,
     this.onTap,
+    this.dense = false,
   });
 
   final String title;
+
+  /// Phone grids and shelves: tighter padding, and the title and subtitle
+  /// on one line each, cut cleanly. The full title is still read out.
+  final bool dense;
 
   /// A VJ's name, shown small in the poster's top-left corner, readable over
   /// any poster, and read out after the title.
@@ -145,13 +150,15 @@ class _MovieCardState extends State<MovieCard> {
                       ],
                     ),
                   Padding(
-                    padding: const EdgeInsets.all(VeloraSpacing.sm),
+                    padding: EdgeInsets.all(
+                      widget.dense ? VeloraSpacing.xs : VeloraSpacing.sm,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           widget.title,
-                          maxLines: 2,
+                          maxLines: widget.dense ? 1 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleSmall,
                         ),
@@ -159,6 +166,10 @@ class _MovieCardState extends State<MovieCard> {
                           const SizedBox(height: VeloraSpacing.xxs),
                           Text(
                             subtitle,
+                            maxLines: widget.dense ? 1 : null,
+                            overflow: widget.dense
+                                ? TextOverflow.ellipsis
+                                : null,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

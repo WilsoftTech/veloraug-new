@@ -41,7 +41,17 @@ void main() {
     }
   }
 
+  /// Opens one of the account hub's rows.
+  Future<void> openRow(WidgetTester tester, String label) async {
+    await tester.ensureVisible(find.text(label).first);
+    await tester.tap(find.text(label).first);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> openPlans(WidgetTester tester) async {
+    if (find.text('Choose a plan').evaluate().isEmpty) {
+      await openRow(tester, 'Plans & membership');
+    }
     await tester.ensureVisible(find.text('Choose a plan').first);
     await tester.tap(find.text('Choose a plan').first);
     await tester.pumpAndSettle();
@@ -57,13 +67,23 @@ void main() {
     testWidgets('without a plan offers one', (tester) async {
       await pumpApp(tester, FakeApi(), signedIn: true);
       await goTo(tester, 'Account');
+      expect(find.text('Plans & membership'), findsOneWidget);
+      expect(find.text('Payments'), findsOneWidget);
 
+      await openRow(tester, 'Plans & membership');
       expect(find.text('My membership'), findsOneWidget);
       expect(find.text('No active plan'), findsOneWidget);
       expect(find.text('Choose a plan'), findsOneWidget);
-      expect(find.text('My devices'), findsOneWidget);
-      expect(find.text('Payments'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await openRow(tester, 'Payments');
       expect(find.text('No payments yet.'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await openRow(tester, 'Settings');
+      expect(find.text('My devices'), findsOneWidget);
     });
 
     testWidgets('with a plan: dates, time left, allowances, what comes next', (
@@ -98,6 +118,7 @@ void main() {
         };
       await pumpApp(tester, api, signedIn: true);
       await goTo(tester, 'Account');
+      await openRow(tester, 'Plans & membership');
 
       expect(find.text('Velora Prime'), findsOneWidget);
       expect(find.text('Active'), findsOneWidget);
@@ -150,12 +171,18 @@ void main() {
       await pumpApp(tester, api, signedIn: true);
       await goTo(tester, 'Account');
 
-      expect(find.text('Kitchen laptop'), findsOneWidget);
-      expect(find.text('This device'), findsOneWidget);
+      await openRow(tester, 'Payments');
       expect(find.text('Velora Prime · UGX 18,000'), findsOneWidget);
       expect(find.textContaining('Ref. MTN123'), findsOneWidget);
       expect(find.text('Paid'), findsOneWidget);
       expect(find.text('Failed'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await openRow(tester, 'Settings');
+      await openRow(tester, 'My devices');
+      expect(find.text('Kitchen laptop'), findsOneWidget);
+      expect(find.text('This device'), findsOneWidget);
 
       await tester.ensureVisible(find.text('Remove').first);
       await tester.tap(find.text('Remove').first);
@@ -172,7 +199,9 @@ void main() {
       await pumpApp(tester, FakeApi());
       await goTo(tester, 'Account');
 
-      expect(find.text('My membership'), findsNothing);
+      expect(find.text('Plans & membership'), findsNothing);
+      expect(find.text('Payments'), findsNothing);
+      await openRow(tester, 'Settings');
       expect(find.text('My devices'), findsNothing);
     });
   });

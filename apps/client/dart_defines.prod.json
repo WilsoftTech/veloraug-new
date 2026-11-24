@@ -6,5 +6,6 @@
   "NEON_AUTH_WEB_CLIENT_ID": "eOkcJKdnJcyaAmuIaZbpWUJCbtyUuZrx",
   "NEON_AUTH_ANDROID_CLIENT_ID": "izbgvXIhOtggjmdleEfjVmOiGKZhROHV",
   "API_RESOURCE": "https://api.veloraug.com",
-  "AUTH_PAGES_URL": "https://auth.veloraug.com"
+  "AUTH_PAGES_URL": "https://auth.veloraug.com",
+  "PUBLIC_APP_URL": "https://app.veloraug.com"
 }

@@ -47,6 +47,18 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final downloads = DownloadsScope.of(context);
+    if (downloads != null && !downloads.followed) {
+      return ScreenBody(
+        heading: l.downloads,
+        children: [
+          EmptyState(
+            icon: Icons.phone_android,
+            title: l.androidOnlyTitle,
+            message: l.androidOnlyMessage,
+          ),
+        ],
+      );
+    }
     if (downloads == null || !downloads.loaded) {
       return Center(
         child: VeloraLoadingRegion(
@@ -73,16 +85,42 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
             title: l.downloadsEmptyTitle,
             message: l.downloadsEmptyMessage,
           ),
-        for (final download in all)
-          _DownloadTile(
-            key: ValueKey(download.id),
-            downloads: downloads,
-            download: download,
+        for (final (title, group) in [
+          (l.downloadsInProgress, all.where(_inProgress).toList()),
+          (
+            l.downloadsCompleted,
+            all.where((d) => d.state == FileState.done).toList(),
           ),
+          (
+            l.downloadsFailed,
+            all.where((d) => d.state == FileState.failed).toList(),
+          ),
+        ])
+          if (group.isNotEmpty) ...[
+            Semantics(
+              header: true,
+              child: Text(
+                l.downloadsGroup(title, group.length),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            for (final download in group)
+              _DownloadTile(
+                key: ValueKey(download.id),
+                downloads: downloads,
+                download: download,
+              ),
+          ],
       ],
     );
   }
 }
+
+/// Queued, downloading, or paused for any reason.
+bool _inProgress(Download download) =>
+    download.state == FileState.waiting ||
+    download.state == FileState.running ||
+    download.state == FileState.paused;
 
 class _DownloadTile extends StatelessWidget {
   const _DownloadTile({
@@ -135,10 +173,13 @@ class _DownloadTile extends StatelessWidget {
         state == FileState.waiting ||
         state == FileState.running ||
         state == FileState.paused;
-    final size = switch (download.status.total) {
-      final total? => formatBytes(context, total),
-      null => null,
-    };
+    // While downloading: how much has arrived. Once done: the file's size.
+    final size = busy
+        ? downloadBytesLabel(context, download)
+        : switch (download.status.total) {
+            final total? => formatBytes(context, total),
+            null => null,
+          };
     final facts = [
       download.quality,
       ?size,

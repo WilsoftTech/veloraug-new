@@ -25,17 +25,37 @@ String formatBytes(BuildContext context, int bytes) {
   );
 }
 
-/// One short line for where a download on the phone has got to.
+/// One short line for where a download on the phone has got to: queued,
+/// downloading with its percentage, why it is paused, done or failed.
 String downloadStateLabel(AppLocalizations l, Download download) =>
     switch (download.state) {
       FileState.waiting => l.downloadQueued,
-      FileState.running => l.downloadingPercent(
-        ((download.progress ?? 0) * 100).floor(),
-      ),
-      FileState.paused => l.downloadPaused,
+      FileState.running => switch (download.progress) {
+        final progress? => l.downloadingPercent((progress * 100).floor()),
+        null => l.downloadingStarted,
+      },
+      FileState.paused => switch (download.status.pause) {
+        PauseReason.retry => l.downloadWaitingToRetry,
+        PauseReason.other => l.downloadPausedOther,
+        // Android's most common reason, and what it said before.
+        PauseReason.network || PauseReason.none => l.downloadPaused,
+      },
       FileState.done => l.downloaded,
       FileState.failed => l.downloadFailed,
     };
+
+/// "120 MB of 700 MB", or "120 MB" while the size isn't known, or null
+/// before anything has arrived.
+String? downloadBytesLabel(BuildContext context, Download download) {
+  final bytes = download.status.bytes;
+  final total = download.status.total;
+  if (bytes <= 0) return null;
+  if (total == null) return formatBytes(context, bytes);
+  return context.l10n.downloadBytesOf(
+    formatBytes(context, bytes),
+    formatBytes(context, total),
+  );
+}
 
 void _say(
   ScaffoldMessengerState messenger,
