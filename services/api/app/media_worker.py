@@ -20,6 +20,7 @@ Run with:
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 import time
@@ -375,6 +376,41 @@ def download_command(quality: str) -> list[str]:
     ]
 
 
+def playlist_seconds(text: str) -> float:
+    """How long a quality's playlist says its video is."""
+    return sum(float(x) for x in re.findall(r"#EXTINF:([\d.]+)", text))
+
+
+def measure_seconds(source: str, run=subprocess.run) -> float | None:
+    """How long a video file is, by FFprobe, from its index alone: a local
+    path, or an address it can read. None if it can't be read."""
+    try:
+        result = run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                source,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        return float((result.stdout or "").strip())
+    except (ValueError, OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def length_matches(got: float | None, want: float) -> bool:
+    """A joined file as long as its playlist: within 2 s, or 0.5% of it.
+    Shorter means chunks were missing when it was joined."""
+    return got is not None and abs(got - want) <= max(2.0, want * 0.005)
+
+
 def last_line(text: str, source: Path) -> str:
     """FFmpeg's last error line, without the server's paths."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -544,10 +580,18 @@ class Worker:
                 capture_output=True,
                 text=True,
             )
-            if result.returncode != 0 or not (out / rung.name / DOWNLOAD_FILE).exists():
+            made = out / rung.name / DOWNLOAD_FILE
+            if result.returncode != 0 or not made.exists():
                 line = (result.stderr or "").strip().splitlines()
                 return f"Joining {rung.name} for download failed: " + (
                     line[-1] if line else "no message"
+                )
+            want = playlist_seconds((out / rung.name / "index.m3u8").read_text())
+            got = measure_seconds(str(made), self.run)
+            if not length_matches(got, want):
+                return (
+                    f"Joining {rung.name} for download made "
+                    f"{got or 0:.0f} s of {want:.0f} s"
                 )
         return None
 

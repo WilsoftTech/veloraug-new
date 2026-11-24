@@ -26,7 +26,9 @@ from app.media_worker import (
     ffmpeg_command,
     ladder,
     last_line,
+    length_matches,
     parse_probe,
+    playlist_seconds,
 )
 from scripts.create_app_role import scram_verifier
 from tests.db_support import needs_database, new_item, url_for
@@ -291,14 +293,19 @@ def test_the_worker_needs_the_media_role():
 class FakeTools:
     """Answers FFprobe with `probe`, and makes FFmpeg's files unless told to fail."""
 
-    def __init__(self, probe=None, ffmpeg_fails=0, join_fails=0):
+    def __init__(self, probe=None, ffmpeg_fails=0, join_fails=0, joined_seconds="0"):
         self.probe = probe if probe is not None else probe_json()
         self.ffmpeg_fails = ffmpeg_fails
         self.join_fails = join_fails
+        # What FFprobe says a joined file lasts. The fake playlists have no
+        # chunks, so 0 matches them.
+        self.joined_seconds = joined_seconds
         self.ffmpeg_runs = 0
         self.joined = []
 
     def __call__(self, command, **kwargs):
+        if command[0] == "ffprobe" and "format=duration" in command:
+            return subprocess.CompletedProcess(command, 0, self.joined_seconds, "")
         if command[0] == "ffprobe":
             return subprocess.CompletedProcess(command, 0, json.dumps(self.probe), "")
         if "+faststart" in command:
@@ -449,6 +456,33 @@ def test_a_failed_join_counts_as_a_failed_conversion(
     assert reason == (
         "Converting failed 3 times: Joining 360p for download failed: Invalid data"
     )
+
+
+@needs_database
+def test_a_joined_file_shorter_than_its_playlist_counts_as_failed(
+    owner_url, media_database, folders, quiet_queue
+):
+    uploads, output = folders
+    original_id = new_original(owner_url, uploads)
+
+    Worker(
+        media_database, uploads, output, run=FakeTools(joined_seconds="40.5")
+    ).run_once()
+
+    state, *_, reason = row(owner_url, original_id)
+    assert state == "failed"
+    assert reason == (
+        "Converting failed 3 times: Joining 360p for download made 40 s of 0 s"
+    )
+
+
+def test_a_length_matches_within_two_seconds_or_half_a_percent():
+    assert length_matches(6220.9, 6221.0)
+    assert length_matches(6190.0, 6221.0)
+    assert not length_matches(6000.0, 6221.0)
+    assert not length_matches(None, 10.0)
+    playlist = "#EXTINF:6.0,\nseg_0.m4s\n#EXTINF:4.5,\nseg_1.m4s"
+    assert playlist_seconds(playlist) == 10.5
 
 
 @needs_database

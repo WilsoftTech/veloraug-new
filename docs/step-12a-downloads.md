@@ -50,6 +50,8 @@ docker compose -f infra/compose.prod.yaml exec media-worker python -m app.downlo
 
 The first lists what it would make. Until a film has its files, its Download says "This can't be downloaded yet".
 
+**One run at a time.** A second run while one is going stops at once with "Another run is already making download files". On 24 November 2026 three runs were started by hand within eight minutes of each other and deleted each other's chunks while joining. They were stopped, and every file they had uploaded, 27 in all, was measured and found whole. Since then, every joined file is measured with FFprobe and never uploaded if it is shorter than its playlist. Each file already in R2 is measured from its index too, without downloading it, and made again if short. The media worker makes the same check for new films.
+
 ## Checks done
 
 - API: `tests/test_downloads.py` (10), `tests/test_download_files.py` (9), and new media worker and publisher tests, on a local Postgres. The full API suite passes.
