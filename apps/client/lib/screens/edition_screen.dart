@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../api/account_api.dart';
 import '../api/catalogue_api.dart';
 import '../api/playback_api.dart';
 import '../auth/auth_controller.dart';
@@ -111,7 +112,10 @@ class _EditionScreenState extends State<EditionScreen> {
             ),
           ),
           _Phase.failed => _Failed(failure: _failure!, onRetry: _retry),
-          _Phase.ready => _Details(edition: edition!),
+          _Phase.ready => _Details(
+            key: ValueKey((edition!.id, AuthScope.of(context)?.accountKey)),
+            edition: edition,
+          ),
         },
       ),
     );
@@ -161,10 +165,107 @@ class _Failed extends StatelessWidget {
   }
 }
 
-class _Details extends StatelessWidget {
-  const _Details({required this.edition});
+class _Details extends StatefulWidget {
+  const _Details({super.key, required this.edition});
 
   final EditionDetail edition;
+
+  @override
+  State<_Details> createState() => _DetailsState();
+}
+
+class _DetailsState extends State<_Details> {
+  EditionDetail get edition => widget.edition;
+  Set<String>? _saved;
+  final _saving = <String>{};
+  bool _loadingSaved = false;
+  bool _requestedSaved = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_requestedSaved && _canWatch(context) == _CanWatch.yes) {
+      _requestedSaved = true;
+      _loadSaved();
+    }
+  }
+
+  Future<void> _loadSaved() async {
+    final api = accountApiOf(context);
+    if (api == null) return;
+    setState(() => _loadingSaved = true);
+    try {
+      final saved = await api.savedItemsFor(edition.id);
+      if (mounted) setState(() => _saved = saved);
+    } on AccountException {
+      // The buttons offer a retry if status could not be fetched.
+    } finally {
+      if (mounted) setState(() => _loadingSaved = false);
+    }
+  }
+
+  Future<void> _toggleSaved(String id) async {
+    final api = accountApiOf(context);
+    final auth = AuthScope.of(context);
+    if (api == null || auth?.status != AuthStatus.signedIn) return;
+    final saved = _saved;
+    if (saved == null) {
+      await _loadSaved();
+      return;
+    }
+    if (_saving.contains(id)) return;
+    final add = !saved.contains(id);
+    setState(() => _saving.add(id));
+    try {
+      await api.setWatchListItem(id, saved: add);
+      if (!mounted) return;
+      setState(() {
+        if (add) {
+          saved.add(id);
+        } else {
+          saved.remove(id);
+        }
+      });
+    } on AccountException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(accountFailureMessage(context.l10n, error.failure)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving.remove(id));
+    }
+  }
+
+  Widget _watchListButton(String id, {bool compact = false}) {
+    final l = context.l10n;
+    final saved = _saved;
+    final selected = saved?.contains(id) ?? false;
+    final busy = _loadingSaved || _saving.contains(id);
+    final label = busy
+        ? l.loading
+        : saved == null
+        ? l.watchListRetry
+        : selected
+        ? l.watchListRemove
+        : l.watchListAdd;
+    final icon = selected ? Icons.bookmark : Icons.bookmark_add_outlined;
+    void toggle() => _toggleSaved(id);
+    return compact
+        ? IconButton(
+            tooltip: label,
+            icon: Icon(icon),
+            onPressed: busy ? null : toggle,
+          )
+        : VeloraButton(
+            label: label,
+            icon: icon,
+            variant: VeloraButtonVariant.secondary,
+            onPressed: busy ? null : toggle,
+          );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +280,7 @@ class _Details extends StatelessWidget {
     final muted = theme.textTheme.bodyMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
-    final canDownload =
+    final canWatchMovie =
         edition.kind == EditionKind.movie &&
         edition.playable &&
         edition.itemId != null &&
@@ -207,7 +308,7 @@ class _Details extends StatelessWidget {
     );
 
     final secondary = [
-      if (canDownload)
+      if (canWatchMovie)
         DownloadButton(itemId: edition.itemId!, info: downloadInfo(edition)),
       if (trailer != null)
         VeloraButton(
@@ -219,8 +320,7 @@ class _Details extends StatelessWidget {
         ),
     ];
 
-    // Watch first and widest. Download sits beside it on a wide screen and
-    // just below it on a phone.
+    final listItemId = canWatchMovie ? edition.itemId : null;
     final Widget? actions;
     if (edition.kind == EditionKind.movie) {
       actions = wide
@@ -230,6 +330,7 @@ class _Details extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _WatchButton(edition: edition),
+                if (listItemId != null) _watchListButton(listItemId),
                 ...secondary,
               ],
             )
@@ -237,7 +338,17 @@ class _Details extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: VeloraSpacing.sm,
               children: [
-                _WatchButton(edition: edition, expand: true),
+                if (listItemId == null)
+                  _WatchButton(edition: edition, expand: true)
+                else
+                  Wrap(
+                    spacing: VeloraSpacing.sm,
+                    runSpacing: VeloraSpacing.sm,
+                    children: [
+                      _WatchButton(edition: edition),
+                      _watchListButton(listItemId),
+                    ],
+                  ),
                 if (secondary.isNotEmpty)
                   Wrap(
                     spacing: VeloraSpacing.sm,
@@ -284,7 +395,11 @@ class _Details extends StatelessWidget {
                     if (overview != null && overview.trim().isNotEmpty)
                       _Storyline(text: overview),
                     if (edition.kind == EditionKind.series)
-                      _Seasons(edition: edition),
+                      _Seasons(
+                        edition: edition,
+                        watchListButton: (id) =>
+                            _watchListButton(id, compact: true),
+                      ),
                   ],
                 ),
               ),
@@ -637,9 +752,10 @@ class _SignInToWatch extends StatelessWidget {
 
 /// A series' seasons, and each season's episodes with a play button.
 class _Seasons extends StatefulWidget {
-  const _Seasons({required this.edition});
+  const _Seasons({required this.edition, required this.watchListButton});
 
   final EditionDetail edition;
+  final Widget Function(String) watchListButton;
 
   @override
   State<_Seasons> createState() => _SeasonsState();
@@ -755,6 +871,7 @@ class _SeasonsState extends State<_Seasons> {
                                       episodes: episodes,
                                     ),
                                   ),
+                                  widget.watchListButton(episode.itemId),
                                 ],
                               )
                             : StatusBadge(

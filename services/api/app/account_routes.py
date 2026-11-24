@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app import account, ratelimit
+from app import account, ratelimit, viewer
 from app.auth import VerifiedUser, current_user
 from app.viewer_routes import AppDatabase, EditionCard, Images, _card
 
@@ -49,6 +49,53 @@ class HistoryOut(BaseModel):
     last_watched_at: datetime
     # Where to resume, in seconds, when a reliable position was saved.
     resume_seconds: int | None
+
+
+class SavedItemOut(BaseModel):
+    item_id: UUID
+    edition: EditionCard
+    season: int | None
+    episode: int | None
+    episode_title: str | None
+
+
+@router.get("/watch-list")
+def my_watch_list(user: Viewer, db: AppDatabase, images: Images) -> list[SavedItemOut]:
+    with db.as_user(user.user_id) as conn:
+        return [
+            SavedItemOut(
+                item_id=item.item_id,
+                edition=_card(item.edition, images),
+                season=item.season,
+                episode=item.episode,
+                episode_title=item.episode_title,
+            )
+            for item in account.watch_list(conn, user.user_id)
+        ]
+
+
+@router.get("/watch-list/editions/{edition_id}")
+def watch_list_for_edition(
+    edition_id: UUID, user: Viewer, db: AppDatabase
+) -> list[UUID]:
+    with db.as_user(user.user_id) as conn:
+        return account.saved_item_ids(conn, user.user_id, edition_id)
+
+
+@router.put("/watch-list/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def save_watch_list_item(item_id: UUID, user: Viewer, db: AppDatabase) -> Response:
+    with db.as_user(user.user_id) as conn:
+        if not viewer.playable_item(conn, item_id):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "This title is unavailable.")
+        account.add_to_watch_list(conn, user.user_id, item_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/watch-list/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_watch_list_item(item_id: UUID, user: Viewer, db: AppDatabase) -> Response:
+    with db.as_user(user.user_id) as conn:
+        account.remove_from_watch_list(conn, user.user_id, item_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 class PositionIn(BaseModel):

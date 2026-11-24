@@ -20,6 +20,7 @@ import 'account/danger_zone_screen.dart';
 import 'account/history_screen.dart';
 import 'account/notifications_screen.dart';
 import 'account/settings_screen.dart';
+import 'account/watch_list_screen.dart';
 import 'downloads_screen.dart';
 
 export 'account/settings_screen.dart' show AboutSection, tmdbLogoAsset;
@@ -74,6 +75,11 @@ class AccountScreen extends StatelessWidget {
                   onTap: () => DownloadsScreen.open(context),
                 ),
               if (signedIn && hasPlayback) ...[
+                AccountRow(
+                  icon: Icons.bookmark_border,
+                  title: l.watchListTitle,
+                  onTap: () => open(watchListPage),
+                ),
                 AccountRow(
                   icon: Icons.history,
                   title: l.historyTitle,

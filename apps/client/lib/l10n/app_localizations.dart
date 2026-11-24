@@ -4353,6 +4353,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You signed in with a different account, so nothing was deleted.'**
   String get reauthDifferentAccount;
+
+  /// No description provided for @watchListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch List'**
+  String get watchListTitle;
+
+  /// No description provided for @watchListAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Watch List'**
+  String get watchListAdd;
+
+  /// No description provided for @watchListRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from Watch List'**
+  String get watchListRemove;
+
+  /// No description provided for @watchListRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry Watch List'**
+  String get watchListRetry;
+
+  /// No description provided for @watchListLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your Watch List'**
+  String get watchListLoadFailed;
+
+  /// No description provided for @watchListEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Watch List is empty'**
+  String get watchListEmpty;
+
+  /// No description provided for @watchListEmptyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add movies or episodes to watch later.'**
+  String get watchListEmptyHelp;
+
+  /// No description provided for @reuseMovieDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Use details from another movie'**
+  String get reuseMovieDetails;
+
+  /// No description provided for @reuseMovieSearchHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Search published movies by title. Try the title without its part number.'**
+  String get reuseMovieSearchHelp;
+
+  /// No description provided for @reuseMovieQueryLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter 2 to 120 characters to search.'**
+  String get reuseMovieQueryLength;
+
+  /// No description provided for @reuseMovieNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No published movies match that title.'**
+  String get reuseMovieNoResults;
+
+  /// No description provided for @reuseMovieConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a movie to share its details. Its poster and VJ credit fill any empty fields. Your title and video stay as they are.'**
+  String get reuseMovieConfirm;
 }
 
 class _AppLocalizationsDelegate

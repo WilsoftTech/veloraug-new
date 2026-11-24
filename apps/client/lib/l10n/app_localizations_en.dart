@@ -2609,4 +2609,42 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get reauthDifferentAccount =>
       'You signed in with a different account, so nothing was deleted.';
+
+  @override
+  String get watchListTitle => 'Watch List';
+
+  @override
+  String get watchListAdd => 'Add to Watch List';
+
+  @override
+  String get watchListRemove => 'Remove from Watch List';
+
+  @override
+  String get watchListRetry => 'Retry Watch List';
+
+  @override
+  String get watchListLoadFailed => 'Couldn\'t load your Watch List';
+
+  @override
+  String get watchListEmpty => 'Your Watch List is empty';
+
+  @override
+  String get watchListEmptyHelp => 'Add movies or episodes to watch later.';
+
+  @override
+  String get reuseMovieDetails => 'Use details from another movie';
+
+  @override
+  String get reuseMovieSearchHelp =>
+      'Search published movies by title. Try the title without its part number.';
+
+  @override
+  String get reuseMovieQueryLength => 'Enter 2 to 120 characters to search.';
+
+  @override
+  String get reuseMovieNoResults => 'No published movies match that title.';
+
+  @override
+  String get reuseMovieConfirm =>
+      'Choose a movie to share its details. Its poster and VJ credit fill any empty fields. Your title and video stay as they are.';
 }

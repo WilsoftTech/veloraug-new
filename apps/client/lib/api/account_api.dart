@@ -4,6 +4,31 @@ import '../l10n/app_localizations.dart';
 import 'catalogue_api.dart';
 import 'playback_api.dart';
 
+class SavedItem {
+  const SavedItem({
+    required this.itemId,
+    required this.edition,
+    this.season,
+    this.episode,
+    this.episodeTitle,
+  });
+
+  final String itemId;
+  final EditionCard edition;
+  final int? season;
+  final int? episode;
+  final String? episodeTitle;
+
+  String title(AppLocalizations l) => switch ((season, episode)) {
+    (final int season, final int episode) => l.episodeHeading(
+      edition.title,
+      season,
+      episode,
+    ),
+    _ => edition.title,
+  };
+}
+
 /// One movie or episode the viewer watched.
 class HistoryEntry {
   const HistoryEntry({
@@ -128,6 +153,53 @@ class AccountApi {
 
   /// Checks the edition cards in history as the catalogue checks its own.
   final CatalogueApi catalogue;
+
+  Future<List<SavedItem>> watchList() async {
+    final rows = (await _send('GET', '/api/v1/me/watch-list')).json;
+    if (rows is! List<Object?>) _bad();
+    return [
+      for (final row in rows)
+        if (row case {
+          'item_id': final String id,
+          'edition': final Object edition,
+          'season': final int? season,
+          'episode': final int? episode,
+          'episode_title': final String? title,
+        })
+          SavedItem(
+            itemId: id,
+            edition: _savedCard(edition),
+            season: season,
+            episode: episode,
+            episodeTitle: title,
+          )
+        else
+          _bad(),
+    ];
+  }
+
+  EditionCard _savedCard(Object edition) {
+    try {
+      return catalogue.cardFrom(edition);
+    } on CatalogueException {
+      _bad();
+    }
+  }
+
+  Future<Set<String>> savedItemsFor(String editionId) async {
+    final path =
+        '/api/v1/me/watch-list/editions/${Uri.encodeComponent(editionId)}';
+    final rows = (await _send('GET', path)).json;
+    if (rows is! List<Object?>) _bad();
+    return {for (final row in rows) row is String ? row : _bad()};
+  }
+
+  Future<void> setWatchListItem(String itemId, {required bool saved}) async {
+    await _send(
+      saved ? 'PUT' : 'DELETE',
+      '/api/v1/me/watch-list/${Uri.encodeComponent(itemId)}',
+    );
+  }
 
   Future<List<HistoryEntry>> history() async {
     final answer = await _send('GET', '/api/v1/me/history');

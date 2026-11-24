@@ -88,12 +88,45 @@ def api(app_url, prices):  # noqa: F811
 def clean(owner_url):
     def wipe():
         with psycopg.connect(owner_url, autocommit=True) as conn:
-            for table in ("watch_history", "notification_reads", "account_deletions"):
+            for table in (
+                "watch_history",
+                "watch_list",
+                "notification_reads",
+                "account_deletions",
+            ):
                 conn.execute(f"delete from public.{table}")
 
     wipe()
     yield
     wipe()
+
+
+@needs_database
+def test_watch_list_is_private_and_saves_movies_and_individual_episodes(
+    api, catalogue, clean
+):
+    movie, series = catalogue["movie"], catalogue["series"]
+    mine, theirs = as_user(uuid.uuid4()), as_user(uuid.uuid4())
+    path = "/api/v1/me/watch-list"
+    assert api.get(path).status_code == 401
+    assert api.put(f"{path}/{uuid.uuid4()}", headers=mine).status_code == 404
+    for item in (movie, series, series):
+        assert api.put(f"{path}/{item.item_id}", headers=mine).status_code == 204
+    assert api.get(path, headers=theirs).json() == []
+    assert api.delete(f"{path}/{series.item_id}", headers=theirs).status_code == 204
+    assert api.get(f"{path}/editions/{series.edition_id}", headers=mine).json() == [
+        str(series.item_id)
+    ]
+    saved = api.get(path, headers=mine).json()
+    assert [row["item_id"] for row in saved] == [
+        str(series.item_id),
+        str(movie.item_id),
+    ]
+    assert (saved[0]["season"], saved[0]["episode"]) == (1, 1)
+    assert api.delete(f"{path}/{series.item_id}", headers=mine).status_code == 204
+    assert [row["item_id"] for row in api.get(path, headers=mine).json()] == [
+        str(movie.item_id)
+    ]
 
 
 def watch(api, item_id, user):

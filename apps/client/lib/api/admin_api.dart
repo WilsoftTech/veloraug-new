@@ -573,6 +573,31 @@ class AdminApi {
     );
   }
 
+  Future<List<({String id, String title, String? poster, String? vj})>>
+  movieMetadataOptions(String id, String query) async {
+    final value = Uri.encodeQueryComponent(query);
+    final result = await _send(
+      'GET',
+      '/editions/${_id(id)}/movie-metadata?q=$value',
+    );
+    return [
+      for (final value in _rows(result))
+        (
+          id: _need<String>(value['id']),
+          title: _need<String>(value['title']),
+          poster: safeImageUrl(value['poster_url'], gateway: mediaBaseUrl),
+          vj: _maybe<String>(value['vj_name']),
+        ),
+    ];
+  }
+
+  Future<AdminEdition> reuseMovieMetadata(String id, String donorId) async =>
+      _edition(
+        await _send('PUT', '/editions/${_id(id)}/source', {
+          'reuse_edition_id': donorId,
+        }),
+      );
+
   Future<AdminEdition> chooseTmdb(String id, int tmdbId) async => _edition(
     await _send('PUT', '/editions/${_id(id)}/source', {'tmdb_id': tmdbId}),
   );

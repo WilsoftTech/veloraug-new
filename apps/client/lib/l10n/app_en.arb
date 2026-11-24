@@ -2106,5 +2106,17 @@
   "reauthDifferentAccount": "You signed in with a different account, so nothing was deleted.",
   "@reauthDifferentAccount": {
     "description": "The confirming sign-in was someone else."
-  }
+  },
+  "watchListTitle": "Watch List",
+  "watchListAdd": "Add to Watch List",
+  "watchListRemove": "Remove from Watch List",
+  "watchListRetry": "Retry Watch List",
+  "watchListLoadFailed": "Couldn't load your Watch List",
+  "watchListEmpty": "Your Watch List is empty",
+  "watchListEmptyHelp": "Add movies or episodes to watch later.",
+  "reuseMovieDetails": "Use details from another movie",
+  "reuseMovieSearchHelp": "Search published movies by title. Try the title without its part number.",
+  "reuseMovieQueryLength": "Enter 2 to 120 characters to search.",
+  "reuseMovieNoResults": "No published movies match that title.",
+  "reuseMovieConfirm": "Choose a movie to share its details. Its poster and VJ credit fill any empty fields. Your title and video stay as they are."
 }

@@ -158,6 +158,8 @@ class FakeApi {
 
   /// The account hub: watch history, the notification inbox and deletion.
   List<Map<String, Object?>> history = [];
+  final watchList = <String, Map<String, Object?>>{};
+  final watchListItems = <String, Map<String, Object?>>{};
   int historyStatus = 200;
   final positions = <Map<String, Object?>>[];
   Map<String, Object?> inbox = {'notifications': <Object>[], 'unread': 0};
@@ -320,6 +322,27 @@ class FakeApi {
       return historyStatus == 200
           ? json(history)
           : json({'detail': 'x'}, historyStatus);
+    }
+    if (path == '/api/v1/me/watch-list') {
+      return json(watchList.values.toList());
+    }
+    if (path.startsWith('/api/v1/me/watch-list/editions/')) {
+      final editionId = request.url.pathSegments.last;
+      return json([
+        for (final entry in watchList.entries)
+          if ((entry.value['edition'] as Map)['id'] == editionId) entry.key,
+      ]);
+    }
+    if (path.startsWith('/api/v1/me/watch-list/')) {
+      final id = request.url.pathSegments.last;
+      if (request.method == 'DELETE') {
+        watchList.remove(id);
+      } else if (watchListItems[id] case final item?) {
+        watchList[id] = item;
+      } else {
+        return json({}, 404);
+      }
+      return http.Response('', 204);
     }
     if (path.startsWith('/api/v1/me/history/') && request.method == 'PUT') {
       positions.add({
