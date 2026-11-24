@@ -325,13 +325,57 @@ void main() {
       await openPlans(tester);
       await pay(tester, '18,000');
 
-      // Pesapal's own page says it failed, and offers another try.
+      // Said above Pesapal's page, which stays for another try.
       await checks(tester, 2);
       expect(find.text("That payment didn't go through"), findsNothing);
+      expect(
+        find.textContaining("That try didn't go through."),
+        findsOneWidget,
+      );
       expect(find.textContaining('Pesapal form: '), findsOneWidget);
+      expect(find.text('Choose a plan'), findsOneWidget);
 
       await checks(tester, 1);
       expect(find.text('Your pass is ready'), findsOneWidget);
+    });
+
+    testWidgets('a new try clears the failure note', (tester) async {
+      final api = FakeApi()
+        ..paymentStates = ['failed', 'pending', 'completed'];
+      await pumpApp(tester, api, signedIn: true);
+      await goTo(tester, 'Account');
+      await openPlans(tester);
+      await pay(tester, '6,000');
+
+      await checks(tester, 1);
+      expect(find.textContaining("That try didn't go through."), findsOneWidget);
+      await checks(tester, 1);
+      expect(find.textContaining("That try didn't go through."), findsNothing);
+      expect(find.textContaining('Pesapal form: '), findsOneWidget);
+    });
+
+    testWidgets('on a short screen the buttons sit above the form', (
+      tester,
+    ) async {
+      await pumpApp(tester, FakeApi(), signedIn: true);
+      await goTo(tester, 'Account');
+      await openPlans(tester);
+      await pay(tester, '6,000');
+      // A phone turned on its side.
+      tester.view.physicalSize = const Size(800, 360);
+      await settle(tester);
+
+      final form = tester.getRect(find.textContaining('Pesapal form: '));
+      final button = tester.getRect(find.text('Pay in my browser instead'));
+      expect(button.bottom, lessThan(form.top));
+      final box = tester.getRect(
+        find.ancestor(
+          of: find.textContaining('Pesapal form: '),
+          matching: find.byType(SizedBox),
+        ).first,
+      );
+      // Always a strip of the screen to scroll with, outside the form.
+      expect(box.height, lessThanOrEqualTo(360 - 56 - 100));
     });
 
     testWidgets('Pesapal sending the viewer back checks at once', (

@@ -372,6 +372,12 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
   Timer? _timer;
   DateTime? _deadline;
   bool _checking = false;
+
+  /// A check was asked for while one was running: run another once it ends.
+  bool _checkAgain = false;
+
+  /// Pesapal's last try failed while the viewer is on its page here.
+  bool _lastTryFailed = false;
   final _phone = TextEditingController();
   final _form = GlobalKey<FormState>();
   bool _started = false;
@@ -471,6 +477,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     setState(() {
       _payIn = _PayIn.app;
       _message = null;
+      _lastTryFailed = false;
       _phase = _Phase.waiting;
     });
   }
@@ -513,7 +520,11 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
   Future<void> _check() async {
     final api = _api;
     final checkout = _checkout;
-    if (api == null || checkout == null || _checking || !mounted) return;
+    if (api == null || checkout == null || !mounted) return;
+    if (_checking) {
+      _checkAgain = true;
+      return;
+    }
     _checking = true;
     PaymentCheck? found;
     try {
@@ -539,18 +550,35 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
         setState(() => _phase = _Phase.gaveUp);
         return;
       case PaymentState.failed:
-        // While the viewer is on Pesapal's page here, it says so itself and
-        // lets them try again with the same order.
-        if (_payIn != _PayIn.app) setState(() => _phase = _Phase.failed);
+        // On Pesapal's page here, the viewer can try again with the same
+        // order: say it failed above the page rather than take it away.
+        setState(() {
+          if (_payIn == _PayIn.app) {
+            _lastTryFailed = true;
+          } else {
+            _phase = _Phase.failed;
+          }
+        });
       default:
-        if (_phase == _Phase.failed) setState(() => _phase = _Phase.waiting);
+        if (_phase == _Phase.failed || _lastTryFailed) {
+          setState(() {
+            _lastTryFailed = false;
+            if (_phase == _Phase.failed) _phase = _Phase.waiting;
+          });
+        }
     }
     final deadline = _deadline;
     if (deadline != null && DateTime.now().isAfter(deadline)) {
       setState(() => _phase = _Phase.timedOut);
       return;
     }
-    _scheduleCheck();
+    if (_checkAgain) {
+      _checkAgain = false;
+      _timer?.cancel();
+      unawaited(_check());
+    } else {
+      _scheduleCheck();
+    }
   }
 
   void _chooseAgain() {
@@ -558,6 +586,8 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     setState(() {
       _checkout = null;
       _message = null;
+      _lastTryFailed = false;
+      _checkAgain = false;
       _phase = _Phase.choosing;
     });
   }
@@ -663,17 +693,68 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     );
   }
 
-  /// Pesapal's page inside the app, as tall as the screen allows, with a
-  /// way out to the browser should it not work here.
+  /// Pesapal's page inside the app, with a way out to the browser should it
+  /// not work here. The buttons come first, and the page always leaves a
+  /// strip of the screen free: it takes every drag inside it, so a short
+  /// screen must still be able to scroll back up to them.
   List<Widget> _payingHere(AppLocalizations l) {
     final checkout = _checkout!;
-    final height = (MediaQuery.sizeOf(context).height - 260).clamp(
-      480.0,
-      760.0,
-    );
+    final media = MediaQuery.of(context);
+    final screen =
+        media.size.height - media.padding.vertical - kToolbarHeight;
+    final height = (screen - 120).clamp(200.0, 760.0);
     final theme = Theme.of(context);
     return [
       Text(l.payHereHelp),
+      if (_lastTryFailed)
+        Semantics(
+          liveRegion: true,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(VeloraRadii.md),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(VeloraSpacing.sm),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: VeloraSpacing.xs,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 20,
+                    color: theme.colorScheme.onErrorContainer,
+                  ),
+                  Expanded(
+                    child: Text(
+                      l.lastTryFailedHere,
+                      style: TextStyle(
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      Wrap(
+        spacing: VeloraSpacing.sm,
+        runSpacing: VeloraSpacing.sm,
+        alignment: WrapAlignment.center,
+        children: [
+          VeloraButton(
+            label: l.payInBrowser,
+            icon: Icons.open_in_new,
+            variant: VeloraButtonVariant.secondary,
+            onPressed: _openPesapal,
+          ),
+          TextButton(
+            onPressed: _chooseAgain,
+            child: Text(_lastTryFailed ? l.choosePlan : l.cancel),
+          ),
+        ],
+      ),
       SizedBox(
         height: height,
         child: DecoratedBox(
@@ -708,20 +789,6 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
               ),
             ),
           ),
-        ],
-      ),
-      Wrap(
-        spacing: VeloraSpacing.sm,
-        runSpacing: VeloraSpacing.sm,
-        alignment: WrapAlignment.center,
-        children: [
-          VeloraButton(
-            label: l.payInBrowser,
-            icon: Icons.open_in_new,
-            variant: VeloraButtonVariant.secondary,
-            onPressed: _openPesapal,
-          ),
-          TextButton(onPressed: _chooseAgain, child: Text(l.cancel)),
         ],
       ),
     ];

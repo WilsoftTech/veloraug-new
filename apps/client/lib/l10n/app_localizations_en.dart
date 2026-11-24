@@ -1484,6 +1484,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryPayingAgain => 'Try paying again';
 
   @override
+  String get lastTryFailedHere =>
+      'That try didn\'t go through. You can try again below, with another number or a card, or choose a plan again.';
+
+  @override
   String get confirmingPaymentHelp =>
       'Pesapal has finished. We\'re confirming your payment, which usually takes a few seconds.';
 

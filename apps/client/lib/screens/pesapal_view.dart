@@ -12,8 +12,9 @@ import 'package:flutter/widgets.dart';
 export 'pesapal_view_io.dart' if (dart.library.js_interop) 'pesapal_view_web.dart';
 
 /// Builds the payment page for [page]. [onReturned] is called once Pesapal
-/// sends the viewer back to VeloraUG's return address, where the view can
-/// see that: on Android. On the web the app's own checks notice instead.
+/// sends the viewer back to VeloraUG's return address: on Android the view
+/// catches the address, and on the web the return page posts a message.
+/// Should neither happen, the app's own checks still notice the payment.
 typedef PesapalViewBuilder = Widget Function(
   BuildContext context,
   Uri page,

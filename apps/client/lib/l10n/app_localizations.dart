@@ -2536,6 +2536,12 @@ abstract class AppLocalizations {
   /// **'Try paying again'**
   String get tryPayingAgain;
 
+  /// No description provided for @lastTryFailedHere.
+  ///
+  /// In en, this message translates to:
+  /// **'That try didn\'t go through. You can try again below, with another number or a card, or choose a plan again.'**
+  String get lastTryFailedHere;
+
   /// No description provided for @confirmingPaymentHelp.
   ///
   /// In en, this message translates to:
