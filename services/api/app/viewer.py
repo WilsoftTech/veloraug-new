@@ -260,6 +260,23 @@ def list_languages(conn: psycopg.Connection) -> list[tuple[str, str, int]]:
     ).fetchall()
 
 
+def list_genres(conn: psycopg.Connection) -> list[tuple[str, int]]:
+    """Genres of published editions whose details can be shown, exactly as
+    the catalogue stores them, most editions first. The values are the ones
+    list_editions' `genre` matches."""
+    return conn.execute(
+        f"""
+        select g.name, count(distinct e.id)
+        {_FROM}
+        cross join lateral unnest(s.genres) as g(name)
+        where not e.test and {_SERVABLE} and g.name <> ''
+        group by g.name
+        order by count(distinct e.id) desc, g.name
+        """,
+        _AGES,
+    ).fetchall()
+
+
 def playable_item(conn: psycopg.Connection, item_id: UUID) -> bool:
     """True if the item belongs to a published edition and is approved."""
     return (

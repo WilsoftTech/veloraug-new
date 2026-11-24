@@ -19,8 +19,10 @@ import 'auth/token_store.dart';
 import 'downloads/download_target.dart';
 import 'downloads/downloads.dart';
 import 'l10n/l10n.dart';
+import 'security/app_lock.dart';
 import 'shell/app_shell.dart';
 import 'theme/velora_theme.dart';
+import 'widgets/startup_gate.dart';
 
 class VeloraApp extends StatefulWidget {
   const VeloraApp({
@@ -31,6 +33,7 @@ class VeloraApp extends StatefulWidget {
     this.adminApi,
     this.uploadQueue,
     this.downloads,
+    this.appLock,
     this.pickVideos = uploads.pickVideos,
     this.showAdmin = adminScreensAvailable,
   });
@@ -57,6 +60,10 @@ class VeloraApp extends StatefulWidget {
   /// doesn't dispose of it.
   final Downloads? downloads;
 
+  /// Replaces App lock for this platform, in tests. The app loads it but
+  /// doesn't dispose of it.
+  final AppLockController? appLock;
+
   /// The file chooser for uploads. Tests replace it.
   final Future<List<PickedVideo>> Function() pickVideos;
 
@@ -79,6 +86,9 @@ class _VeloraAppState extends State<VeloraApp> {
   AdminApi? _ownAdmin;
   UploadQueue? _ownUploads;
   Downloads? _ownDownloads;
+  AppLockController? _ownLock;
+
+  AppLockController? get _lock => widget.appLock ?? _ownLock;
 
   Downloads? get _downloads => widget.downloads ?? _ownDownloads;
 
@@ -101,6 +111,8 @@ class _VeloraAppState extends State<VeloraApp> {
     if (widget.adminApi == null) _ownAdmin = _adminFromSettings();
     if (widget.uploadQueue == null) _ownUploads = _uploadsFromSettings();
     _auth?.restore();
+    if (widget.appLock == null) _ownLock = createPlatformAppLock();
+    _lock?.load();
     if (widget.downloads == null) {
       _downloadsForPlatform();
     } else {
@@ -232,6 +244,7 @@ class _VeloraAppState extends State<VeloraApp> {
   void dispose() {
     _ownUploads?.dispose();
     _ownDownloads?.dispose();
+    _ownLock?.dispose();
     _ownController?.dispose();
     _httpClient?.close();
     _catalogueHttpClient?.close();
@@ -257,15 +270,23 @@ class _VeloraAppState extends State<VeloraApp> {
               child: UploadsScope(
                 queue: _uploads,
                 pick: widget.pickVideos,
-                child: MaterialApp(
-                  onGenerateTitle: (context) => context.l10n.appName,
-                  debugShowCheckedModeBanner: false,
-                  theme: buildVeloraTheme(),
-                  // English only for now. A Luganda app_lg.arb adds itself here.
-                  localizationsDelegates:
-                      AppLocalizations.localizationsDelegates,
-                  supportedLocales: AppLocalizations.supportedLocales,
-                  home: AppShell(showAdmin: widget.showAdmin),
+                child: AppLockScope(
+                  controller: _lock,
+                  child: MaterialApp(
+                    onGenerateTitle: (context) => context.l10n.appName,
+                    debugShowCheckedModeBanner: false,
+                    theme: buildVeloraTheme(),
+                    // English only for now. A Luganda app_lg.arb adds itself here.
+                    localizationsDelegates:
+                        AppLocalizations.localizationsDelegates,
+                    supportedLocales: AppLocalizations.supportedLocales,
+                    // App lock covers every screen, pushed ones included.
+                    builder: (context, child) =>
+                        AppLockGate(child: child ?? const SizedBox.shrink()),
+                    home: StartupGate(
+                      child: AppShell(showAdmin: widget.showAdmin),
+                    ),
+                  ),
                 ),
               ),
             ),

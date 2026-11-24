@@ -23,6 +23,10 @@ dependencies:
   url_launcher: 6.3.3
   video_player: 2.14.1
   web: 1.1.2
+  # App lock: the phone's own fingerprint, face or screen-lock prompt.
+  local_auth: 3.0.2
+  # Share app: the platform's share sheet.
+  share_plus: 13.3.1
 
 dev_dependencies:
   flutter_test:

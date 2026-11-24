@@ -78,6 +78,21 @@ class DownloadOffer {
 /// Where a download on the phone has got to, as Android says.
 enum FileState { waiting, running, paused, done, failed }
 
+/// Why Android has paused a download.
+enum PauseReason {
+  /// Not paused, or Android didn't say.
+  none,
+
+  /// Waiting for a connection, or for Wi-Fi.
+  network,
+
+  /// A connection failed; Android will try again by itself.
+  retry,
+
+  /// Paused for another reason.
+  other,
+}
+
 /// Android's answer about one download.
 class FileStatus {
   const FileStatus({
@@ -85,9 +100,13 @@ class FileStatus {
     this.bytes = 0,
     this.total,
     this.noRoom = false,
+    this.pause = PauseReason.none,
   });
 
   final FileState state;
+
+  /// Why it is paused, when [state] is [FileState.paused].
+  final PauseReason pause;
   final int bytes;
 
   /// The whole file's size, once known.

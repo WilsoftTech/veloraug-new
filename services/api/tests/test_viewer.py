@@ -247,6 +247,36 @@ def test_languages_with_published_editions_are_listed(api, owner, catalogue):
     ]
 
 
+@needs_database
+def test_genres_are_the_exact_values_the_genre_filter_matches(api, catalogue):
+    genres = api.get("/api/v1/genres").json()
+
+    # The test film isn't counted, as on Home.
+    assert genres == [
+        {"name": "Action", "editions": 1},
+        {"name": "Drama", "editions": 1},
+    ]
+    for genre in genres:
+        assert len(cards(api, genre=genre["name"])) >= genre["editions"]
+
+
+@needs_database
+@pytest.mark.parametrize(
+    ("params", "titles"),
+    [
+        ({"kind": "movie", "genre": "Action", "vj": "vj-junior"}, {"Fast X"}),
+        ({"kind": "series", "genre": "Action"}, set()),
+        ({"genre": "Drama", "vj": "vj-junior"}, set()),
+        ({"genre": "Drama", "language": "lg", "kind": "series"}, {"Kabaka"}),
+        # Exact values only: no partial or different-case matches.
+        ({"genre": "drama"}, set()),
+        ({"genre": "Dram"}, set()),
+    ],
+)
+def test_filters_combine(api, catalogue, params, titles):
+    assert {card["title"] for card in cards(api, **params)} == titles
+
+
 # --- Playback by item --------------------------------------------------------
 
 

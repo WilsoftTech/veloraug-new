@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     playback_signing_key: SecretStr | None = None
     media_gateway_url: str | None = None
 
+    # Account deletion from the app. Off until the owner has approved the
+    # deletion and retention rules and the identity provider can delete a
+    # sign-in account: see docs/viewer-app-upgrade.md. Even
+    # on, it needs an identity deleter, which this build doesn't have yet.
+    account_deletion_enabled: bool = False
+
     # Passes, Step 10B. Off: any signed-in viewer may watch, as before. On:
     # viewers who aren't admins need a running pass.
     passes_required: bool = False

@@ -93,3 +93,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // The AppCompat launch theme in res/values*/styles.xml, which local_auth
+    // (App lock) needs on Android 8 and older.
+    implementation("androidx.appcompat:appcompat:1.7.1")
+}

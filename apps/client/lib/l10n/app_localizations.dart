@@ -3453,6 +3453,906 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Downloads are saved to your phone\'s Downloads/VeloraUG folder. They\'re yours to keep, and play in any video player, even without VeloraUG.'**
   String get downloadsFolderNote;
+
+  /// Screen reader label for the startup loading ring.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting VeloraUG'**
+  String get startingApp;
+
+  /// Navigation destination: narrow the catalogue by type, genre, VJ and language.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get filter;
+
+  /// Home shortcut to the Search screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Search titles'**
+  String get searchShortcut;
+
+  /// Screen reader label while Home loads its genre, VJ and language rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading more rows…'**
+  String get loadingMoreShelves;
+
+  /// Filter screen heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get filterHeading;
+
+  /// Filter screen introduction.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what to show, then see every title that matches.'**
+  String get filterIntro;
+
+  /// Filter section: movies, series or both.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get filterType;
+
+  /// Filter choice: movies and series.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get filterAll;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Genre'**
+  String get filterGenre;
+
+  /// Filter choice: no genre chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'Any genre'**
+  String get filterAnyGenre;
+
+  /// Filter section heading: the VJ who translated the title.
+  ///
+  /// In en, this message translates to:
+  /// **'VJ'**
+  String get filterVj;
+
+  /// Filter choice: no VJ chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'Any VJ'**
+  String get filterAnyVj;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get filterLanguage;
+
+  /// Filter choice: no language chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'Any language'**
+  String get filterAnyLanguage;
+
+  /// Button: clears every filter choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get filterClear;
+
+  /// Button: shows the titles matching the filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Show results'**
+  String get filterShowResults;
+
+  /// Results page title when no filter is chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'All titles'**
+  String get filterAllTitles;
+
+  /// Error title when a filter list fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load {filter} choices'**
+  String filterOptionsFailed(String filter);
+
+  /// Screen reader label while a filter list loads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading {filter} choices'**
+  String filterOptionsLoading(String filter);
+
+  /// Badge on a movie edition's page.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie'**
+  String get movieBadge;
+
+  /// Heading above a title's overview.
+  ///
+  /// In en, this message translates to:
+  /// **'Storyline'**
+  String get storyline;
+
+  /// Button: shows the whole storyline.
+  ///
+  /// In en, this message translates to:
+  /// **'Read more'**
+  String get readMore;
+
+  /// Button: shortens the storyline again.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get readLess;
+
+  /// A download running before its size is known.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get downloadingStarted;
+
+  /// A download Android paused after a failed connection, which it retries by itself.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting to try again'**
+  String get downloadWaitingToRetry;
+
+  /// A download Android paused for another reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get downloadPausedOther;
+
+  /// How much of a download has arrived, such as "120 MB of 700 MB".
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total}'**
+  String downloadBytesOf(String done, String total);
+
+  /// Downloads group: queued, downloading or paused.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get downloadsInProgress;
+
+  /// Downloads group: finished downloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get downloadsCompleted;
+
+  /// Downloads group: downloads that stopped with an error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get downloadsFailed;
+
+  /// A downloads group heading with how many it has.
+  ///
+  /// In en, this message translates to:
+  /// **'{group} ({count})'**
+  String downloadsGroup(String group, int count);
+
+  /// Account row help for Downloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies and episodes saved on this phone'**
+  String get downloadsRowHelp;
+
+  /// Account group heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Membership'**
+  String get membershipGroup;
+
+  /// Account group heading: downloads, history and notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Your library'**
+  String get libraryGroup;
+
+  /// Account group heading: profile, status, settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get accountGroup;
+
+  /// Account row and page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans & membership'**
+  String get plansTitle;
+
+  /// Account row help for plans.
+  ///
+  /// In en, this message translates to:
+  /// **'Your plan, when it ends, renewing or changing'**
+  String get plansRowHelp;
+
+  /// Account row and page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments'**
+  String get payments;
+
+  /// Account row and page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch history'**
+  String get historyTitle;
+
+  /// Account row and page title: the in-app inbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notificationsTitle;
+
+  /// Account row and page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// Account row and page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Account status'**
+  String get accountStatusTitle;
+
+  /// Account row and page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// Account row and page title: deleting the account.
+  ///
+  /// In en, this message translates to:
+  /// **'Danger zone'**
+  String get dangerZoneTitle;
+
+  /// Profile card title: the email used to sign in.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in email'**
+  String get signInEmail;
+
+  /// Shown on an account page that needs a sign-in.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to see this page.'**
+  String get signInToSeeThis;
+
+  /// Title on a page that exists only on Android.
+  ///
+  /// In en, this message translates to:
+  /// **'Only in the Android app'**
+  String get androidOnlyTitle;
+
+  /// Message on a page that exists only on Android.
+  ///
+  /// In en, this message translates to:
+  /// **'Open VeloraUG on your Android phone to use this.'**
+  String get androidOnlyMessage;
+
+  /// Watch history introduction.
+  ///
+  /// In en, this message translates to:
+  /// **'What you watched with this account, latest first.'**
+  String get historyIntro;
+
+  /// Watch history empty state title.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing watched yet'**
+  String get historyEmptyTitle;
+
+  /// Watch history empty state message.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies and episodes you watch appear here. Downloads played in your phone\'s own player aren\'t included.'**
+  String get historyEmptyMessage;
+
+  /// Watch history error title.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your history'**
+  String get historyLoadFailed;
+
+  /// When a title was last watched, such as "Watched 24 Nov 2026, 14:05".
+  ///
+  /// In en, this message translates to:
+  /// **'Watched {when}'**
+  String watchedAt(String when);
+
+  /// Notifications introduction.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates about your payments, plan and devices from the last 90 days.'**
+  String get notificationsIntro;
+
+  /// Notifications empty state title.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications'**
+  String get notificationsEmptyTitle;
+
+  /// Notifications empty state message.
+  ///
+  /// In en, this message translates to:
+  /// **'When something changes on your account, such as a payment going through, it shows here.'**
+  String get notificationsEmptyMessage;
+
+  /// Notifications error title.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your notifications'**
+  String get notificationsLoadFailed;
+
+  /// How many notifications are unread.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unread} other{{count} unread}}'**
+  String notificationsUnread(int count);
+
+  /// Button in the notifications inbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all as read'**
+  String get markAllRead;
+
+  /// Marks an unread notification.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get unread;
+
+  /// Stands in for a plan name the server didn't give.
+  ///
+  /// In en, this message translates to:
+  /// **'your plan'**
+  String get yourPlan;
+
+  /// Stands in for a device name the server didn't give.
+  ///
+  /// In en, this message translates to:
+  /// **'A device'**
+  String get aDevice;
+
+  /// Notification title.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment confirmed'**
+  String get noticePaymentCompletedTitle;
+
+  /// Notification body.
+  ///
+  /// In en, this message translates to:
+  /// **'Your payment for {plan} went through.'**
+  String noticePaymentCompletedBody(String plan);
+
+  /// Notification title.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment refunded'**
+  String get noticePaymentRefundedTitle;
+
+  /// Notification body.
+  ///
+  /// In en, this message translates to:
+  /// **'Your payment for {plan} was refunded, and its plan has ended.'**
+  String noticePaymentRefundedBody(String plan);
+
+  /// Notification title.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan ending soon'**
+  String get noticePassEndingTitle;
+
+  /// Notification body.
+  ///
+  /// In en, this message translates to:
+  /// **'{plan} ends within 3 days. Renew to keep watching.'**
+  String noticePassEndingBody(String plan);
+
+  /// Notification title.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan ended'**
+  String get noticePassEndedTitle;
+
+  /// Notification body.
+  ///
+  /// In en, this message translates to:
+  /// **'{plan} has ended.'**
+  String noticePassEndedBody(String plan);
+
+  /// Notification title.
+  ///
+  /// In en, this message translates to:
+  /// **'Device removed'**
+  String get noticeDeviceRemovedTitle;
+
+  /// Notification body.
+  ///
+  /// In en, this message translates to:
+  /// **'{device} was removed from your account by VeloraUG.'**
+  String noticeDeviceRemovedBody(String device);
+
+  /// Account status introduction.
+  ///
+  /// In en, this message translates to:
+  /// **'What our systems say about your account. Sign-in and membership are checked separately.'**
+  String get accountStatusIntro;
+
+  /// Account status card: the sign-in account.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in'**
+  String get statusSignIn;
+
+  /// Account status card: the plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Membership'**
+  String get statusMembership;
+
+  /// Account status card: a deletion in progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Account deletion'**
+  String get statusDeletion;
+
+  /// A value no source could confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown: couldn\'t be checked'**
+  String get statusUnknown;
+
+  /// Sign-in status badge.
+  ///
+  /// In en, this message translates to:
+  /// **'Email verified'**
+  String get emailVerified;
+
+  /// Sign-in status badge.
+  ///
+  /// In en, this message translates to:
+  /// **'Email not verified'**
+  String get emailNotVerified;
+
+  /// Sign-in status badge when the provider didn't say.
+  ///
+  /// In en, this message translates to:
+  /// **'Email verification unknown'**
+  String get emailVerificationUnknown;
+
+  /// Where the sign-in status comes from.
+  ///
+  /// In en, this message translates to:
+  /// **'From your sign-in provider, when you last signed in.'**
+  String get statusFromSignIn;
+
+  /// Where the membership status comes from.
+  ///
+  /// In en, this message translates to:
+  /// **'From VeloraUG, now.'**
+  String get statusFromVeloraUG;
+
+  /// Account status: the end of the last queued plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans bought in advance run until {date}'**
+  String membershipRenewsUntil(String date);
+
+  /// Account status badge: a deletion that stopped part way.
+  ///
+  /// In en, this message translates to:
+  /// **'Started, not finished'**
+  String get deletionPending;
+
+  /// Account status badge: a finished deletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get deletionCompleted;
+
+  /// Settings group heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get devicesGroup;
+
+  /// Settings group heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Security and notifications'**
+  String get securityGroup;
+
+  /// Settings group heading.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get aboutGroup;
+
+  /// Settings row help.
+  ///
+  /// In en, this message translates to:
+  /// **'See and remove the devices signed in to your plan'**
+  String get myDevicesRowHelp;
+
+  /// Settings switch: ask for the phone's screen lock or biometrics to open VeloraUG.
+  ///
+  /// In en, this message translates to:
+  /// **'App lock'**
+  String get appLockTitle;
+
+  /// App lock help.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for your fingerprint, face or phone\'s screen lock to open VeloraUG.'**
+  String get appLockHelp;
+
+  /// App lock unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up a screen lock in your phone settings, then return here and try again.'**
+  String get appLockUnavailable;
+
+  /// App lock switch result.
+  ///
+  /// In en, this message translates to:
+  /// **'Not changed: the check was cancelled.'**
+  String get appLockNotChanged;
+
+  /// App lock check failed.
+  ///
+  /// In en, this message translates to:
+  /// **'That didn\'t work. Try again.'**
+  String get appLockFailed;
+
+  /// App lock check locked out.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many tries. Wait a moment, then try again.'**
+  String get appLockLockedOut;
+
+  /// App lock check cancelled on the lock screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled. Tap Unlock to try again.'**
+  String get appLockCancelled;
+
+  /// The reason Android's prompt shows when unlocking.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock VeloraUG'**
+  String get appLockReasonUnlock;
+
+  /// The reason Android's prompt shows when turning App lock on.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to turn on App lock'**
+  String get appLockReasonTurnOn;
+
+  /// The reason Android's prompt shows when turning App lock off.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to turn off App lock'**
+  String get appLockReasonTurnOff;
+
+  /// Lock screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'VeloraUG is locked'**
+  String get appLockLockedTitle;
+
+  /// Lock screen message.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your fingerprint, face or phone\'s screen lock to open it.'**
+  String get appLockLockedMessage;
+
+  /// Lock screen button.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get appLockUnlock;
+
+  /// Lock screen button while the prompt shows.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get appLockChecking;
+
+  /// Signs out of the account while the installation stays locked.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t unlock? Sign out'**
+  String get appLockSignOutInstead;
+
+  /// Settings switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications'**
+  String get pushTitle;
+
+  /// Push notifications not available in this version.
+  ///
+  /// In en, this message translates to:
+  /// **'VeloraUG can\'t send push notifications yet.'**
+  String get pushNotSetUp;
+
+  /// Push notifications on the web.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications are only offered in the Android app.'**
+  String get pushNotOnWeb;
+
+  /// The phone's notification setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Android allows notifications from VeloraUG.'**
+  String get pushOsAllowed;
+
+  /// The phone's notification setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications from VeloraUG are off in Android\'s settings.'**
+  String get pushOsBlocked;
+
+  /// The phone's notification setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t read Android\'s notification setting.'**
+  String get pushOsUnknown;
+
+  /// Push notifications help.
+  ///
+  /// In en, this message translates to:
+  /// **'Your inbox in Account › Notifications works either way.'**
+  String get pushInboxStillWorks;
+
+  /// Settings row.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset password'**
+  String get passwordResetTitle;
+
+  /// Settings row help.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens the VeloraUG sign-in page, which emails you a code.'**
+  String get passwordResetHelp;
+
+  /// Settings row help when unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset isn\'t set up in this version of the app.'**
+  String get passwordResetUnavailable;
+
+  /// Settings row.
+  ///
+  /// In en, this message translates to:
+  /// **'Share VeloraUG'**
+  String get shareApp;
+
+  /// Text shared with the app link.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch Luganda-translated movies and series on VeloraUG: {link}'**
+  String shareAppText(String link);
+
+  /// Snack bar after copying the app link.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied.'**
+  String get shareAppCopied;
+
+  /// Settings row help when unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing isn\'t set up in this version of the app.'**
+  String get shareAppUnavailable;
+
+  /// Tooltip: copies the app link.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get copyLink;
+
+  /// Settings row.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate on Google Play'**
+  String get rateOnPlay;
+
+  /// Settings row help when no listing is set.
+  ///
+  /// In en, this message translates to:
+  /// **'VeloraUG isn\'t on Google Play yet.'**
+  String get rateOnPlayUnavailable;
+
+  /// Settings row.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get privacyPolicy;
+
+  /// Settings row help when no policy address is set.
+  ///
+  /// In en, this message translates to:
+  /// **'The privacy policy isn\'t published in the app yet.'**
+  String get privacyPolicyUnavailable;
+
+  /// Snack bar when a link fails to open.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the link.'**
+  String get linkCouldNotOpen;
+
+  /// Danger zone introduction.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete your VeloraUG account. This can\'t be undone.'**
+  String get dangerZoneIntro;
+
+  /// Danger zone heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What is deleted'**
+  String get deletionWhatGoes;
+
+  /// What deletion removes.
+  ///
+  /// In en, this message translates to:
+  /// **'Your profile and display name'**
+  String get deletionGoesProfile;
+
+  /// What deletion removes.
+  ///
+  /// In en, this message translates to:
+  /// **'Your watch history and notification read marks'**
+  String get deletionGoesHistory;
+
+  /// What deletion removes.
+  ///
+  /// In en, this message translates to:
+  /// **'Your registered devices, and anything playing on them'**
+  String get deletionGoesDevices;
+
+  /// What deletion removes.
+  ///
+  /// In en, this message translates to:
+  /// **'Your sign-in account, so you can no longer sign in with it'**
+  String get deletionGoesSignIn;
+
+  /// Danger zone heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What is kept'**
+  String get deletionWhatStays;
+
+  /// What deletion keeps.
+  ///
+  /// In en, this message translates to:
+  /// **'Records of your payments, which the law and payment checks require'**
+  String get deletionStaysPayments;
+
+  /// What deletion keeps.
+  ///
+  /// In en, this message translates to:
+  /// **'Files already downloaded to this phone\'s Downloads folder: they are yours'**
+  String get deletionStaysDownloads;
+
+  /// What deletion keeps.
+  ///
+  /// In en, this message translates to:
+  /// **'Time left on a plan is not refunded by deleting'**
+  String get deletionStaysPlan;
+
+  /// Danger zone checkbox.
+  ///
+  /// In en, this message translates to:
+  /// **'I understand that my account will be deleted permanently.'**
+  String get deletionUnderstand;
+
+  /// Danger zone button.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete my account'**
+  String get deleteAccountButton;
+
+  /// Danger zone button after a deletion stopped part way.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish deleting my account'**
+  String get deletionTryAgain;
+
+  /// Danger zone button while deleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting…'**
+  String get deletingAccount;
+
+  /// Final confirmation title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete your account?'**
+  String get deleteAccountConfirmTitle;
+
+  /// Final confirmation message.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be asked to sign in again to confirm it\'s you. Then your account is deleted for good.'**
+  String get deleteAccountConfirmMessage;
+
+  /// Final confirmation button.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteAccountConfirmButton;
+
+  /// Shown once the server confirms the deletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has been deleted.'**
+  String get deletionDone;
+
+  /// Danger zone: a deletion stopped part way.
+  ///
+  /// In en, this message translates to:
+  /// **'A deletion you started didn\'t finish. Nothing more was removed. You can finish it now.'**
+  String get deletionPendingHelp;
+
+  /// Danger zone error title.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check account deletion'**
+  String get deletionStatusFailed;
+
+  /// Danger zone when the server can't delete accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Account deletion isn\'t available yet'**
+  String get deletionUnavailableTitle;
+
+  /// Danger zone when the server can't delete accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting an account from the app isn\'t switched on yet. Nothing has been changed.'**
+  String get deletionUnavailableMessage;
+
+  /// A deletion that stopped part way.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account couldn\'t be deleted completely. Try again: nothing more is removed until you do.'**
+  String get deletionIncompleteMessage;
+
+  /// The server needs a recent sign-in.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in again to confirm it\'s you.'**
+  String get reauthNeeded;
+
+  /// The confirming sign-in was cancelled or failed.
+  ///
+  /// In en, this message translates to:
+  /// **'The sign-in didn\'t finish, so nothing was deleted.'**
+  String get reauthFailed;
+
+  /// The confirming sign-in was someone else.
+  ///
+  /// In en, this message translates to:
+  /// **'You signed in with a different account, so nothing was deleted.'**
+  String get reauthDifferentAccount;
 }
 
 class _AppLocalizationsDelegate

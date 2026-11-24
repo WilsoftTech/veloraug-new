@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../api/account_api.dart';
 import '../api/catalogue_api.dart';
 import '../api/pass_api.dart';
 import '../api/playback_api.dart';
+import '../auth/auth_controller.dart';
 import '../l10n/l10n.dart';
 import '../player/video_view.dart';
 import '../theme/tokens.dart';
@@ -50,9 +52,13 @@ class PlayerScreen extends StatefulWidget {
     this.preview = false,
     this.viewBuilder = platformVideoView,
     this.clock = DateTime.now,
+    this.startAt = Duration.zero,
   });
 
   final String itemId;
+
+  /// Where to start: a saved position, for Resume from watch history.
+  final Duration startAt;
 
   /// The movie's or series' title.
   final String title;
@@ -71,6 +77,10 @@ class PlayerScreen extends StatefulWidget {
   /// The quality last chosen, by its height, or null for Auto. Kept while
   /// the app runs, for every film and episode.
   static int? chosenHeight;
+
+  /// Where the player got to is saved for watch history at most this often,
+  /// and when playback ends or the player closes.
+  static const Duration saveEvery = Duration(seconds: 60);
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -91,7 +101,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// Keeps the playback session alive.
   Timer? _heartbeat;
-  Duration _position = Duration.zero;
+  late Duration _position = widget.startAt;
+
+  /// Watch history: where the player got to, saved now and then. Null in a
+  /// build without playback, and never for an admin's preview.
+  AccountApi? _account;
+  AuthController? _watcher;
+  String? _viewerKey;
+  bool _hasProgress = false;
+  Future<void> _pendingSave = Future.value();
+  DateTime? _savedAt;
+  Duration? _savedPosition;
   bool _started = false;
   bool _ended = false;
 
@@ -100,7 +120,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   List<VideoQuality> _qualities = const [];
 
   /// Where playback has got to, as the video reports it.
-  Duration _playedTo = Duration.zero;
+  late Duration _playedTo = widget.startAt;
 
   /// The quality chosen, if this video has it. Otherwise Auto.
   VideoQuality? get _quality {
@@ -130,6 +150,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     super.didChangeDependencies();
     if (!_started) {
       _started = true;
+      if (!widget.preview) {
+        _watcher = AuthScope.of(context);
+        _viewerKey = _watcher?.accountKey;
+        _account = accountApiOf(context);
+      }
       _fetchGrant();
     }
   }
@@ -137,7 +162,49 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void dispose() {
     _heartbeat?.cancel();
+    _savePosition(_playedTo, force: true);
     super.dispose();
+  }
+
+  /// Saves where the player got to, for Resume. At most every
+  /// [PlayerScreen.saveEvery], unless [force]d, and only once playing.
+  void _savePosition(Duration at, {bool finished = false, bool force = false}) {
+    final account = _account;
+    if (account == null ||
+        _grant == null ||
+        !_hasProgress ||
+        _viewerKey == null ||
+        _watcher?.accountKey != _viewerKey) {
+      return;
+    }
+    final now = widget.clock();
+    final saved = _savedPosition;
+    if (!finished) {
+      if (saved != null && (at - saved).abs() < const Duration(seconds: 5)) {
+        return;
+      }
+      final last = _savedAt;
+      if (!force &&
+          last != null &&
+          now.difference(last) < PlayerScreen.saveEvery) {
+        return;
+      }
+    }
+    _savedAt = now;
+    _savedPosition = at;
+    final item = _itemId;
+    _pendingSave = _pendingSave.then((_) async {
+      if (_viewerKey == _watcher?.accountKey) {
+        await account.savePosition(item, at, finished: finished);
+      }
+    });
+  }
+
+  void _progressed(Duration at) {
+    if (at <= Duration.zero || (!_hasProgress && at == _position)) return;
+    _hasProgress = true;
+    _playedTo = at;
+    _savePosition(at);
   }
 
   void _startHeartbeat(PlaybackGrant grant) {
@@ -362,6 +429,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _playbackEnded() {
+    _savePosition(_playedTo, finished: true);
     if (mounted && _next != null) setState(() => _ended = true);
   }
 
@@ -370,6 +438,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final next = _next;
     if (next == null) return;
     _heartbeat?.cancel();
+    _savePosition(_playedTo, force: true);
+    _savedAt = null;
+    _savedPosition = null;
+    _hasProgress = false;
     setState(() {
       _itemId = next.itemId;
       _grant = null;
@@ -441,7 +513,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     startAt: _position,
                     onFailed: _playbackFailed,
                     onEnded: _playbackEnded,
-                    onProgress: (at) => _playedTo = at,
+                    onProgress: _progressed,
                   ),
                 ),
               ),

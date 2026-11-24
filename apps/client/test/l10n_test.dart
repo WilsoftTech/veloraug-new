@@ -43,9 +43,9 @@ void main() {
   });
 
   test('every message has a description or placeholders checked', () {
-    final arb =
-        jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
-            as Map<String, Object?>;
+    final arb = jsonDecode(
+      File('lib/l10n/app_en.arb').readAsStringSync(),
+    ) as Map<String, Object?>;
     for (final MapEntry(:key, :value) in arb.entries) {
       if (key.startsWith('@')) continue;
       final text = value as String;

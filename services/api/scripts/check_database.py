@@ -196,7 +196,8 @@ def check_table(conn: psycopg.Connection) -> list[Result]:
         "UPDATE (user_id)": False,
         "UPDATE (created_at)": False,
         "UPDATE (updated_at)": False,
-        "DELETE": False,
+        # 0009: account deletion removes the viewer's own profile.
+        "DELETE": True,
         "TRUNCATE": False,
         "REFERENCES": False,
         "TRIGGER": False,
@@ -280,12 +281,12 @@ def check_isolation(conn: psycopg.Connection) -> list[Result]:
                 and refused(conn, "update public.profiles set updated_at = now()"),
             )
         )
-        results.append(
-            Result(
-                "delete is refused",
-                refused(conn, "delete from public.profiles where user_id = %s", (a,)),
-            )
-        )
+        # 0009: a viewer may delete their own profile, to delete their
+        # account, and never anyone else's.
+        removed = conn.execute(
+            "delete from public.profiles where user_id = %s", (b,)
+        ).rowcount
+        results.append(Result("A can't delete B's row", removed == 0))
 
         as_user(conn, b)
         name = conn.execute(
@@ -620,6 +621,50 @@ def check_subscriptions(conn: psycopg.Connection) -> list[Result]:
     return results
 
 
+def check_account(conn: psycopg.Connection) -> list[Result]:
+    """Migration 0009: watch history, notification read marks and account
+    deletions, each seen and changed only by its own viewer."""
+    tables = (
+        "public.watch_history",
+        "public.notification_reads",
+        "public.account_deletions",
+    )
+    flags = conn.execute(
+        """
+        select count(*) = 3 and bool_and(relrowsecurity and relforcerowsecurity)
+        from pg_class where oid = any(%s::regclass[])
+        """,
+        (list(tables),),
+    ).fetchone()[0]
+    results = [Result("RLS and forced RLS on the account tables", flags)]
+
+    first, second = uuid.uuid4(), uuid.uuid4()
+    item = uuid.uuid4()
+    # Rolled back at the end, so the check never leaves a row behind.
+    with conn.transaction(force_rollback=True):
+        as_user(conn, first)
+        conn.execute(
+            "insert into public.watch_history (user_id, item_id) values (%s, %s)",
+            (first, item),
+        )
+        as_user(conn, second)
+        hidden = (
+            conn.execute("select count(*) from public.watch_history").fetchone()[0] == 0
+        )
+        refused_other = refused(
+            conn,
+            "insert into public.watch_history (user_id, item_id) values (%s, %s)",
+            (first, uuid.uuid4()),
+        )
+    results.append(
+        Result(
+            "a viewer sees and adds only their own watch history",
+            hidden and refused_other,
+        )
+    )
+    return results
+
+
 def check_uploads(conn: psycopg.Connection) -> list[Result]:
     """The API can't see or change upload keys or qualities, and sees only
     which published items have a ready original.
@@ -781,6 +826,7 @@ def run_checks(url: str, connect=None) -> list[Result]:
         results += check_uploads(conn)
         results += check_passes(conn)
         results += check_subscriptions(conn)
+        results += check_account(conn)
         results.append(check_prepared(conn))
     results.append(check_no_leak(url, connect))
     return results

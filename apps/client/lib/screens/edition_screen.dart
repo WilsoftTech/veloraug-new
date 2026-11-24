@@ -172,103 +172,200 @@ class _Details extends StatelessWidget {
     final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final wide = width >= VeloraLayout.mediumBreakpoint;
+    final gutter = VeloraLayout.gutterFor(width);
     final runtime = edition.runtimeMinutes;
-    final card = edition.card;
-    final facts = [
-      if (card.year != null) '${card.year}',
-      if (edition.kind == EditionKind.series) l.seriesBadge,
-      if (runtime != null) formatRuntime(l, runtime),
-    ];
     final overview = edition.overview;
     final trailer = edition.trailerUrl;
-    final vjSlug = card.vjSlug;
-    final vjName = card.vjName;
+    final muted = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final canDownload =
+        edition.kind == EditionKind.movie &&
+        edition.playable &&
+        edition.itemId != null &&
+        _canWatch(context) == _CanWatch.yes;
 
-    final info = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: VeloraSpacing.sm,
+    final badges = Wrap(
+      spacing: VeloraSpacing.xs,
+      runSpacing: VeloraSpacing.xs,
       children: [
-        Semantics(
-          header: true,
-          child: Text(edition.title, style: theme.textTheme.headlineMedium),
+        StatusBadge(
+          label: edition.kind == EditionKind.series
+              ? l.seriesBadge
+              : l.movieBadge,
+          tone: StatusTone.neutral,
         ),
-        if (vjSlug != null && vjName != null)
-          // The full label, such as "Luganda · VJ Junior". It opens the VJ.
-          Semantics(
-            link: true,
-            label: l.editionLabelLink(card.label),
-            excludeSemantics: true,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(VeloraRadii.sm),
-              onTap: () => openVj(context, vjSlug, vjName),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: VeloraSpacing.xxs,
-                ),
-                child: Text(
-                  card.label,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+        if (runtime != null)
+          StatusBadge(
+            label: formatRuntime(l, runtime),
+            tone: StatusTone.neutral,
+            icon: Icons.schedule,
+          ),
+        for (final genre in edition.genres)
+          StatusBadge(label: genre, tone: StatusTone.neutral),
+      ],
+    );
+
+    final secondary = [
+      if (canDownload)
+        DownloadButton(itemId: edition.itemId!, info: downloadInfo(edition)),
+      if (trailer != null)
+        VeloraButton(
+          label: l.trailer,
+          icon: Icons.open_in_new,
+          variant: VeloraButtonVariant.secondary,
+          onPressed: () =>
+              launchUrl(trailer, mode: LaunchMode.externalApplication),
+        ),
+    ];
+
+    // Watch first and widest. Download sits beside it on a wide screen and
+    // just below it on a phone.
+    final Widget? actions;
+    if (edition.kind == EditionKind.movie) {
+      actions = wide
+          ? Wrap(
+              spacing: VeloraSpacing.sm,
+              runSpacing: VeloraSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _WatchButton(edition: edition),
+                ...secondary,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: VeloraSpacing.sm,
+              children: [
+                _WatchButton(edition: edition, expand: true),
+                if (secondary.isNotEmpty)
+                  Wrap(
+                    spacing: VeloraSpacing.sm,
+                    runSpacing: VeloraSpacing.sm,
+                    children: secondary,
                   ),
+              ],
+            );
+    } else {
+      actions = secondary.isEmpty
+          ? null
+          : Wrap(
+              spacing: VeloraSpacing.sm,
+              runSpacing: VeloraSpacing.sm,
+              children: secondary,
+            );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Header(edition: edition, wide: wide, gutter: gutter),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              gutter,
+              VeloraSpacing.md,
+              gutter,
+              VeloraSpacing.xl,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: VeloraLayout.readingWidth + 240,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: VeloraSpacing.lg,
+                  children: [
+                    badges,
+                    ?actions,
+                    if (edition.sourceTitle != edition.title)
+                      Text(l.alsoKnownAs(edition.sourceTitle), style: muted),
+                    if (overview != null && overview.trim().isNotEmpty)
+                      _Storyline(text: overview),
+                    if (edition.kind == EditionKind.series)
+                      _Seasons(edition: edition),
+                  ],
                 ),
               ),
             ),
-          )
-        else
-          Text(card.label, style: theme.textTheme.titleMedium),
-        if (edition.sourceTitle != edition.title)
-          Text(
-            l.alsoKnownAs(edition.sourceTitle),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The artwork, with the poster, title, VJ and year grouped over the
+/// bottom of the backdrop, where a gradient keeps the text readable.
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.edition,
+    required this.wide,
+    required this.gutter,
+  });
+
+  final EditionDetail edition;
+  final bool wide;
+  final double gutter;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final card = edition.card;
+    final vjSlug = card.vjSlug;
+    final vjName = card.vjName;
+    final backdrop = edition.backdropUrl ?? card.posterUrl;
+    final posterWidth = wide ? 180.0 : 112.0;
+
+    final Widget label;
+    if (vjSlug != null && vjName != null) {
+      // The full label, such as "Luganda · VJ Junior". It opens the VJ.
+      label = Semantics(
+        link: true,
+        label: l.editionLabelLink(card.label),
+        excludeSemantics: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(VeloraRadii.sm),
+          onTap: () => openVj(context, vjSlug, vjName),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: VeloraSpacing.xxs),
+            child: Text(
+              card.label,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: VeloraColors.accentText,
+              ),
             ),
           ),
-        if (facts.isNotEmpty)
+        ),
+      );
+    } else {
+      label = Text(card.label, style: theme.textTheme.titleMedium);
+    }
+
+    final info = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      spacing: VeloraSpacing.xxs,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(
+            edition.title,
+            style: wide
+                ? theme.textTheme.headlineMedium
+                : theme.textTheme.headlineSmall,
+          ),
+        ),
+        label,
+        if (card.year != null)
           Text(
-            facts.join(' · '),
+            '${card.year}',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        if (edition.genres.isNotEmpty)
-          Wrap(
-            spacing: VeloraSpacing.xs,
-            runSpacing: VeloraSpacing.xs,
-            children: [
-              for (final genre in edition.genres)
-                StatusBadge(label: genre, tone: StatusTone.neutral),
-            ],
-          ),
-        const SizedBox(height: VeloraSpacing.xs),
-        Wrap(
-          spacing: VeloraSpacing.sm,
-          runSpacing: VeloraSpacing.xs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            if (edition.kind == EditionKind.movie)
-              _WatchButton(edition: edition),
-            if (edition.kind == EditionKind.movie &&
-                edition.playable &&
-                edition.itemId != null &&
-                _canWatch(context) == _CanWatch.yes)
-              DownloadButton(
-                itemId: edition.itemId!,
-                info: downloadInfo(edition),
-              ),
-            if (trailer != null)
-              VeloraButton(
-                label: l.trailer,
-                icon: Icons.open_in_new,
-                variant: VeloraButtonVariant.secondary,
-                onPressed: () =>
-                    launchUrl(trailer, mode: LaunchMode.externalApplication),
-              ),
-          ],
-        ),
-        if (overview != null) ...[
-          const SizedBox(height: VeloraSpacing.xs),
-          Text(overview, style: theme.textTheme.bodyLarge),
-        ],
       ],
     );
 
@@ -281,57 +378,162 @@ class _Details extends StatelessWidget {
             Positioned(
               top: VeloraSpacing.xs,
               left: VeloraSpacing.xs,
-              child: ExcludeSemantics(child: CornerLabel(vjName)),
+              right: VeloraSpacing.xs,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: ExcludeSemantics(child: CornerLabel(vjName)),
+              ),
             ),
         ],
       ),
     );
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (edition.backdropUrl != null)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: MoviePoster(url: edition.backdropUrl, aspectRatio: 16 / 9),
-            ),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: VeloraLayout.gutterFor(width),
-              vertical: VeloraSpacing.lg,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: VeloraLayout.readingWidth + 240,
+    return Stack(
+      children: [
+        // The backdrop fills the header's top and fades into the canvas.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: wide ? 340 : 240,
+          child: ExcludeSemantics(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (backdrop != null)
+                  FittedBox(
+                    fit: BoxFit.cover,
+                    clipBehavior: Clip.hardEdge,
+                    child: SizedBox(
+                      width: 1600,
+                      height: 900,
+                      child: MoviePoster(url: backdrop, aspectRatio: 16 / 9),
+                    ),
+                  )
+                else
+                  const ColoredBox(color: VeloraColors.surface),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0, 0.55, 1],
+                      colors: [
+                        Color(0x660E1014),
+                        Color(0xB30E1014),
+                        VeloraColors.canvas,
+                      ],
+                    ),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: VeloraSpacing.lg,
-                  children: [
-                    if (wide)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        spacing: VeloraSpacing.lg,
-                        children: [
-                          SizedBox(width: 220, child: poster),
-                          Expanded(child: info),
-                        ],
-                      )
-                    else ...[
-                      Center(child: SizedBox(width: 180, child: poster)),
-                      info,
-                    ],
-                    if (edition.kind == EditionKind.series)
-                      _Seasons(edition: edition),
-                  ],
-                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(gutter, wide ? 160 : 112, gutter, 0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: VeloraLayout.readingWidth + 240,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                spacing: VeloraSpacing.md,
+                children: [
+                  SizedBox(width: posterWidth, child: poster),
+                  Expanded(child: info),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The storyline, cut to a few lines with Read more when it is long. The
+/// whole text is always read out; Read more only changes what is drawn.
+class _Storyline extends StatefulWidget {
+  const _Storyline({required this.text});
+
+  final String text;
+
+  static const int collapsedLines = 4;
+
+  @override
+  State<_Storyline> createState() => _StorylineState();
+}
+
+class _StorylineState extends State<_Storyline> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodyLarge;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: VeloraSpacing.xs,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(
+            l.storyline,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final painter = TextPainter(
+              text: TextSpan(text: widget.text, style: style),
+              maxLines: _Storyline.collapsedLines,
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout(maxWidth: constraints.maxWidth);
+            final long = painter.didExceedMaxLines;
+            painter.dispose();
+            final cut = long && !_expanded;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedSize(
+                  duration: VeloraMotion.of(context, VeloraMotion.standard),
+                  curve: VeloraMotion.curve,
+                  alignment: Alignment.topCenter,
+                  child: Semantics(
+                    label: widget.text,
+                    excludeSemantics: true,
+                    child: Text(
+                      widget.text,
+                      style: style,
+                      maxLines: cut ? _Storyline.collapsedLines : null,
+                      overflow: cut ? TextOverflow.ellipsis : null,
+                    ),
+                  ),
+                ),
+                if (long)
+                  Semantics(
+                    expanded: _expanded,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: VeloraSpacing.xs,
+                        ),
+                      ),
+                      onPressed: () => setState(() => _expanded = !_expanded),
+                      child: Text(_expanded ? l.readLess : l.readMore),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -379,9 +581,12 @@ void openPlayer(
 /// starts sign-in first. Any signed-in viewer may watch, until passes in
 /// Milestone 10.
 class _WatchButton extends StatelessWidget {
-  const _WatchButton({required this.edition});
+  const _WatchButton({required this.edition, this.expand = false});
 
   final EditionDetail edition;
+
+  /// Fills the width, as the main action on a phone.
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
@@ -402,10 +607,11 @@ class _WatchButton extends StatelessWidget {
         ],
       );
     }
-    if (can == _CanWatch.signInFirst) return const _SignInToWatch();
+    if (can == _CanWatch.signInFirst) return _SignInToWatch(expand: expand);
     return VeloraButton(
       label: l.watch,
       icon: Icons.play_arrow,
+      expand: expand,
       onPressed: () =>
           openPlayer(context, itemId: itemId, title: edition.title),
     );
@@ -413,7 +619,9 @@ class _WatchButton extends StatelessWidget {
 }
 
 class _SignInToWatch extends StatelessWidget {
-  const _SignInToWatch();
+  const _SignInToWatch({this.expand = false});
+
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
@@ -421,6 +629,7 @@ class _SignInToWatch extends StatelessWidget {
     return VeloraButton(
       label: context.l10n.signInToWatchButton,
       icon: Icons.login,
+      expand: expand,
       onPressed: auth.isBusy ? null : auth.signIn,
     );
   }
@@ -481,73 +690,88 @@ class _SeasonsState extends State<_Seasons> {
             style: theme.textTheme.titleMedium,
           ),
         if (can == _CanWatch.signInFirst) const _SignInToWatch(),
-        for (final episode in season.episodes)
-          Card.outlined(
-            key: ValueKey(episode.itemId),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: VeloraSpacing.md,
-                vertical: VeloraSpacing.xs,
-              ),
-              // A Wrap, so the status moves below at large text sizes.
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: VeloraSpacing.sm,
-                runSpacing: VeloraSpacing.xs,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        l.episodeNumber(episode.episode),
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      if (episode.title case final name?)
-                        Text(
-                          name,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                  episode.playable && can == _CanWatch.yes
-                      ? Row(
+        AnimatedSwitcher(
+          duration: VeloraMotion.of(context, VeloraMotion.standard),
+          switchInCurve: VeloraMotion.curve,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topCenter,
+            children: [...previous, ?current],
+          ),
+          child: Column(
+            key: ValueKey('season-${season.season}'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: VeloraSpacing.sm,
+            children: [
+              for (final episode in season.episodes)
+                Card.outlined(
+                  key: ValueKey(episode.itemId),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: VeloraSpacing.md,
+                      vertical: VeloraSpacing.xs,
+                    ),
+                    // A Wrap, so the status moves below at large text sizes.
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: VeloraSpacing.sm,
+                      runSpacing: VeloraSpacing.xs,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            EpisodeDownloadButton(
-                              itemId: episode.itemId,
-                              info: downloadInfo(widget.edition, episode),
+                            Text(
+                              l.episodeNumber(episode.episode),
+                              style: theme.textTheme.titleMedium,
                             ),
-                            IconButton(
-                              tooltip: l.playEpisode(
-                                season.season,
-                                episode.episode,
+                            if (episode.title case final name?)
+                              Text(
+                                name,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
                               ),
-                              icon: const Icon(Icons.play_circle_outline),
-                              onPressed: () => openPlayer(
-                                context,
-                                itemId: episode.itemId,
-                                title: widget.edition.title,
-                                episodes: episodes,
-                              ),
-                            ),
                           ],
-                        )
-                      : StatusBadge(
-                          label: episode.playable
-                              ? (can == _CanWatch.notHere
-                                    ? l.notAvailableHere
-                                    : l.signInFirst)
-                              : l.comingSoon,
-                          tone: StatusTone.info,
                         ),
-                ],
-              ),
-            ),
+                        episode.playable && can == _CanWatch.yes
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  EpisodeDownloadButton(
+                                    itemId: episode.itemId,
+                                    info: downloadInfo(widget.edition, episode),
+                                  ),
+                                  IconButton(
+                                    tooltip: l.playEpisode(
+                                      season.season,
+                                      episode.episode,
+                                    ),
+                                    icon: const Icon(Icons.play_circle_outline),
+                                    onPressed: () => openPlayer(
+                                      context,
+                                      itemId: episode.itemId,
+                                      title: widget.edition.title,
+                                      episodes: episodes,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : StatusBadge(
+                                label: episode.playable
+                                    ? (can == _CanWatch.notHere
+                                          ? l.notAvailableHere
+                                          : l.signInFirst)
+                                    : l.comingSoon,
+                                tone: StatusTone.info,
+                              ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
+        ),
       ],
     );
   }

@@ -67,6 +67,12 @@ class AndroidDownloadTarget implements DownloadTarget {
                 ? row['total'] as int
                 : null,
             noRoom: row['noRoom'] == true,
+            pause: switch (row['wait']) {
+              'network' => PauseReason.network,
+              'retry' => PauseReason.retry,
+              'other' => PauseReason.other,
+              _ => PauseReason.none,
+            },
           ),
     };
   }

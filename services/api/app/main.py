@@ -5,6 +5,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.account import IdentityDeleter
+from app.account_routes import router as account_router
 from app.admin import router as admin_router
 from app.admin_billing import router as billing_router
 from app.auth import TokenVerifier
@@ -34,6 +36,7 @@ def create_app(
     tmdb: TmdbClient | None = None,
     pesapal: PesapalClient | None = None,
     rate_limiter: RateLimiter | None = None,
+    identity_deleter: IdentityDeleter | None = None,
 ) -> FastAPI:
     """Build the application. Tests pass their own settings, verifier,
     databases, TMDB refresher and client, playback granter and Pesapal."""
@@ -126,6 +129,9 @@ def create_app(
     app.state.pesapal = pesapal
     # Per account: checkouts, payment checks, devices and playback.
     app.state.rate_limiter = rate_limiter or RateLimiter()
+    # None: no identity provider can delete a sign-in account yet, so
+    # deleting an account from the app answers 503 whatever the settings.
+    app.state.identity_deleter = identity_deleter
     if settings.passes_required and pesapal is None:
         logger.warning(
             "VELORAUG_PASSES_REQUIRED is on, but Pesapal isn't set up: "
@@ -154,4 +160,5 @@ def create_app(
     app.include_router(pass_router)
     app.include_router(device_router)
     app.include_router(billing_router)
+    app.include_router(account_router)
     return app

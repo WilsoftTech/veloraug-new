@@ -11,6 +11,20 @@ import 'token_store.dart';
 
 enum AuthStatus { restoring, signedOut, signingIn, signedIn, signingOut }
 
+/// How a fresh sign-in for a sensitive step, such as deleting the account,
+/// ended.
+enum ReauthResult {
+  /// The same person signed in again just now.
+  confirmed,
+
+  /// Someone else signed in. Their tokens were thrown away, and the person
+  /// signed in before is still signed in.
+  differentAccount,
+
+  /// The sign-in was cancelled, refused or couldn't finish.
+  failed,
+}
+
 /// Owns the signed-in session for the whole app.
 ///
 /// Tokens never leave this class except through [accessToken], and are never
@@ -47,6 +61,25 @@ class AuthController extends ChangeNotifier {
 
   /// For display only.
   String? get email => _session?.email;
+
+  /// Whether the sign-in provider said the email is verified, for display
+  /// only. Null when signed out or when it didn't say.
+  bool? get emailVerified => _session?.emailVerified;
+
+  /// Who is signed in, to keep one person's data apart from another's on
+  /// this device: the access token's subject, or else the email. Null when
+  /// signed out. Never used to decide access: the API does that.
+  String? get accountKey {
+    final session = _session;
+    if (session == null) return null;
+    return subjectOf(session.accessToken) ?? session.email ?? '';
+  }
+
+  /// The `sub` of a JWT access token, read without checking it, or null.
+  static String? subjectOf(String accessToken) {
+    final sub = readJwtPayload(accessToken)?['sub'];
+    return sub is String && sub.isNotEmpty ? sub : null;
+  }
 
   bool get isBusy =>
       _status == AuthStatus.restoring ||
@@ -91,6 +124,41 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Asks the person to sign in again now, for a step that needs a recent
+  /// sign-in. Only the same person's new tokens are kept. Whatever happens,
+  /// the status stays signed in, so the app doesn't flash signed out.
+  Future<ReauthResult> reauthenticate() async {
+    final before = _session;
+    if (before == null || isBusy) return ReauthResult.failed;
+    final OAuthTokens tokens;
+    try {
+      tokens = await _client.signIn(forceLogin: true);
+    } on Exception catch (error) {
+      _logFailure('reauthenticate', error);
+      return ReauthResult.failed;
+    }
+    // Signed out, or signed in again elsewhere in the app, meanwhile.
+    if (!identical(_session, before)) return ReauthResult.failed;
+    final who = subjectOf(before.accessToken) ?? before.email;
+    final now = subjectOf(tokens.accessToken) ?? tokens.email;
+    if (who == null || now == null || who != now) {
+      final refresh = tokens.refreshToken;
+      if (refresh != null) {
+        try {
+          await _client.revoke(refresh);
+        } on OAuthException catch (error) {
+          _logFailure('revoke', error);
+        }
+      }
+      return ReauthResult.differentAccount;
+    }
+    final session = _sessionFrom(tokens, previous: before);
+    _session = session;
+    await _save(session);
+    notifyListeners();
+    return ReauthResult.confirmed;
+  }
+
   /// A usable access token, renewed first if it is about to expire, or null
   /// when signed out. Calls made during a renewal share it. A refused renewal
   /// signs the person out. A network failure throws [OAuthException] and
@@ -113,7 +181,7 @@ class AuthController extends ChangeNotifier {
     try {
       final tokens = await _client.refresh(refreshToken);
       // Signed out, or signed in again, while this was running.
-      if (!identical(_session, session)) return _session?.accessToken;
+      if (!identical(_session, session)) return null;
       final renewed = _sessionFrom(tokens, previous: session);
       _session = renewed;
       await _save(renewed);
@@ -188,6 +256,7 @@ class AuthController extends ChangeNotifier {
         lifetime == null ? _fallbackLifetime : Duration(seconds: lifetime),
       ),
       email: tokens.email ?? previous?.email,
+      emailVerified: tokens.emailVerified ?? previous?.emailVerified,
     );
   }
 

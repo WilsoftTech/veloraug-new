@@ -9,7 +9,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import io.flutter.embedding.android.FlutterActivity
+import androidx.core.app.NotificationManagerCompat
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -19,8 +20,12 @@ import io.flutter.plugin.common.MethodChannel
  * manager, which saves it to Downloads/VeloraUG, shows a notification,
  * carries on in the background and after a dropped connection, and keeps
  * the file when the app is uninstalled. See lib/downloads/.
+ *
+ * A FlutterFragmentActivity, which local_auth needs for App lock's system
+ * prompt. It also tells Settings whether Android allows VeloraUG to show
+ * notifications; it never asks, because no push service is set up yet.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private var waitingForPermission: (() -> Unit)? = null
     private var refusedPermission: (() -> Unit)? = null
 
@@ -41,6 +46,18 @@ class MainActivity : FlutterActivity() {
                     }
                 } catch (error: Exception) {
                     result.error("failed", error.javaClass.simpleName, null)
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "veloraug/notifications")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Whether Android lets VeloraUG show notifications now:
+                    // the app's switch in Android's settings, and on Android
+                    // 13 and newer the notification permission.
+                    "allowed" -> result.success(
+                        NotificationManagerCompat.from(this).areNotificationsEnabled(),
+                    )
+                    else -> result.notImplemented()
                 }
             }
     }
@@ -98,7 +115,8 @@ class MainActivity : FlutterActivity() {
             val totalColumn = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
             while (cursor.moveToNext()) {
                 val reason = cursor.getInt(reasonColumn)
-                val state = when (cursor.getInt(statusColumn)) {
+                val status = cursor.getInt(statusColumn)
+                val state = when (status) {
                     DownloadManager.STATUS_PENDING -> "waiting"
                     DownloadManager.STATUS_RUNNING -> "running"
                     DownloadManager.STATUS_PAUSED -> "paused"
@@ -113,6 +131,14 @@ class MainActivity : FlutterActivity() {
                         "total" to cursor.getLong(totalColumn),
                         "noRoom" to (state == "failed" &&
                             reason == DownloadManager.ERROR_INSUFFICIENT_SPACE),
+                        // Why a paused download is waiting.
+                        "wait" to when {
+                            status != DownloadManager.STATUS_PAUSED -> ""
+                            reason == DownloadManager.PAUSED_WAITING_FOR_NETWORK ||
+                                reason == DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "network"
+                            reason == DownloadManager.PAUSED_WAITING_TO_RETRY -> "retry"
+                            else -> "other"
+                        },
                     ),
                 )
             }

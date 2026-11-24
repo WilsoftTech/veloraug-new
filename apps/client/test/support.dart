@@ -149,8 +149,31 @@ class FakeApi {
     {'code': 'lg', 'name': 'Luganda', 'editions': 1},
   ];
 
+  /// Genres as GET /api/v1/genres lists them. An edition matches a genre
+  /// when its `genres` holds exactly that value.
+  List<Map<String, Object?>> genres = [];
+
   /// Answers any catalogue request with this status instead, when set.
   int? catalogueStatus;
+
+  /// The account hub: watch history, the notification inbox and deletion.
+  List<Map<String, Object?>> history = [];
+  int historyStatus = 200;
+  final positions = <Map<String, Object?>>[];
+  Map<String, Object?> inbox = {'notifications': <Object>[], 'unread': 0};
+  int inboxStatus = 200;
+  int markReadStatus = 204;
+  final markedRead = <Object?>[];
+  Map<String, Object?> deletion = {
+    'available': false,
+    'state': 'none',
+    'requested_at': null,
+  };
+  int deletionStatusCode = 200;
+
+  /// POST /me/deletion's answer: status and body. Null: completed.
+  (int, Object?)? deletionAnswer;
+  int deletions = 0;
 
   int grants = 0;
   int grantStatus = 200;
@@ -293,6 +316,56 @@ class FakeApi {
       return http.Response('', 204);
     }
     if (path == '/api/v1/me/pass') return json(myPass);
+    if (path == '/api/v1/me/history') {
+      return historyStatus == 200
+          ? json(history)
+          : json({'detail': 'x'}, historyStatus);
+    }
+    if (path.startsWith('/api/v1/me/history/') && request.method == 'PUT') {
+      positions.add({
+        'item': request.url.pathSegments[4],
+        ...jsonDecode(request.body) as Map<String, Object?>,
+      });
+      return http.Response('', 204);
+    }
+    if (path == '/api/v1/me/notifications') {
+      return inboxStatus == 200
+          ? json(inbox)
+          : json({'detail': 'x'}, inboxStatus);
+    }
+    if (path == '/api/v1/me/notifications/read') {
+      markedRead.add(jsonDecode(request.body));
+      if (markReadStatus != 204) return json({'detail': 'x'}, markReadStatus);
+      final body = jsonDecode(request.body) as Map<String, Object?>;
+      final ids = (body['ids'] as List?)?.cast<String>() ?? const [];
+      final rows = [
+        for (final n in (inbox['notifications'] as List).cast<Map>())
+          {
+            ...n,
+            if (body['all'] == true || ids.contains(n['id'])) 'read': true,
+          },
+      ];
+      inbox = {
+        'notifications': rows,
+        'unread': rows.where((n) => n['read'] != true).length,
+      };
+      return http.Response('', 204);
+    }
+    if (path == '/api/v1/me/deletion' && request.method == 'GET') {
+      return deletionStatusCode == 200
+          ? json(deletion)
+          : json({'detail': 'x'}, deletionStatusCode);
+    }
+    if (path == '/api/v1/me/deletion' && request.method == 'POST') {
+      deletions++;
+      final (status, body) =
+          deletionAnswer ??
+          (
+            200,
+            {'available': true, 'state': 'completed', 'requested_at': null},
+          );
+      return json(body, status);
+    }
     if (path == '/api/v1/passes/checkout') {
       checkouts.add(jsonDecode(request.body) as Map<String, Object?>);
       if (checkoutStatus != 201) return json({'detail': 'x'}, checkoutStatus);
@@ -353,6 +426,7 @@ class FakeApi {
       return page == null ? json({}, 404) : json(page);
     }
     if (path == '/api/v1/languages') return json(languages);
+    if (path == '/api/v1/genres') return json(genres);
     return json({}, 404);
   }
 
@@ -363,6 +437,10 @@ class FakeApi {
         if ((query['kind'] == null || e['kind'] == query['kind']) &&
             (query['vj'] == null || e['vj_slug'] == query['vj']) &&
             (query['language'] == null || e['language'] == query['language']) &&
+            (query['genre'] == null ||
+                ((e['genres'] as List?) ?? const []).contains(
+                  query['genre'],
+                )) &&
             (q == null ||
                 '${e['title']} ${e['vj_name']}'.toLowerCase().contains(q)))
           e,
