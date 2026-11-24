@@ -65,6 +65,8 @@ class Store(Protocol):
 
     def download(self, key: str, path: Path) -> None: ...
 
+    def read_url(self, key: str) -> str: ...
+
 
 class R2Settings(BaseSettings):
     """VELORAUG_R2_* variables, from services/api/.env.r2, which only the
@@ -197,6 +199,13 @@ class R2Store:
 
     def download(self, key: str, path: Path) -> None:
         self.client.download_file(self.bucket, key, str(path), Config=self.transfer)
+
+    def read_url(self, key: str) -> str:
+        """A private address to read one object for ten minutes, for FFprobe
+        to measure a file from its index without downloading all of it."""
+        return self.client.generate_presigned_url(
+            "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=600
+        )
 
     def storage_class(self, key: str) -> str:
         head = self.client.head_object(Bucket=self.bucket, Key=key)

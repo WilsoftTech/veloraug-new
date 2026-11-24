@@ -68,6 +68,9 @@ class FakeBucket:
     def download(self, key, path):
         Path(path).write_bytes(self.objects[key][0])
 
+    def read_url(self, key):
+        return f"r2://{key}"
+
     def put(self, key, data: bytes):
         """Puts a file there directly, as an earlier publish did."""
         self.objects[key] = (data, "", IMMUTABLE, "STANDARD")
