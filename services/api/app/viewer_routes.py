@@ -24,7 +24,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints
 from starlette.background import BackgroundTask
 
-from app import account, devices, passes, playback, ratelimit, viewer
+from app import account, devices, discovery, passes, playback, ratelimit, viewer
 from app.auth import VerifiedUser, current_user
 from app.db import Database
 from app.images import ImageUrls
@@ -145,6 +145,18 @@ class FeaturedOut(EditionCard):
     # For a movie, the item to ask playback for. Null for a series, which
     # opens its page to choose an episode.
     item_id: UUID | None
+
+
+class RailOut(BaseModel):
+    # vj, recommended, popular, top_rated, recent or new_episodes. The app
+    # names it: "More from VJ Junior", "Recommended for you" and so on.
+    key: str
+    editions: list[EditionCard]
+
+
+class RailsOut(BaseModel):
+    # Only rails with at least three titles, in the order to show them.
+    rails: list[RailOut]
 
 
 class LanguageOut(BaseModel):
@@ -319,6 +331,26 @@ def list_featured(
         )
         for row in rows
     ]
+
+
+@router.get(
+    "/editions/{edition_id}/rails",
+    responses={404: {"description": NOT_AVAILABLE}},
+)
+def edition_rails(edition_id: UUID, db: AppDatabase, images: Images) -> RailsOut:
+    """Titles to discover from a published edition's page: more from its
+    VJ, recommended, most popular, top rated, and recently added movies or
+    new episodes. Needs no sign-in."""
+    with db.anonymous() as conn:
+        found = discovery.rails(conn, edition_id)
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_AVAILABLE)
+    return RailsOut(
+        rails=[
+            RailOut(key=rail.key, editions=[_card(e, images) for e in rail.editions])
+            for rail in found
+        ]
+    )
 
 
 @router.get("/vjs")

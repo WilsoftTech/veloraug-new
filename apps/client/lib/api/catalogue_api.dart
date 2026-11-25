@@ -74,6 +74,16 @@ class FeaturedTitle {
   EditionKind get kind => card.kind;
 }
 
+/// A rail of titles to discover on an edition's page.
+class EditionRail {
+  const EditionRail({required this.key, required this.editions});
+
+  /// `vj`, `recommended`, `popular`, `top_rated`, `recent` or
+  /// `new_episodes` from the API, or `because` for Because you watched.
+  final String key;
+  final List<EditionCard> editions;
+}
+
 /// One page of editions. [nextOffset] is null on the last page.
 class EditionPage {
   const EditionPage({required this.editions, this.nextOffset});
@@ -343,6 +353,25 @@ class CatalogueApi {
               gateway: mediaBaseUrl,
             ),
             itemId: _maybe<String>(title['item_id']),
+          ),
+    ];
+  }
+
+  /// The rails to show below an edition's details, in order. The API only
+  /// sends rails with at least three titles.
+  Future<List<EditionRail>> rails(String editionId) async {
+    final json = await _getObject(
+      '/api/v1/editions/${Uri.encodeComponent(editionId)}/rails',
+    );
+    return [
+      for (final row in _need<List<Object?>>(json['rails']))
+        if (_need<Map<String, Object?>>(row) case final rail)
+          EditionRail(
+            key: _need<String>(rail['key']),
+            editions: [
+              for (final card in _need<List<Object?>>(rail['editions']))
+                _card(card),
+            ],
           ),
     ];
   }

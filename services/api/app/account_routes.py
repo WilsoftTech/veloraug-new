@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app import account, ratelimit, viewer
+from app import account, discovery, ratelimit, viewer
 from app.auth import VerifiedUser, current_user
 from app.viewer_routes import AppDatabase, EditionCard, Images, _card
 
@@ -57,6 +57,30 @@ class SavedItemOut(BaseModel):
     season: int | None
     episode: int | None
     episode_title: str | None
+
+
+class BecauseYouWatchedOut(BaseModel):
+    # The title the viewer played most recently, other than this one.
+    watched_id: UUID
+    watched_title: str
+    editions: list[EditionCard]
+
+
+@router.get("/because-you-watched/{edition}")
+def because_you_watched(
+    edition: UUID, user: Viewer, db: AppDatabase, images: Images
+) -> BecauseYouWatchedOut | None:
+    """For an edition's page: titles like the one the viewer played most
+    recently. Null without history, or with fewer than three titles."""
+    with db.as_user(user.user_id) as conn:
+        found = discovery.because_you_watched(conn, edition)
+    if found is None:
+        return None
+    return BecauseYouWatchedOut(
+        watched_id=found.watched_id,
+        watched_title=found.watched_title,
+        editions=[_card(e, images) for e in found.editions],
+    )
 
 
 @router.get("/watch-list")

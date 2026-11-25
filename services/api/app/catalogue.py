@@ -79,7 +79,7 @@ def save_details(
           title = %s, original_title = %s, overview = %s, release_date = %s,
           runtime_minutes = %s, genres = %s, poster_path = %s,
           backdrop_path = %s, tmdb_rating = %s, tmdb_vote_count = %s,
-          fetched_at = now(), rating_updated_at = now()
+          tmdb_popularity = %s, fetched_at = now(), rating_updated_at = now()
         where kind = %s and tmdb_id = %s
         """,
         (
@@ -93,6 +93,7 @@ def save_details(
             details.backdrop_path,
             details.rating,
             details.vote_count,
+            details.popularity,
             kind,
             details.tmdb_id,
         ),
