@@ -76,7 +76,8 @@ class BackfillResult:
 
 
 class Pacer:
-    """Keeps requests at least 1/rate seconds apart."""
+    """Keeps requests at least 1/rate seconds apart, and none before the end
+    of a pause TMDB asked for."""
 
     def __init__(
         self,
@@ -91,16 +92,23 @@ class Pacer:
         self._clock = clock
         self._sleep = sleep
         self._last: float | None = None
+        self._not_before: float | None = None
 
     def wait(self) -> None:
         now = self._clock()
-        if self._last is not None and now - self._last < self._gap:
-            self._sleep(self._gap - (now - self._last))
+        due = now
+        if self._last is not None:
+            due = max(due, self._last + self._gap)
+        if self._not_before is not None:
+            due = max(due, self._not_before)
+        if due > now:
+            self._sleep(due - now)
             now = self._clock()
         self._last = now
 
-    def pause(self, seconds: float) -> None:
-        self._sleep(seconds)
+    def hold(self, seconds: float) -> None:
+        """No request for this long from now, whichever title is next."""
+        self._not_before = self._clock() + seconds
 
 
 def backfill(
@@ -124,10 +132,12 @@ def backfill(
             except TmdbRefused:
                 raise
             except TmdbUnavailable as error:
+                # Kept even after the last try, so the next title waits too.
+                if error.retry_after is not None:
+                    pacer.hold(min(error.retry_after, MAX_WAIT_SECONDS))
                 if error.retry_after is None or attempt == MAX_TRIES:
                     result.failed.append(f"{kind} {tmdb_id}: {error}")
                     break
-                pacer.pause(min(error.retry_after, MAX_WAIT_SECONDS))
             except TmdbError as error:
                 result.failed.append(f"{kind} {tmdb_id}: {error}")
                 break

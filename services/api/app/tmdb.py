@@ -84,6 +84,10 @@ def _date(value: Any) -> date | None:
         return None
 
 
+# The largest count public.sources.tmdb_vote_count (a Postgres integer) holds.
+MAX_VOTE_COUNT = 2**31 - 1
+
+
 def _rating(data: dict) -> tuple[float | None, int | None]:
     """TMDB's vote_average and vote_count, or (None, None). TMDB sends 0.0
     for a title nobody has rated, which isn't a score of 0."""
@@ -93,7 +97,7 @@ def _rating(data: dict) -> tuple[float | None, int | None]:
         or isinstance(count, bool)
         or not isinstance(average, int | float)
         or not isinstance(count, int)
-        or count <= 0
+        or not 0 < count <= MAX_VOTE_COUNT
         or not 0 <= average <= 10
     ):
         return None, None

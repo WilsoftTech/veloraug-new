@@ -226,6 +226,8 @@ def _with_votes(average, count) -> dict:
         (7.26, 12, 7.3, 12),
         (10, 3, 10.0, 3),
         (0.5, 1, 0.5, 1),
+        # The most the database's integer column holds.
+        (7.5, 2**31 - 1, 7.5, 2**31 - 1),
     ],
 )
 def test_the_rating_is_kept_to_one_decimal(average, count, rating, votes):
@@ -252,6 +254,8 @@ def test_the_rating_is_kept_to_one_decimal(average, count, rating, votes):
         (float("nan"), 10),
         (7.5, -4),
         (7.5, 2.5),
+        # Too many for the database's integer column.
+        (7.5, 2**31),
     ],
 )
 def test_no_votes_or_strange_values_give_no_rating(average, count):

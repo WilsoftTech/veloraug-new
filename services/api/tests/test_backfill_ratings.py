@@ -79,6 +79,18 @@ def test_time_already_spent_counts_towards_the_gap():
     assert time.sleeps == [0.3]
 
 
+def test_a_pause_tmdb_asked_for_holds_back_the_next_request():
+    pace, time = pacer(4.0)
+    pace.wait()
+    pace.hold(5)
+
+    pace.wait()
+    pace.wait()
+
+    # The pause, then the usual gap after it.
+    assert time.sleeps == [5, 0.25]
+
+
 @pytest.mark.parametrize("rate", [0, -1, 21])
 def test_a_strange_rate_is_refused(rate):
     with pytest.raises(ValueError, match="rate"):
@@ -259,3 +271,30 @@ def test_a_refused_token_stops_the_backfill(owner):
         )
 
     assert fetched == [first]
+
+
+@needs_database
+def test_a_pause_asked_for_on_the_last_try_holds_back_the_next_title(owner):
+    first, second = new_id(), new_id()
+    add_movie(owner, details(first))
+    add_movie(owner, details(second))
+    pace, time = pacer()
+
+    def fetch(kind, tmdb_id):
+        if tmdb_id == first:
+            raise TmdbUnavailable("TMDB asked us to slow down", retry_after=5)
+        return details(tmdb_id)
+
+    result = backfill(
+        owner,
+        [("movie", first), ("movie", second)],
+        fetch,
+        pace,
+        report=lambda _: None,
+    )
+
+    # A 5-second pause before each of the first title's retries, and one
+    # more before the second title, though the first had no tries left.
+    assert time.sleeps == [5] * MAX_TRIES
+    assert result.saved == 1
+    assert result.failed == [f"movie {first}: TMDB asked us to slow down"]
