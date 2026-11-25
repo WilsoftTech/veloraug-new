@@ -93,7 +93,7 @@ The other sizes are in [`step-13g/`](step-13g/).
   - each page, on a phone and a wide screen
   - a floated label, a hint and the toggle switched on
   - a phone at 200% zoom
-- **App:** 675 tests pass and `flutter analyze` is clean, with the new token checked by `theme_tokens_test.dart`.
+- **App:** 677 tests pass and `flutter analyze` is clean, with the new token checked by `theme_tokens_test.dart`.
 - **API:** unchanged in this phase.
 
 ## Deploying
