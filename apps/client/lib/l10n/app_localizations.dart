@@ -4677,6 +4677,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coming soon. Notifications still arrive in your inbox.'**
   String get pushComingSoon;
+
+  /// No description provided for @downloadFailedTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed. Tap to try again'**
+  String get downloadFailedTryAgain;
+
+  /// No description provided for @episodeRowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{episode} · {title}'**
+  String episodeRowTitle(int episode, String title);
+
+  /// No description provided for @episodeChip.
+  ///
+  /// In en, this message translates to:
+  /// **'E{episode}'**
+  String episodeChip(int episode);
+
+  /// No description provided for @episodeWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Watched'**
+  String get episodeWatched;
+
+  /// No description provided for @minutesLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min left'**
+  String minutesLeft(int minutes);
+
+  /// No description provided for @percentWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% watched'**
+  String percentWatched(int percent);
 }
 
 class _AppLocalizationsDelegate

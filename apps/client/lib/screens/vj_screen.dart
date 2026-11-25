@@ -84,7 +84,7 @@ class _VjScreenState extends State<VjScreen> {
           _Phase.loading => Center(
             child: VeloraLoadingRegion(
               label: l.loadingVj,
-              child: const VeloraSpinner(size: 32),
+              child: const VeloraSpinner(size: VeloraIconSizes.large),
             ),
           ),
           _Phase.failed => ScreenBody(

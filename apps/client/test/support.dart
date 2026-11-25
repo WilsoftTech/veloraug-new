@@ -234,6 +234,10 @@ class FakeApi {
   /// The viewer's display name, as GET /api/v1/me gives it.
   String? displayName;
 
+  /// Where the viewer got to, by edition ID, as
+  /// `GET /api/v1/me/editions/{id}/progress` lists it.
+  final progress = <String, List<Map<String, Object?>>>{};
+
   /// Passes, Step 10C: what's for sale, the viewer's pass, and the states a
   /// payment goes through as it's checked. The last state repeats.
   List<Map<String, Object?>> passPlans = [
@@ -375,6 +379,9 @@ class FakeApi {
       return historyStatus == 200
           ? json(history)
           : json({'detail': 'x'}, historyStatus);
+    }
+    if (path.startsWith('/api/v1/me/editions/') && path.endsWith('/progress')) {
+      return json(progress[request.url.pathSegments[4]] ?? const <Object>[]);
     }
     if (path.startsWith('/api/v1/me/because-you-watched/')) {
       final found = because[request.url.pathSegments.last];

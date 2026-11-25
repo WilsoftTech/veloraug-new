@@ -125,7 +125,11 @@ class _StatePanel extends StatelessWidget {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(VeloraSpacing.md),
-                        child: Icon(icon, size: 32, color: iconColor),
+                        child: Icon(
+                          icon,
+                          size: VeloraIconSizes.large,
+                          color: iconColor,
+                        ),
                       ),
                     ),
                   ),

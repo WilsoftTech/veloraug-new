@@ -2224,5 +2224,42 @@
   },
   "devicesNoneHelp": "A device registers itself the first time it plays a title.",
   "paymentsNoneHelp": "When you buy a plan, the payment shows here.",
-  "pushComingSoon": "Coming soon. Notifications still arrive in your inbox."
+  "pushComingSoon": "Coming soon. Notifications still arrive in your inbox.",
+  "downloadFailedTryAgain": "Download failed. Tap to try again",
+  "episodeRowTitle": "{episode} · {title}",
+  "@episodeRowTitle": {
+    "placeholders": {
+      "episode": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "episodeChip": "E{episode}",
+  "@episodeChip": {
+    "placeholders": {
+      "episode": {
+        "type": "int"
+      }
+    }
+  },
+  "episodeWatched": "Watched",
+  "minutesLeft": "{minutes} min left",
+  "@minutesLeft": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "percentWatched": "{percent}% watched",
+  "@percentWatched": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
 }

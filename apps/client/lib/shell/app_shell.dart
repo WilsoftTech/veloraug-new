@@ -250,7 +250,7 @@ class _AppShellState extends State<AppShell> {
                       ),
                   ],
                 ),
-                const VerticalDivider(width: 1),
+                const VerticalDivider(width: VeloraStroke.hairline),
               ],
               // IndexedStack keeps hidden screens alive, so search text and
               // filter choices survive changing screen, and it keeps them out

@@ -2838,4 +2838,30 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get pushComingSoon =>
       'Coming soon. Notifications still arrive in your inbox.';
+
+  @override
+  String get downloadFailedTryAgain => 'Download failed. Tap to try again';
+
+  @override
+  String episodeRowTitle(int episode, String title) {
+    return '$episode · $title';
+  }
+
+  @override
+  String episodeChip(int episode) {
+    return 'E$episode';
+  }
+
+  @override
+  String get episodeWatched => 'Watched';
+
+  @override
+  String minutesLeft(int minutes) {
+    return '$minutes min left';
+  }
+
+  @override
+  String percentWatched(int percent) {
+    return '$percent% watched';
+  }
 }

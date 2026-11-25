@@ -94,6 +94,26 @@ class AppNotification {
   final String? deviceLabel;
 }
 
+/// How far the viewer got in one movie or episode.
+class WatchProgress {
+  const WatchProgress({this.seconds, this.finished = false});
+
+  /// Where they stopped; null once finished.
+  final int? seconds;
+  final bool finished;
+
+  /// How much of [runtimeMinutes] they watched, from 0 to 1. Null when the
+  /// length isn't known and they haven't finished.
+  double? fraction(int? runtimeMinutes) {
+    if (finished) return 1;
+    final seconds = this.seconds;
+    if (seconds == null || runtimeMinutes == null || runtimeMinutes <= 0) {
+      return null;
+    }
+    return (seconds / (runtimeMinutes * 60)).clamp(0, 1).toDouble();
+  }
+}
+
 class NotificationInbox {
   const NotificationInbox({required this.notifications, required this.unread});
 
@@ -297,6 +317,26 @@ class AccountApi {
     } on Object {
       // Not worth bothering the viewer about.
     }
+  }
+
+  /// Where the viewer got to in each movie or episode of one edition they
+  /// have played, by item ID.
+  Future<Map<String, WatchProgress>> progress(String editionId) async {
+    final rows = (await _send(
+      'GET',
+      '/api/v1/me/editions/${Uri.encodeComponent(editionId)}/progress',
+    )).json;
+    if (rows is! List<Object?>) _bad();
+    return {
+      for (final row in rows)
+        if (row case {'item_id': final String id, 'finished': final bool done})
+          id: WatchProgress(
+            seconds: row['position_seconds'] is int
+                ? row['position_seconds'] as int
+                : null,
+            finished: done,
+          ),
+    };
   }
 
   /// The viewer's display name, or null if they haven't set one. Reads the

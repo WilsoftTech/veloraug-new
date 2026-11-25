@@ -420,13 +420,14 @@ void main() {
 
       expect(find.text('Season 1'), findsOneWidget);
       expect(find.text('Season 2'), findsOneWidget);
-      expect(find.text('Episode 1'), findsOneWidget);
-      expect(find.text('The Crown'), findsOneWidget);
+      // An episode's number and name share a line; one without a name
+      // says "Episode 2".
+      expect(find.text('1 · The Crown'), findsOneWidget);
       expect(find.text('Episode 2'), findsOneWidget);
 
       await tester.tap(find.text('Season 2'));
       await tester.pumpAndSettle();
-      expect(find.text('The Crown'), findsNothing);
+      expect(find.text('1 · The Crown'), findsNothing);
       expect(find.byTooltip('Play season 2, episode 1'), findsOneWidget);
     });
 

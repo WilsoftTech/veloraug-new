@@ -83,6 +83,16 @@ Each status has a text colour and a container. **A status always has an icon and
 | `accentText` on `infoContainer` `#14233D` | 7.24 |
 | `textPrimary` on `infoContainer` | 14.02 |
 
+### Over artwork
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `chip` | `#000000` at 82% | A chip on a poster or thumbnail, such as the VJ's name or an episode's number |
+| `onChip` | `#FFFFFF` | Text on a `chip` |
+| `scrimLight` | `#0E1014` at 40% | The top of a backdrop under text |
+| `scrimHeavy` | `#0E1014` at 70% | The middle of a backdrop, before it reaches `canvas` |
+| `video` | `#000000` | Behind a playing video, where it doesn't fill the screen. Text over it is `onChip` |
+
 ## Typography
 
 **No font file is bundled, and no dependency was added.** This first version uses the system stack:
@@ -143,6 +153,14 @@ The sign-in pages can't load web fonts, because their Content-Security-Policy al
 | An avatar, such as the viewer's initial on Account (`avatarSize`) | 56 pixels |
 | A poster beside a line of text, such as in Watch history (`thumbWidth`) | 48 pixels wide, 2:3 |
 | The dot marking something unread (`dotSize`) | 8 pixels, in `accentText` |
+| Backdrops and episode thumbnails (`backdropAspectRatio`) | 16:9 |
+| An episode's thumbnail (`episodeThumbWidth`) | 128 pixels wide |
+| How far the viewer got (`progressBarHeight`) | A 4-pixel bar, `accentText` on `surfaceOverlay` |
+| A download's progress ring (`progressRingSize`) | 24 pixels, an icon's size, with a `focus`-width stroke |
+
+**Icons** come in seven sizes (`VeloraIconSizes`): 14 in a status badge, 16 beside small text, 18 in a button or chip, 20 beside body text, 24 for Material's own and a download's ring, 32 for a page's spinner or an empty state, and 40 on a poster with no artwork.
+
+**Large text.** Page headings grow with the viewer's text size up to 1.5 times (`maxHeadingTextScale`) and then stop, so a long word such as "membership" doesn't break mid-word on a phone. All other text keeps growing.
 | Home's hero, narrower than 600 pixels | The full screen width, edge to edge, 4:5 |
 | Home's hero, 600 pixels and wider | The content width, 21:9, between 420 and 560 pixels tall, rounded |
 
@@ -192,6 +210,8 @@ Use Flutter's themed `AlertDialog` and `SnackBar` directly. They don't need wrap
 | `heroInterval` | 6000 ms | How long Home's hero shows each title |
 | `heroCrossfade` | 600 ms | One hero title fading into the next |
 | `heroZoom` | 1.06 | How far the hero's artwork slowly zooms over `heroInterval` |
+
+**Pages** fade forwards on every platform, as Android's own transition does: the new page fades in over `canvas` while the old one fades out. With reduced motion a page simply appears.
 
 The curve is `easeOutCubic`. No media autoplays, and nothing flashes. The placeholder fade stays well under the WCAG limit of three flashes a second.
 

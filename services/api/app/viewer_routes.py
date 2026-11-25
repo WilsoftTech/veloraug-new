@@ -112,6 +112,8 @@ class EpisodeOut(BaseModel):
     episode: int
     title: str | None
     playable: bool
+    # The ready video's length, rounded up to whole minutes.
+    runtime_minutes: int | None = None
 
 
 class SeasonOut(BaseModel):
@@ -296,6 +298,7 @@ def get_edition(
                 episode=episode.episode,
                 title=episode.title,
                 playable=episode.playable,
+                runtime_minutes=episode.runtime_minutes,
             )
         )
     card = _card(detail.summary, images)

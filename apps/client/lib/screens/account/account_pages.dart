@@ -171,7 +171,8 @@ class AccountGroup extends StatelessWidget {
           child: Column(
             children: [
               for (final (i, row) in rows.indexed) ...[
-                if (i > 0) const Divider(height: 1, indent: 56),
+                if (i > 0)
+                  const Divider(height: VeloraStroke.hairline, indent: 56),
                 row,
               ],
             ],

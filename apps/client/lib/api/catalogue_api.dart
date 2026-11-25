@@ -100,11 +100,15 @@ class Episode {
     required this.episode,
     this.title,
     this.playable = false,
+    this.runtimeMinutes,
   });
 
   final String itemId;
   final int season;
   final int episode;
+
+  /// The video's own length, rounded up; null before one is ready.
+  final int? runtimeMinutes;
   final String? title;
   final bool playable;
 }
@@ -499,6 +503,7 @@ class CatalogueApi {
               episode: _need<int>(episode['episode']),
               title: _maybe<String>(episode['title']),
               playable: _need<bool>(episode['playable'] ?? false),
+              runtimeMinutes: _maybe<int>(episode['runtime_minutes']),
             ),
       ],
     );

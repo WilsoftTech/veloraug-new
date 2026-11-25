@@ -174,7 +174,7 @@ class _NotificationsBodyState extends State<NotificationsBody> {
               child: Column(
                 children: [
                   for (final (i, n) in inbox.notifications.indexed) ...[
-                    if (i > 0) const Divider(height: 1),
+                    if (i > 0) const Divider(height: VeloraStroke.hairline),
                     _NotificationTile(
                       key: ValueKey(n.id),
                       notification: n,

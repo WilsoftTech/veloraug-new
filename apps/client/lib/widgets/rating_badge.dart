@@ -44,7 +44,7 @@ class RatingBadge extends StatelessWidget {
             children: [
               const Icon(
                 Icons.star_rounded,
-                size: 16,
+                size: VeloraIconSizes.small,
                 color: VeloraColors.rating,
               ),
               Text(
@@ -92,7 +92,7 @@ class PosterRating extends StatelessWidget {
           children: [
             const Icon(
               Icons.star_rounded,
-              size: 14,
+              size: VeloraIconSizes.badge,
               color: VeloraColors.rating,
             ),
             Text(

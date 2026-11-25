@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../theme/tokens.dart';
+import '../widgets/loading_placeholder.dart';
 import 'video_view.dart';
 import '../l10n/l10n.dart';
 
@@ -83,8 +84,9 @@ class _NativeVideoViewState extends State<_NativeVideoView> {
   Widget build(BuildContext context) {
     if (!_ready) {
       return Center(
-        child: CircularProgressIndicator(
-          semanticsLabel: context.l10n.loadingVideo,
+        child: VeloraLoadingRegion(
+          label: context.l10n.loadingVideo,
+          child: const VeloraSpinner(size: VeloraLayout.minTouchTarget),
         ),
       );
     }
@@ -149,12 +151,12 @@ class _ControlsState extends State<_Controls> {
                     ? context.l10n.pause
                     : context.l10n.play,
                 icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow),
-                color: Colors.white,
+                color: VeloraColors.onChip,
                 onPressed: value.isPlaying ? controller.pause : controller.play,
               ),
               Text(
                 _clock(value.position),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: VeloraColors.onChip),
               ),
               Expanded(
                 child: Semantics(
@@ -174,7 +176,7 @@ class _ControlsState extends State<_Controls> {
               ),
               Text(
                 _clock(value.duration),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: VeloraColors.onChip),
               ),
             ],
           ),

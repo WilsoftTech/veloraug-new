@@ -43,6 +43,17 @@ abstract final class VeloraColors {
   // Ratings. The star beside TMDB's score, and nothing else: a rating is
   // not a status, so it doesn't borrow `warning`.
   static const Color rating = Color(0xFFF5BE5B);
+
+  // Over artwork. A chip, such as a VJ's name on a poster, is near-black
+  // with white text, readable on any picture. The scrims darken a backdrop
+  // towards `canvas` so text over it stays readable.
+  static const Color chip = Color(0xD1000000);
+  static const Color onChip = Color(0xFFFFFFFF);
+  static const Color scrimLight = Color(0x660E1014);
+  static const Color scrimHeavy = Color(0xB30E1014);
+
+  // Behind a playing video, where it doesn't fill the screen.
+  static const Color video = Color(0xFF000000);
 }
 
 abstract final class VeloraSpacing {
@@ -54,6 +65,30 @@ abstract final class VeloraSpacing {
   static const double xl = 32;
   static const double xxl = 48;
   static const double xxxl = 64;
+}
+
+/// Icon and spinner sizes, smallest to largest.
+abstract final class VeloraIconSizes {
+  /// Inside a status badge.
+  static const double badge = 14;
+
+  /// Beside small text, such as a rating or a field's error.
+  static const double small = 16;
+
+  /// Inside a button or a chip.
+  static const double button = 18;
+
+  /// Beside body text, such as a fact or a chevron.
+  static const double medium = 20;
+
+  /// Material's own size, and a download's ring.
+  static const double standard = 24;
+
+  /// A loading spinner for a whole page, or an empty state's icon.
+  static const double large = 32;
+
+  /// The placeholder on a poster with no artwork.
+  static const double poster = 40;
 }
 
 abstract final class VeloraRadii {
@@ -111,6 +146,22 @@ abstract final class VeloraLayout {
 
   /// The dot that marks something unread.
   static const double dotSize = 8;
+
+  /// Width over height of a backdrop, and of an episode's thumbnail.
+  static const double backdropAspectRatio = 16 / 9;
+
+  /// An episode's thumbnail in its row.
+  static const double episodeThumbWidth = 128;
+
+  /// A thin bar showing how far the viewer got.
+  static const double progressBarHeight = 4;
+
+  /// A download's progress ring, the size of an icon.
+  static const double progressRingSize = 24;
+
+  /// Page headings grow with the viewer's text size up to this, so a long
+  /// word still fits a phone. Other text keeps growing.
+  static const double maxHeadingTextScale = 1.5;
 
   /// Width over height of a movie poster.
   static const double posterAspectRatio = 2 / 3;

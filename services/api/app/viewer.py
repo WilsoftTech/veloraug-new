@@ -74,6 +74,8 @@ class Episode:
     episode: int
     title: str | None
     playable: bool
+    # From the ready video's own length, rounded up; None before one is ready.
+    runtime_minutes: int | None = None
 
 
 @dataclass
@@ -216,7 +218,9 @@ def get_edition(conn: psycopg.Connection, edition_id: UUID) -> EditionDetail | N
     items = conn.execute(
         """
         select i.id, i.season, i.episode, i.episode_title,
-               exists (select from public.media_originals o where o.item_id = i.id)
+               exists (select from public.media_originals o where o.item_id = i.id),
+               (select ceil(max(o.duration_seconds) / 60)::int
+                from public.media_originals o where o.item_id = i.id)
         from public.items i where i.edition_id = %s
         order by i.season nulls first, i.episode nulls first
         """,

@@ -463,7 +463,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ? widget.title
         : l.episodeHeading(widget.title, episode.season, episode.episode);
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: VeloraColors.video,
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
@@ -486,7 +486,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           _Phase.granting => Center(
             child: VeloraLoadingRegion(
               label: l.gettingReady,
-              child: const VeloraSpinner(size: 32),
+              child: const VeloraSpinner(size: VeloraIconSizes.large),
             ),
           ),
           _Phase.failed => Center(

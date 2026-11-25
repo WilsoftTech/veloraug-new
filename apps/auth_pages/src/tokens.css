@@ -36,6 +36,11 @@
   --velora-color-info-container: #14233d;
 
   --velora-color-rating: #f5be5b;
+  --velora-color-chip: rgba(0, 0, 0, 0.82);
+  --velora-color-on-chip: #ffffff;
+  --velora-color-scrim-light: rgba(14, 16, 20, 0.4);
+  --velora-color-scrim-heavy: rgba(14, 16, 20, 0.7);
+  --velora-color-video: #000000;
 
   --velora-space-xxs: 4px;
   --velora-space-xs: 8px;
@@ -58,6 +63,16 @@
   --velora-avatar-size: 56px;
   --velora-thumb-width: 48px;
   --velora-dot-size: 8px;
+  --velora-icon-badge: 14px;
+  --velora-icon-small: 16px;
+  --velora-icon-button: 18px;
+  --velora-icon-medium: 20px;
+  --velora-icon-standard: 24px;
+  --velora-icon-large: 32px;
+  --velora-icon-poster: 40px;
+  --velora-episode-thumb-width: 128px;
+  --velora-progress-bar-height: 4px;
+  --velora-progress-ring-size: 24px;
 
   --velora-motion-fast: 120ms;
   --velora-motion-standard: 200ms;
