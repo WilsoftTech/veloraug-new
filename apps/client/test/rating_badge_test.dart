@@ -170,6 +170,18 @@ void main() {
       );
     });
 
+    testWidgets('fits a narrow phone at a large text size', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 600);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _app(TmdbAttribution(editions: [_card('a', rating: 5)]), textScale: 2),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Ratings from'), findsOneWidget);
+    });
+
     testWidgets('shows nothing when no title has one', (tester) async {
       await tester.pumpWidget(
         _app(TmdbAttribution(editions: [_card('a'), _card('b')])),

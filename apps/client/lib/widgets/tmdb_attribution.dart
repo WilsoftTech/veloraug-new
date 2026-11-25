@@ -53,10 +53,13 @@ class TmdbAttribution extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         spacing: VeloraSpacing.xs,
         children: [
-          Text(
-            l.ratingsFromTmdb,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          // Wraps rather than overflow on a narrow phone at large text.
+          Flexible(
+            child: Text(
+              l.ratingsFromTmdb,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const TmdbLogo(),
