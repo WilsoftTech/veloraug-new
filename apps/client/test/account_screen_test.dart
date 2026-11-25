@@ -232,6 +232,9 @@ void main() {
     expect(find.text('Send the kept token'), findsOneWidget);
     final before = tester.state(find.byType(DevTokenChecks));
 
+    // Sign out is at the foot of the hub.
+    await tester.ensureVisible(find.widgetWithText(OutlinedButton, 'Sign out'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
     await tester.pumpAndSettle();
 
@@ -239,6 +242,9 @@ void main() {
     // The card itself isn't rebuilt by signing out.
     expect(tester.state(find.byType(DevTokenChecks)), same(before));
     expect(find.text('Send the kept token'), findsOneWidget);
+    // The hub's glance asks this device's real credential store, which never
+    // answers in tests: let its two-second limit pass.
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('signs in and out from the Account screen', (tester) async {
@@ -303,13 +309,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text("You're signed in"), findsOneWidget);
-    expect(find.text('Signed in as person@example.test.'), findsOneWidget);
+    // Without a display name, the email is the card's title.
+    expect(find.text('person@example.test'), findsOneWidget);
     expect(find.textContaining('SECRET'), findsNothing);
 
+    // Sign out is at the foot of the hub.
+    await tester.ensureVisible(find.widgetWithText(OutlinedButton, 'Sign out'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
     await tester.pumpAndSettle();
 
     expect(find.text("You're signed out"), findsOneWidget);
     expect(find.text("You're signed out."), findsOneWidget);
+    // The hub's glance asks this device's real credential store, which never
+    // answers in tests: let its two-second limit pass.
+    await tester.pump(const Duration(seconds: 3));
   });
 }

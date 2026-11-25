@@ -748,12 +748,6 @@ abstract class AppLocalizations {
   /// **'Signing out…'**
   String get signingOut;
 
-  /// No description provided for @signedInAs.
-  ///
-  /// In en, this message translates to:
-  /// **'Signed in as {email}.'**
-  String signedInAs(String email);
-
   /// No description provided for @signedInOnDevice.
   ///
   /// In en, this message translates to:
@@ -2875,7 +2869,7 @@ abstract class AppLocalizations {
   /// No description provided for @devicesNone.
   ///
   /// In en, this message translates to:
-  /// **'No devices yet. A device registers itself the first time it plays.'**
+  /// **'No devices yet'**
   String get devicesNone;
 
   /// No description provided for @devicesOverLimit.
@@ -3001,7 +2995,7 @@ abstract class AppLocalizations {
   /// No description provided for @paymentsNone.
   ///
   /// In en, this message translates to:
-  /// **'No payments yet.'**
+  /// **'No payments yet'**
   String get paymentsNone;
 
   /// No description provided for @paymentsCouldNotLoad.
@@ -3757,12 +3751,6 @@ abstract class AppLocalizations {
   /// Account row and page title.
   ///
   /// In en, this message translates to:
-  /// **'Account status'**
-  String get accountStatusTitle;
-
-  /// Account row and page title.
-  ///
-  /// In en, this message translates to:
   /// **'Settings'**
   String get settingsTitle;
 
@@ -3771,12 +3759,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Danger zone'**
   String get dangerZoneTitle;
-
-  /// Profile card title: the email used to sign in.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign-in email'**
-  String get signInEmail;
 
   /// Shown on an account page that needs a sign-in.
   ///
@@ -3940,35 +3922,11 @@ abstract class AppLocalizations {
   /// **'{device} was removed from your account by VeloraUG.'**
   String noticeDeviceRemovedBody(String device);
 
-  /// Account status introduction.
-  ///
-  /// In en, this message translates to:
-  /// **'What our systems say about your account. Sign-in and membership are checked separately.'**
-  String get accountStatusIntro;
-
   /// Account status card: the sign-in account.
   ///
   /// In en, this message translates to:
   /// **'Sign-in'**
   String get statusSignIn;
-
-  /// Account status card: the plan.
-  ///
-  /// In en, this message translates to:
-  /// **'Membership'**
-  String get statusMembership;
-
-  /// Account status card: a deletion in progress.
-  ///
-  /// In en, this message translates to:
-  /// **'Account deletion'**
-  String get statusDeletion;
-
-  /// A value no source could confirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Unknown: couldn\'t be checked'**
-  String get statusUnknown;
 
   /// Sign-in status badge.
   ///
@@ -3993,36 +3951,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'From your sign-in provider, when you last signed in.'**
   String get statusFromSignIn;
-
-  /// Where the membership status comes from.
-  ///
-  /// In en, this message translates to:
-  /// **'From VeloraUG, now.'**
-  String get statusFromVeloraUG;
-
-  /// Account status: the end of the last queued plan.
-  ///
-  /// In en, this message translates to:
-  /// **'Plans bought in advance run until {date}'**
-  String membershipRenewsUntil(String date);
-
-  /// Account status badge: a deletion that stopped part way.
-  ///
-  /// In en, this message translates to:
-  /// **'Started, not finished'**
-  String get deletionPending;
-
-  /// Account status badge: a finished deletion.
-  ///
-  /// In en, this message translates to:
-  /// **'Completed'**
-  String get deletionCompleted;
-
-  /// Settings group heading.
-  ///
-  /// In en, this message translates to:
-  /// **'Devices'**
-  String get devicesGroup;
 
   /// Settings group heading.
   ///
@@ -4138,41 +4066,11 @@ abstract class AppLocalizations {
   /// **'Push notifications'**
   String get pushTitle;
 
-  /// Push notifications not available in this version.
-  ///
-  /// In en, this message translates to:
-  /// **'VeloraUG can\'t send push notifications yet.'**
-  String get pushNotSetUp;
-
   /// Push notifications on the web.
   ///
   /// In en, this message translates to:
   /// **'Push notifications are only offered in the Android app.'**
   String get pushNotOnWeb;
-
-  /// The phone's notification setting.
-  ///
-  /// In en, this message translates to:
-  /// **'Android allows notifications from VeloraUG.'**
-  String get pushOsAllowed;
-
-  /// The phone's notification setting.
-  ///
-  /// In en, this message translates to:
-  /// **'Notifications from VeloraUG are off in Android\'s settings.'**
-  String get pushOsBlocked;
-
-  /// The phone's notification setting.
-  ///
-  /// In en, this message translates to:
-  /// **'Couldn\'t read Android\'s notification setting.'**
-  String get pushOsUnknown;
-
-  /// Push notifications help.
-  ///
-  /// In en, this message translates to:
-  /// **'Your inbox in Account › Notifications works either way.'**
-  String get pushInboxStillWorks;
 
   /// Settings row.
   ///
@@ -4749,6 +4647,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Any category'**
   String get filterAnyCategory;
+
+  /// No description provided for @hubNoPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'No plan · Choose a plan'**
+  String get hubNoPlan;
+
+  /// No description provided for @notificationsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new'**
+  String notificationsNew(int count);
+
+  /// No description provided for @devicesNoneHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'A device registers itself the first time it plays a title.'**
+  String get devicesNoneHelp;
+
+  /// No description provided for @paymentsNoneHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'When you buy a plan, the payment shows here.'**
+  String get paymentsNoneHelp;
+
+  /// No description provided for @pushComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon. Notifications still arrive in your inbox.'**
+  String get pushComingSoon;
 }
 
 class _AppLocalizationsDelegate

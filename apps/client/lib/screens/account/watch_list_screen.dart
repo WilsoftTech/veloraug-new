@@ -103,7 +103,7 @@ class _WatchListState extends State<_WatchList> {
               key: ValueKey(item.itemId),
               child: ListTile(
                 leading: SizedBox(
-                  width: 36,
+                  width: VeloraLayout.thumbWidth,
                   child: MoviePoster(url: item.edition.posterUrl),
                 ),
                 title: Text(item.title(l)),

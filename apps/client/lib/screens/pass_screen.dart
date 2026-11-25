@@ -70,9 +70,16 @@ String passFailureMessage(AppLocalizations l, PassFailure failure) =>
 /// plan. A payment shows as made only once the API has confirmed it with
 /// Pesapal, never because the browser came back from Pesapal's page.
 class MembershipSection extends StatefulWidget {
-  const MembershipSection({super.key, this.clock = DateTime.now});
+  const MembershipSection({
+    super.key,
+    this.clock = DateTime.now,
+    this.titled = true,
+  });
 
   final DateTime Function() clock;
+
+  /// False where the page's own heading already names it.
+  final bool titled;
 
   @override
   State<MembershipSection> createState() => _MembershipSectionState();
@@ -127,7 +134,10 @@ class _MembershipSectionState extends State<MembershipSection> {
     } else {
       body = _membership(context, status);
     }
-    return AccountCard(title: l.myMembership, child: body);
+    return AccountCard(
+      title: widget.titled ? l.myMembership : null,
+      child: body,
+    );
   }
 
   Widget _membership(BuildContext context, PassStatus status) {
@@ -236,11 +246,12 @@ class _MembershipSectionState extends State<MembershipSection> {
   }
 }
 
-/// A titled card on the Account tab.
+/// A card on the Account tab, titled unless the page's heading already
+/// names it.
 class AccountCard extends StatelessWidget {
   const AccountCard({super.key, required this.title, required this.child});
 
-  final String title;
+  final String? title;
   final Widget child;
 
   @override
@@ -252,13 +263,14 @@ class AccountCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: VeloraSpacing.sm,
           children: [
-            Semantics(
-              header: true,
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
+            if (title case final title?)
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
-            ),
             child,
           ],
         ),

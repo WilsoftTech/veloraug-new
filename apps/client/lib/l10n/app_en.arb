@@ -286,14 +286,6 @@
   "signOut": "Sign out",
   "waitingForSignIn": "Waiting for the sign-in page…",
   "signingOut": "Signing out…",
-  "signedInAs": "Signed in as {email}.",
-  "@signedInAs": {
-    "placeholders": {
-      "email": {
-        "type": "String"
-      }
-    }
-  },
   "signedInOnDevice": "Your account is signed in on this device.",
   "signInCancelled": "Sign-in was cancelled, so you're still signed out.",
   "signInBrowserFailed": "The sign-in page couldn't open. Check that a browser is available, and on the web that pop-ups are allowed, then try again.",
@@ -1143,7 +1135,7 @@
       }
     }
   },
-  "devicesNone": "No devices yet. A device registers itself the first time it plays.",
+  "devicesNone": "No devices yet",
   "devicesOverLimit": "{count, plural, =1{Your plan now allows 1 device. Remove the ones you no longer use to keep watching.} other{Your plan now allows {count} devices. Remove the ones you no longer use to keep watching.}}",
   "@devicesOverLimit": {
     "placeholders": {
@@ -1202,7 +1194,7 @@
     }
   },
   "paymentsHeading": "Payments",
-  "paymentsNone": "No payments yet.",
+  "paymentsNone": "No payments yet",
   "paymentsCouldNotLoad": "Couldn't load your payments.",
   "paymentStateCompleted": "Paid",
   "paymentStatePending": "Being checked",
@@ -1635,10 +1627,6 @@
   "@profileTitle": {
     "description": "Account row and page title."
   },
-  "accountStatusTitle": "Account status",
-  "@accountStatusTitle": {
-    "description": "Account row and page title."
-  },
   "settingsTitle": "Settings",
   "@settingsTitle": {
     "description": "Account row and page title."
@@ -1646,10 +1634,6 @@
   "dangerZoneTitle": "Danger zone",
   "@dangerZoneTitle": {
     "description": "Account row and page title: deleting the account."
-  },
-  "signInEmail": "Sign-in email",
-  "@signInEmail": {
-    "description": "Profile card title: the email used to sign in."
   },
   "signInToSeeThis": "Sign in to see this page.",
   "@signInToSeeThis": {
@@ -1794,25 +1778,9 @@
       }
     }
   },
-  "accountStatusIntro": "What our systems say about your account. Sign-in and membership are checked separately.",
-  "@accountStatusIntro": {
-    "description": "Account status introduction."
-  },
   "statusSignIn": "Sign-in",
   "@statusSignIn": {
     "description": "Account status card: the sign-in account."
-  },
-  "statusMembership": "Membership",
-  "@statusMembership": {
-    "description": "Account status card: the plan."
-  },
-  "statusDeletion": "Account deletion",
-  "@statusDeletion": {
-    "description": "Account status card: a deletion in progress."
-  },
-  "statusUnknown": "Unknown: couldn't be checked",
-  "@statusUnknown": {
-    "description": "A value no source could confirm."
   },
   "emailVerified": "Email verified",
   "@emailVerified": {
@@ -1829,31 +1797,6 @@
   "statusFromSignIn": "From your sign-in provider, when you last signed in.",
   "@statusFromSignIn": {
     "description": "Where the sign-in status comes from."
-  },
-  "statusFromVeloraUG": "From VeloraUG, now.",
-  "@statusFromVeloraUG": {
-    "description": "Where the membership status comes from."
-  },
-  "membershipRenewsUntil": "Plans bought in advance run until {date}",
-  "@membershipRenewsUntil": {
-    "description": "Account status: the end of the last queued plan.",
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "deletionPending": "Started, not finished",
-  "@deletionPending": {
-    "description": "Account status badge: a deletion that stopped part way."
-  },
-  "deletionCompleted": "Completed",
-  "@deletionCompleted": {
-    "description": "Account status badge: a finished deletion."
-  },
-  "devicesGroup": "Devices",
-  "@devicesGroup": {
-    "description": "Settings group heading."
   },
   "securityGroup": "Security and notifications",
   "@securityGroup": {
@@ -1931,29 +1874,9 @@
   "@pushTitle": {
     "description": "Settings switch."
   },
-  "pushNotSetUp": "VeloraUG can't send push notifications yet.",
-  "@pushNotSetUp": {
-    "description": "Push notifications not available in this version."
-  },
   "pushNotOnWeb": "Push notifications are only offered in the Android app.",
   "@pushNotOnWeb": {
     "description": "Push notifications on the web."
-  },
-  "pushOsAllowed": "Android allows notifications from VeloraUG.",
-  "@pushOsAllowed": {
-    "description": "The phone's notification setting."
-  },
-  "pushOsBlocked": "Notifications from VeloraUG are off in Android's settings.",
-  "@pushOsBlocked": {
-    "description": "The phone's notification setting."
-  },
-  "pushOsUnknown": "Couldn't read Android's notification setting.",
-  "@pushOsUnknown": {
-    "description": "The phone's notification setting."
-  },
-  "pushInboxStillWorks": "Your inbox in Account › Notifications works either way.",
-  "@pushInboxStillWorks": {
-    "description": "Push notifications help."
   },
   "passwordResetTitle": "Reset password",
   "@passwordResetTitle": {
@@ -2289,5 +2212,17 @@
   "categoriesSaved": "Categories saved",
   "indianMovies": "Indian Movies",
   "filterCategory": "Category",
-  "filterAnyCategory": "Any category"
+  "filterAnyCategory": "Any category",
+  "hubNoPlan": "No plan · Choose a plan",
+  "notificationsNew": "{count} new",
+  "@notificationsNew": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "devicesNoneHelp": "A device registers itself the first time it plays a title.",
+  "paymentsNoneHelp": "When you buy a plan, the payment shows here.",
+  "pushComingSoon": "Coming soon. Notifications still arrive in your inbox."
 }

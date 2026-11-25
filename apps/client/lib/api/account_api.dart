@@ -299,6 +299,17 @@ class AccountApi {
     }
   }
 
+  /// The viewer's display name, or null if they haven't set one. Reads the
+  /// profile the Profile page shows.
+  Future<String?> displayName() async {
+    final json = (await _send('GET', '/api/v1/me')).json;
+    if (json case {'display_name': final String name}
+        when name.trim().isNotEmpty) {
+      return name.trim();
+    }
+    return null;
+  }
+
   Future<NotificationInbox> notifications() async {
     final answer = await _send('GET', '/api/v1/me/notifications');
     final json = answer.json;

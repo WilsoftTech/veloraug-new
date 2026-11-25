@@ -231,6 +231,9 @@ class FakeApi {
 
   bool isAdmin = false;
 
+  /// The viewer's display name, as GET /api/v1/me gives it.
+  String? displayName;
+
   /// Passes, Step 10C: what's for sale, the viewer's pass, and the states a
   /// payment goes through as it's checked. The last state repeats.
   List<Map<String, Object?>> passPlans = [
@@ -363,6 +366,9 @@ class FakeApi {
       stoppedSessions.add(request.url.pathSegments.last);
       grantRefusal = null;
       return http.Response('', 204);
+    }
+    if (path == '/api/v1/me' && request.method == 'GET') {
+      return json({'user_id': 'u1', 'display_name': displayName});
     }
     if (path == '/api/v1/me/pass') return json(myPass);
     if (path == '/api/v1/me/history') {

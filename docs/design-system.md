@@ -140,6 +140,9 @@ The sign-in pages can't load web fonts, because their Content-Security-Policy al
 | Forms | 420 pixels at most |
 | Reading screens, such as Search and Account | 720 pixels at most |
 | Browsing screens, such as Home | 1280 pixels at most |
+| An avatar, such as the viewer's initial on Account (`avatarSize`) | 56 pixels |
+| A poster beside a line of text, such as in Watch history (`thumbWidth`) | 48 pixels wide, 2:3 |
+| The dot marking something unread (`dotSize`) | 8 pixels, in `accentText` |
 | Home's hero, narrower than 600 pixels | The full screen width, edge to edge, 4:5 |
 | Home's hero, 600 pixels and wider | The content width, 21:9, between 420 and 560 pixels tall, rounded |
 

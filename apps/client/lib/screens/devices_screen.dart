@@ -28,7 +28,10 @@ IconData platformIcon(String platform) => switch (platform) {
 /// which one is this, when each was last used, removing and renaming, and
 /// what is playing now, with a way to stop it.
 class DevicesSection extends StatefulWidget {
-  const DevicesSection({super.key});
+  const DevicesSection({super.key, this.titled = true});
+
+  /// False where the page's own heading already names it.
+  final bool titled;
 
   @override
   State<DevicesSection> createState() => _DevicesSectionState();
@@ -188,35 +191,71 @@ class _DevicesSectionState extends State<DevicesSection> {
             )
           else
             Text(l.devicesAllowance(devices.allowed)),
-          if (devices.devices.isEmpty) Text(l.devicesNone),
+          if (devices.devices.isEmpty)
+            EmptyState(
+              icon: Icons.devices_outlined,
+              title: l.devicesNone,
+              message: l.devicesNoneHelp,
+            ),
+          // The name has the full width; its actions sit under it, so a long
+          // name or large text never squeezes it.
           for (final device in devices.devices)
-            ListTile(
+            Padding(
               key: ValueKey('device-${device.id}'),
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(platformIcon(device.platform)),
-              title: Wrap(
-                spacing: VeloraSpacing.xs,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              padding: const EdgeInsets.symmetric(vertical: VeloraSpacing.xs),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: VeloraSpacing.md,
                 children: [
-                  Text(device.label),
-                  if (device.current)
-                    StatusBadge(label: l.thisDevice, tone: StatusTone.info),
-                ],
-              ),
-              subtitle: Text(
-                '${platformName(l, device.platform)} · '
-                '${l.lastActive(dates.formatMediumDate(device.lastActiveAt.toLocal()))}',
-              ),
-              trailing: Wrap(
-                children: [
-                  IconButton(
-                    tooltip: l.renameDevice,
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: _busy ? null : () => _rename(device),
+                  Icon(
+                    platformIcon(device.platform),
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  TextButton(
-                    onPressed: _busy ? null : () => _remove(device),
-                    child: Text(l.removeDevice),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: VeloraSpacing.xxs,
+                      children: [
+                        Wrap(
+                          spacing: VeloraSpacing.xs,
+                          runSpacing: VeloraSpacing.xxs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              device.label,
+                              style: theme.textTheme.titleSmall,
+                            ),
+                            if (device.current)
+                              StatusBadge(
+                                label: l.thisDevice,
+                                tone: StatusTone.info,
+                              ),
+                          ],
+                        ),
+                        Text(
+                          '${platformName(l, device.platform)} · '
+                          '${l.lastActive(dates.formatMediumDate(device.lastActiveAt.toLocal()))}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Wrap(
+                          spacing: VeloraSpacing.xs,
+                          children: [
+                            TextButton.icon(
+                              icon: const Icon(Icons.edit_outlined),
+                              onPressed: _busy ? null : () => _rename(device),
+                              label: Text(l.renameDevice),
+                            ),
+                            TextButton.icon(
+                              icon: const Icon(Icons.phonelink_erase),
+                              onPressed: _busy ? null : () => _remove(device),
+                              label: Text(l.removeDevice),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -254,14 +293,17 @@ class _DevicesSectionState extends State<DevicesSection> {
         ],
       );
     }
-    return AccountCard(title: l.myDevices, child: body);
+    return AccountCard(title: widget.titled ? l.myDevices : null, child: body);
   }
 }
 
 /// The Account tab's "Payments": the viewer's recent payments, as the API
 /// has confirmed them with Pesapal.
 class PaymentsSection extends StatefulWidget {
-  const PaymentsSection({super.key});
+  const PaymentsSection({super.key, this.titled = true});
+
+  /// False where the page's own heading already names it.
+  final bool titled;
 
   @override
   State<PaymentsSection> createState() => _PaymentsSectionState();
@@ -312,31 +354,53 @@ class _PaymentsSectionState extends State<PaymentsSection> {
         child: const VeloraSkeleton(height: 48),
       );
     } else if (payments.isEmpty) {
-      body = Text(l.paymentsNone);
+      body = EmptyState(
+        icon: Icons.receipt_long_outlined,
+        title: l.paymentsNone,
+        message: l.paymentsNoneHelp,
+      );
     } else {
+      final theme = Theme.of(context);
+      final muted = theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      );
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final payment in payments)
-            ListTile(
+          for (final (i, payment) in payments.indexed) ...[
+            if (i > 0) const Divider(height: VeloraSpacing.lg),
+            // Each fact on its own line, so large text wraps cleanly.
+            Column(
               key: ValueKey('payment-${payment.id}'),
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                '${payment.planName} · ${formatUgx(context, payment.amountUgx)}',
-              ),
-              subtitle: Text(
-                [
-                  formatPassEnd(context, payment.createdAt),
-                  if (payment.providerReference case final ref?)
-                    l.paymentReference(ref),
-                ].join(' · '),
-              ),
-              trailing: PaymentStateBadge(payment.state),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: VeloraSpacing.xxs,
+              children: [
+                Wrap(
+                  spacing: VeloraSpacing.xs,
+                  runSpacing: VeloraSpacing.xxs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(payment.planName, style: theme.textTheme.titleSmall),
+                    PaymentStateBadge(payment.state),
+                  ],
+                ),
+                Text(
+                  formatUgx(context, payment.amountUgx),
+                  style: theme.textTheme.bodyLarge,
+                ),
+                Text(formatPassEnd(context, payment.createdAt), style: muted),
+                if (payment.providerReference case final ref?)
+                  Text(l.paymentReference(ref), style: muted),
+              ],
             ),
+          ],
         ],
       );
     }
-    return AccountCard(title: l.paymentsHeading, child: body);
+    return AccountCard(
+      title: widget.titled ? l.paymentsHeading : null,
+      child: body,
+    );
   }
 }
 

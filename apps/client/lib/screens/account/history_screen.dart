@@ -127,17 +127,22 @@ class _HistoryTile extends StatelessWidget {
         ? l.episodeHeading(edition.title, entry.season!, entry.episode!)
         : edition.title;
     final resume = entry.resumeAt;
+    // "Movie · Luganda · VJ Junior", or the episode's name for a series.
+    final kind = entry.isEpisode ? entry.episodeTitle : l.movie;
     return Card.outlined(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => openEdition(context, edition),
         child: Padding(
           padding: const EdgeInsets.all(VeloraSpacing.sm),
+          // The text has the width beside the poster; Resume sits under it,
+          // so a long title or large text never squeezes it.
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             spacing: VeloraSpacing.sm,
             children: [
               SizedBox(
-                width: 48,
+                width: VeloraLayout.thumbWidth,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(VeloraRadii.sm),
                   child: MoviePoster(url: edition.posterUrl),
@@ -149,31 +154,32 @@ class _HistoryTile extends StatelessWidget {
                   spacing: VeloraSpacing.xxs,
                   children: [
                     Text(title, style: theme.textTheme.titleSmall),
-                    if (entry.episodeTitle case final name?)
-                      Text(name, style: muted),
-                    Text(edition.label, style: muted),
+                    Text([?kind, edition.label].join(' · '), style: muted),
                     Text(
                       l.watchedAt(formatWhen(context, entry.lastWatchedAt)),
                       style: muted,
                     ),
+                    if (resume != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: VeloraSpacing.xs),
+                        child: VeloraButton(
+                          label: l.resume,
+                          icon: Icons.play_arrow,
+                          variant: VeloraButtonVariant.secondary,
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PlayerScreen(
+                                itemId: entry.itemId,
+                                title: edition.title,
+                                startAt: resume,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
-              if (resume != null)
-                VeloraButton(
-                  label: l.resume,
-                  icon: Icons.play_arrow,
-                  variant: VeloraButtonVariant.secondary,
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => PlayerScreen(
-                        itemId: entry.itemId,
-                        title: edition.title,
-                        startAt: resume,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
