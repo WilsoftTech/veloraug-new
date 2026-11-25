@@ -101,6 +101,7 @@ class AdminEdition {
     this.items = const [],
     this.missing = const [],
     this.matches = const [],
+    this.categories = const [],
   });
 
   final String id;
@@ -133,7 +134,25 @@ class AdminEdition {
   final List<String> missing;
   final List<TmdbMatch> matches;
 
+  /// VeloraUG's own categories, such as Indian or Kids, in the order added.
+  final List<String> categories;
+
   bool get published => status == 'published';
+}
+
+/// A category, with how many editions have it, for autocomplete.
+class AdminCategory {
+  const AdminCategory({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.editions = 0,
+  });
+
+  final String id;
+  final String name;
+  final String slug;
+  final int editions;
 }
 
 class PosterOption {
@@ -658,6 +677,23 @@ class AdminApi {
     }),
   );
 
+  /// Every category, the most used first.
+  Future<List<AdminCategory>> categories() async => [
+    for (final row in _rows(await _send('GET', '/categories')))
+      AdminCategory(
+        id: _need<String>(row['id']),
+        name: _need<String>(row['name']),
+        slug: _need<String>(row['slug']),
+        editions: _need<int>(row['editions'] ?? 0),
+      ),
+  ];
+
+  /// Replaces the edition's categories. New names become categories.
+  Future<AdminEdition> setCategories(String id, List<String> names) async =>
+      _edition(
+        await _send('PUT', '/editions/${_id(id)}/categories', {'names': names}),
+      );
+
   /// Publishes, or throws [AdminFailure.conflict] with what is missing.
   Future<AdminEdition> publish(String id) async =>
       _edition(await _send('POST', '/editions/${_id(id)}/publish'));
@@ -1057,6 +1093,10 @@ class AdminApi {
             overview: _maybe<String>(row['overview']),
             posterUrl: safeImageUrl(row['poster_url'], gateway: mediaBaseUrl),
           ),
+      ],
+      categories: [
+        for (final name in _need<List<Object?>>(json['categories'] ?? const []))
+          _need<String>(name),
       ],
     );
   }

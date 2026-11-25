@@ -13,6 +13,7 @@ import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
 import '../widgets/velora_text_field.dart';
 import 'admin_common.dart';
+import 'category_input.dart';
 import 'drafts_view.dart' show checkNumber;
 import 'image_picker.dart';
 
@@ -33,6 +34,9 @@ class _DraftScreenState extends State<DraftScreen> {
   Credit? _credit;
   List<AdminVj> _vjs = const [];
   PosterOptions? _posters;
+
+  /// Known category names, for autocomplete. Empty if they didn't load.
+  List<String> _knownCategories = const [];
   bool _busy = false;
   bool _started = false;
 
@@ -42,6 +46,7 @@ class _DraftScreenState extends State<DraftScreen> {
     if (!_started) {
       _started = true;
       _load();
+      _loadCategories();
     }
   }
 
@@ -61,6 +66,20 @@ class _DraftScreenState extends State<DraftScreen> {
       });
     } on AdminException catch (error) {
       if (mounted) setState(() => _failure = error);
+    }
+  }
+
+  /// Only for autocomplete: without them, names can still be typed.
+  Future<void> _loadCategories() async {
+    final api = AdminScope.of(context);
+    if (api == null) return;
+    try {
+      final categories = await api.categories();
+      if (mounted) {
+        setState(() => _knownCategories = [for (final c in categories) c.name]);
+      }
+    } on AdminException {
+      // Left without suggestions.
     }
   }
 
@@ -154,6 +173,7 @@ class _DraftScreenState extends State<DraftScreen> {
       children: [
         _videos(l, edition),
         _details(l, edition),
+        _categories(l, edition),
         _poster(l, edition),
         _creditSection(l, edition),
         _publishing(l, edition),
@@ -692,6 +712,29 @@ class _DraftScreenState extends State<DraftScreen> {
       );
       return api.choosePoster(edition.id, path);
     }, done: l.posterUploaded);
+  }
+
+  // --- Categories ------------------------------------------------------------
+
+  Widget _categories(AppLocalizations l, AdminEdition edition) {
+    return AdminSection(
+      title: l.categoriesSection,
+      children: [
+        Text(l.categoriesIntro),
+        CategoryInput(
+          categories: edition.categories,
+          suggestions: _knownCategories,
+          onChanged: (names) async {
+            await _change(
+              (api) => api.setCategories(edition.id, names),
+              done: l.categoriesSaved,
+            );
+            // A new name joins the suggestions.
+            if (mounted) await _loadCategories();
+          },
+        ),
+      ],
+    );
   }
 
   // --- VJ credit ---------------------------------------------------------------

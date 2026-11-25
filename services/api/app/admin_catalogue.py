@@ -323,6 +323,8 @@ class EditionState:
     items: list[ItemState] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
     matches: list[SearchResult] = field(default_factory=list)
+    # Category names, in the order they were added.
+    categories: list[str] = field(default_factory=list)
 
 
 _EDITION = """
@@ -392,6 +394,7 @@ def get_edition(conn: psycopg.Connection, edition_id: uuid.UUID) -> EditionState
             (edition_id,),
         ).fetchall()
     ]
+    state.categories = edition_categories(conn, edition_id)
     return state
 
 
@@ -759,3 +762,127 @@ def ready_original(conn: psycopg.Connection, item_id: uuid.UUID) -> uuid.UUID | 
         (item_id,),
     ).fetchone()
     return row[0] if row else None
+
+
+# --- Categories --------------------------------------------------------------
+
+MAX_CATEGORIES = 10
+MAX_CATEGORY_LENGTH = 40
+
+
+def normalise_category(name: str) -> str:
+    """Trimmed, with single spaces. Refuses what a category can't be."""
+    name = " ".join(str(name).split())
+    if not name:
+        raise AdminError("A category needs a name")
+    if len(name) > MAX_CATEGORY_LENGTH:
+        raise AdminError(
+            f"A category is at most {MAX_CATEGORY_LENGTH} characters: {name[:40]}…"
+        )
+    if "," in name:
+        raise AdminError("A category can't contain a comma")
+    return name
+
+
+def category_slug(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:50].strip("-")
+    # A name without Latin letters or digits still gets an address.
+    return slug or "category"
+
+
+@dataclass(frozen=True)
+class CategoryUse:
+    id: uuid.UUID
+    name: str
+    slug: str
+    editions: int
+
+
+def list_categories(conn: psycopg.Connection) -> list[CategoryUse]:
+    """Every category, for autocomplete: the most used first, then by name."""
+    rows = conn.execute(
+        """
+        select c.id, c.name, c.slug, count(ec.edition_id)
+        from public.categories c
+        left join public.edition_categories ec on ec.category_id = c.id
+        group by c.id
+        order by count(ec.edition_id) desc, lower(c.name)
+        """
+    ).fetchall()
+    return [CategoryUse(*row) for row in rows]
+
+
+def edition_categories(conn: psycopg.Connection, edition_id: uuid.UUID) -> list[str]:
+    return [
+        name
+        for (name,) in conn.execute(
+            """
+            select c.name from public.edition_categories ec
+            join public.categories c on c.id = ec.category_id
+            where ec.edition_id = %s
+            order by ec.added_at, lower(c.name)
+            """,
+            (edition_id,),
+        ).fetchall()
+    ]
+
+
+def _category_id(conn: psycopg.Connection, name: str) -> uuid.UUID:
+    """The category with this name, whatever its case, made if it's new."""
+    row = conn.execute(
+        "select id from public.categories where lower(name) = lower(%s)", (name,)
+    ).fetchone()
+    if row:
+        return row[0]
+    base = category_slug(name)
+    for attempt in range(20):
+        slug = base if attempt == 0 else f"{base}-{attempt + 1}"
+        try:
+            with conn.transaction():
+                return conn.execute(
+                    "insert into public.categories (name, slug) values (%s, %s) "
+                    "returning id",
+                    (name, slug),
+                ).fetchone()[0]
+        except psycopg.errors.UniqueViolation as error:
+            if "categories_name_idx" in str(error):
+                # Made by another admin just now.
+                return conn.execute(
+                    "select id from public.categories where lower(name) = lower(%s)",
+                    (name,),
+                ).fetchone()[0]
+    raise AdminError("Couldn't make an address for that category. Try another name")
+
+
+def set_categories(
+    conn: psycopg.Connection, edition_id: uuid.UUID, names: list[str]
+) -> list[str]:
+    """Replaces the edition's categories. Names are matched whatever their
+    case, and new ones are made. Repeats are dropped. The saved names."""
+    wanted: list[str] = []
+    for name in names:
+        name = normalise_category(name)
+        if name.lower() not in (w.lower() for w in wanted):
+            wanted.append(name)
+    if len(wanted) > MAX_CATEGORIES:
+        raise AdminError(f"A title has at most {MAX_CATEGORIES} categories")
+    # Locks the edition, so two admins saving at once can't pass 10.
+    if not conn.execute(
+        "select 1 from public.editions where id = %s for update", (edition_id,)
+    ).fetchone():
+        raise NotFound("No such edition")
+    ids = [_category_id(conn, name) for name in wanted]
+    conn.execute(
+        "delete from public.edition_categories "
+        "where edition_id = %s and category_id <> all(%s::uuid[])",
+        (edition_id, ids),
+    )
+    for category_id in ids:
+        conn.execute(
+            # clock_timestamp, so they keep the order they were given.
+            "insert into public.edition_categories "
+            "(edition_id, category_id, added_at) "
+            "values (%s, %s, clock_timestamp()) on conflict do nothing",
+            (edition_id, category_id),
+        )
+    return edition_categories(conn, edition_id)

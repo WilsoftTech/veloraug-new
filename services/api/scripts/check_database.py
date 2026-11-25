@@ -304,6 +304,8 @@ CATALOGUE_TABLES = (
     "public.items",
     "public.tmdb_matches",
     "public.admins",
+    "public.categories",
+    "public.edition_categories",
 )
 
 
@@ -331,6 +333,8 @@ def check_catalogue(conn: psycopg.Connection) -> list[Result]:
         "public.items": set(),
         "public.tmdb_matches": set(),
         "public.admins": set(),
+        "public.categories": {"SELECT"},
+        "public.edition_categories": {"SELECT"},
     }
     wrong = []
     for table, allowed in expected.items():

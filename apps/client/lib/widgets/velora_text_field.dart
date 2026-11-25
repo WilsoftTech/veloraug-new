@@ -71,7 +71,7 @@ class VeloraTextField extends StatelessWidget {
       onChanged: onChanged,
       onFieldSubmitted: onFieldSubmitted,
       autovalidateMode: autovalidateMode,
-      errorBuilder: (context, errorText) => _FieldError(errorText),
+      errorBuilder: (context, errorText) => VeloraFieldError(errorText),
       decoration: InputDecoration(
         labelText: label,
         helperText: helperText,
@@ -83,8 +83,9 @@ class VeloraTextField extends StatelessWidget {
   }
 }
 
-class _FieldError extends StatelessWidget {
-  const _FieldError(this.message);
+/// A field's error: an icon and words in the danger colour.
+class VeloraFieldError extends StatelessWidget {
+  const VeloraFieldError(this.message, {super.key});
 
   final String message;
 

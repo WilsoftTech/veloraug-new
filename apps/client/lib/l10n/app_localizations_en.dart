@@ -2830,4 +2830,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get railsLoadFailed => 'Couldn\'t load more titles';
+
+  @override
+  String get categoriesSection => 'Categories';
+
+  @override
+  String get categoriesIntro =>
+      'Optional. Viewers can browse by category, such as Indian or Kids. Each change is saved straight away.';
+
+  @override
+  String get categoryField => 'Add a category';
+
+  @override
+  String get categoryHint => 'Type a name, then Enter or a comma';
+
+  @override
+  String categoryCount(int count, int max) {
+    return '$count of $max';
+  }
+
+  @override
+  String categoryTooLong(int max) {
+    return 'A category is at most $max characters';
+  }
+
+  @override
+  String categoriesFull(int max) {
+    return 'A title has at most $max categories. Remove one to add another.';
+  }
+
+  @override
+  String categoryRemove(String name) {
+    return 'Remove $name';
+  }
+
+  @override
+  String get categoriesNone => 'No categories yet.';
+
+  @override
+  String get categoriesSaved => 'Categories saved';
+
+  @override
+  String get indianMovies => 'Indian Movies';
+
+  @override
+  String get filterCategory => 'Category';
+
+  @override
+  String get filterAnyCategory => 'Any category';
 }

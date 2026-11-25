@@ -366,4 +366,43 @@ def test_databases_at_different_migrations_are_refused(dbs):
         with pytest.raises(CopyError, match="Migrate production first"):
             run(source, target, FakeFiles())
     finally:
-        target.execute("update public.alembic_version set version_num = '0012'")
+        target.execute("update public.alembic_version set version_num = '0013'")
+
+
+@needs_database
+def test_categories_are_copied_by_name(dbs):
+    source, target = dbs
+    files = FakeFiles()
+    edition = add_film(source, files, title="RRR")
+    made = source.execute(
+        "insert into public.categories (name, slug) values ('Tollywood', 'tollywood') "
+        "returning id"
+    ).fetchone()[0]
+    for name in ("Indian", "Tollywood"):
+        source.execute(
+            "insert into public.edition_categories (edition_id, category_id) "
+            "select %s, id from public.categories where name = %s",
+            (edition, name),
+        )
+    try:
+        run(source, target, files)
+
+        found = target.execute(
+            """
+            select c.name, c.slug from public.edition_categories ec
+            join public.categories c on c.id = ec.category_id
+            where ec.edition_id = %s order by c.name
+            """,
+            (edition,),
+        ).fetchall()
+        # Production's own Indian seed, and Tollywood, made there.
+        assert found == [("Indian", "indian"), ("Tollywood", "tollywood")]
+        (seed,) = target.execute(
+            "select count(*) from public.categories where lower(name) = 'indian'"
+        ).fetchone()
+        assert seed == 1
+    finally:
+        delete_editions(target, "id = %s", (edition,))
+        target.execute("delete from public.categories where slug = 'tollywood'")
+        delete_editions(source, "id = %s", (edition,))
+        source.execute("delete from public.categories where id = %s", (made,))

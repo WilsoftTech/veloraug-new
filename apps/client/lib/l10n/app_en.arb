@@ -2245,5 +2245,49 @@
       }
     }
   },
-  "railsLoadFailed": "Couldn't load more titles"
+  "railsLoadFailed": "Couldn't load more titles",
+  "categoriesSection": "Categories",
+  "categoriesIntro": "Optional. Viewers can browse by category, such as Indian or Kids. Each change is saved straight away.",
+  "categoryField": "Add a category",
+  "categoryHint": "Type a name, then Enter or a comma",
+  "categoryCount": "{count} of {max}",
+  "@categoryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "categoryTooLong": "A category is at most {max} characters",
+  "@categoryTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "categoriesFull": "A title has at most {max} categories. Remove one to add another.",
+  "@categoriesFull": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "categoryRemove": "Remove {name}",
+  "@categoryRemove": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "categoriesNone": "No categories yet.",
+  "categoriesSaved": "Categories saved",
+  "indianMovies": "Indian Movies",
+  "filterCategory": "Category",
+  "filterAnyCategory": "Any category"
 }
