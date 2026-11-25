@@ -81,6 +81,9 @@ class EditionCard(BaseModel):
     language: str
     # "Luganda · VJ Junior", for the edition's page.
     label: str
+    # TMDB's score for the source title, out of 10 with one decimal. Null
+    # when there is none or too few votes: the app shows nothing then.
+    rating: float | None = None
 
 
 class EditionPage(BaseModel):
@@ -116,6 +119,8 @@ class SeasonOut(BaseModel):
 
 
 class EditionDetailOut(EditionCard):
+    # How many TMDB votes the rating is from. Null whenever rating is.
+    vote_count: int | None = None
     source_title: str
     overview: str | None
     runtime_minutes: int | None
@@ -162,6 +167,7 @@ def _card(summary: viewer.EditionSummary, images: ImageUrls) -> EditionCard:
         vj_slug=summary.vj_slug,
         language=summary.language,
         label=summary.label,
+        rating=summary.rating,
     )
 
 
@@ -260,6 +266,7 @@ def get_edition(
     card = _card(detail.summary, images)
     return EditionDetailOut(
         **card.model_dump(),
+        vote_count=detail.summary.vote_count,
         source_title=detail.source_title,
         overview=detail.overview,
         runtime_minutes=detail.runtime_minutes,

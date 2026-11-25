@@ -42,6 +42,8 @@ class MovieCard extends StatefulWidget {
     super.key,
     required this.title,
     this.cornerLabel,
+    this.bottomCorner,
+    this.bottomCornerLabel,
     this.subtitle,
     this.status,
     this.artwork,
@@ -58,6 +60,12 @@ class MovieCard extends StatefulWidget {
   /// A VJ's name, shown small in the poster's top-left corner, readable over
   /// any poster, and read out after the title.
   final String? cornerLabel;
+
+  /// Shown in the poster's bottom-right corner, such as a PosterRating.
+  final Widget? bottomCorner;
+
+  /// What [bottomCorner] says, read out after [cornerLabel].
+  final String? bottomCornerLabel;
   final String? subtitle;
 
   /// Usually a StatusBadge, shown below the details.
@@ -87,6 +95,8 @@ class _MovieCardState extends State<MovieCard> {
     final subtitle = widget.subtitle;
     final status = widget.status;
     final corner = widget.cornerLabel;
+    final trailing = widget.bottomCorner;
+    final trailingLabel = widget.bottomCornerLabel;
     final artwork = widget.artwork ?? const PosterPlaceholder();
 
     final BorderSide border;
@@ -123,7 +133,12 @@ class _MovieCardState extends State<MovieCard> {
             enabled: enabled,
             excludeSemantics: true,
             onTap: widget.onTap,
-            label: [widget.title, ?corner, ?subtitle].join(', '),
+            label: [
+              widget.title,
+              ?corner,
+              ?trailingLabel,
+              ?subtitle,
+            ].join(', '),
             child: InkWell(
               onTap: widget.onTap,
               onHover: (value) => setState(() => _hovered = value),
@@ -132,21 +147,39 @@ class _MovieCardState extends State<MovieCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (corner == null)
+                  if (corner == null && trailing == null)
                     artwork
                   else
                     Stack(
                       children: [
                         artwork,
-                        Positioned(
-                          top: VeloraSpacing.xs,
-                          left: VeloraSpacing.xs,
-                          right: VeloraSpacing.xs,
-                          child: Align(
-                            alignment: Alignment.topLeft,
-                            child: CornerLabel(corner),
+                        if (corner != null)
+                          Positioned(
+                            top: VeloraSpacing.xs,
+                            left: VeloraSpacing.xs,
+                            right: VeloraSpacing.xs,
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: CornerLabel(corner),
+                            ),
                           ),
-                        ),
+                        // Opposite the VJ's name, so neither crowds the
+                        // other on a narrow phone card. It shrinks rather
+                        // than overflow at large text sizes.
+                        if (trailing != null)
+                          Positioned(
+                            bottom: VeloraSpacing.xs,
+                            left: VeloraSpacing.xs,
+                            right: VeloraSpacing.xs,
+                            child: Align(
+                              alignment: Alignment.bottomRight,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.bottomRight,
+                                child: trailing,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   Padding(
@@ -192,12 +225,17 @@ class _MovieCardState extends State<MovieCard> {
   }
 }
 
-/// A VJ's name on a poster: light text on a dark, nearly opaque chip, so it
-/// reads over any artwork.
-class CornerLabel extends StatelessWidget {
-  const CornerLabel(this.text, {super.key});
+/// A dark, nearly opaque chip on a poster, so what it holds reads over any
+/// artwork: the VJ's name, or TMDB's rating.
+class PosterChip extends StatelessWidget {
+  const PosterChip({super.key, required this.child});
 
-  final String text;
+  final Widget child;
+
+  /// Light, bold text for a chip.
+  static TextStyle? textStyle(BuildContext context) =>
+      Theme.of(context).textTheme.labelMedium
+          ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700);
 
   @override
   Widget build(BuildContext context) {
@@ -211,13 +249,26 @@ class CornerLabel extends StatelessWidget {
           horizontal: VeloraSpacing.xs,
           vertical: VeloraSpacing.xxs,
         ),
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelMedium
-              ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// A VJ's name on a poster, on a [PosterChip].
+class CornerLabel extends StatelessWidget {
+  const CornerLabel(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return PosterChip(
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: PosterChip.textStyle(context),
       ),
     );
   }

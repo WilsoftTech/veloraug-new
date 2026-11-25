@@ -32,6 +32,7 @@ void main() {
       'success': VeloraColors.success,
       'warning': VeloraColors.warning,
       'danger': VeloraColors.danger,
+      'rating': VeloraColors.rating,
     };
 
     for (final MapEntry(key: name, value: color) in readable.entries) {
@@ -133,6 +134,7 @@ void main() {
       'danger': VeloraColors.danger,
       'danger-container': VeloraColors.dangerContainer,
       'info-container': VeloraColors.infoContainer,
+      'rating': VeloraColors.rating,
     };
 
     for (final MapEntry(key: name, value: color) in colors.entries) {

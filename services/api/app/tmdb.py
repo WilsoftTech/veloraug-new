@@ -52,6 +52,10 @@ class MovieDetails:
     genres: tuple[str, ...]
     poster_path: str | None
     backdrop_path: str | None
+    # TMDB's audience score out of 10, one decimal, and how many votes it is
+    # from. Both None when nobody has voted or the values are strange.
+    rating: float | None = None
+    vote_count: int | None = None
 
     @property
     def year(self) -> int | None:
@@ -80,6 +84,22 @@ def _date(value: Any) -> date | None:
         return None
 
 
+def _rating(data: dict) -> tuple[float | None, int | None]:
+    """TMDB's vote_average and vote_count, or (None, None). TMDB sends 0.0
+    for a title nobody has rated, which isn't a score of 0."""
+    average, count = data.get("vote_average"), data.get("vote_count")
+    if (
+        isinstance(average, bool)
+        or isinstance(count, bool)
+        or not isinstance(average, int | float)
+        or not isinstance(count, int)
+        or count <= 0
+        or not 0 <= average <= 10
+    ):
+        return None, None
+    return round(float(average), 1), count
+
+
 def parse_movie(data: Any, tmdb_id: int) -> MovieDetails:
     """MovieDetails from TMDB's /movie/{id} answer, or TmdbUnavailable."""
     if not isinstance(data, dict) or data.get("id") != tmdb_id:
@@ -89,6 +109,7 @@ def parse_movie(data: Any, tmdb_id: int) -> MovieDetails:
         raise TmdbUnavailable("TMDB sent a movie with no title")
     runtime = data.get("runtime")
     genres = data.get("genres")
+    rating, votes = _rating(data)
     return MovieDetails(
         tmdb_id=tmdb_id,
         title=title,
@@ -104,6 +125,8 @@ def parse_movie(data: Any, tmdb_id: int) -> MovieDetails:
         ),
         poster_path=_image_path(data.get("poster_path")),
         backdrop_path=_image_path(data.get("backdrop_path")),
+        rating=rating,
+        vote_count=votes,
     )
 
 
@@ -118,6 +141,7 @@ def parse_series(data: Any, tmdb_id: int) -> MovieDetails:
     runtimes = data.get("episode_run_time")
     runtime = runtimes[0] if isinstance(runtimes, list) and runtimes else None
     genres = data.get("genres")
+    rating, votes = _rating(data)
     return MovieDetails(
         tmdb_id=tmdb_id,
         title=title,
@@ -132,6 +156,8 @@ def parse_series(data: Any, tmdb_id: int) -> MovieDetails:
         ),
         poster_path=_image_path(data.get("poster_path")),
         backdrop_path=_image_path(data.get("backdrop_path")),
+        rating=rating,
+        vote_count=votes,
     )
 
 

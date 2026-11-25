@@ -10,6 +10,7 @@ import '../../notifications/push_status.dart';
 import '../../security/app_lock.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/screen_body.dart';
+import '../../widgets/tmdb_attribution.dart';
 import 'account_pages.dart';
 
 /// Settings for this viewer on this device. Separate from the admin
@@ -287,10 +288,6 @@ class _ShareRow extends StatelessWidget {
     );
   }
 }
-
-/// TMDB's approved short logo, from themoviedb.org/about/logos-attribution,
-/// drawn from its SVG to a PNG at 820 × 107 so no SVG package is needed.
-const String tmdbLogoAsset = 'assets/brand/tmdb_logo.png';
 
 /// About and credits. TMDB's terms ask for its notice in an "About" or
 /// "Credits" section, less prominent than VeloraUG's own brand, in every

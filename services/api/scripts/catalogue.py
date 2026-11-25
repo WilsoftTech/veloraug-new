@@ -205,6 +205,7 @@ def expire_copy(conn: psycopg.Connection, tmdb_id: int, kind: str = "movie") -> 
         update public.sources set overview = null, original_title = null,
           release_date = null, runtime_minutes = null, genres = '{}',
           poster_path = null, backdrop_path = null, trailer_key = null,
+          tmdb_rating = null, tmdb_vote_count = null, rating_updated_at = null,
           fetched_at = null
         where kind = %s and tmdb_id = %s
         """,
@@ -227,6 +228,7 @@ def purge_tmdb(conn: psycopg.Connection) -> int:
         update public.sources set overview = null, original_title = null,
           release_date = null, runtime_minutes = null, genres = '{}',
           poster_path = null, backdrop_path = null, trailer_key = null,
+          tmdb_rating = null, tmdb_vote_count = null, rating_updated_at = null,
           fetched_at = null
         where details_from = 'tmdb'
         """

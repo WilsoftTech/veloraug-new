@@ -799,6 +799,107 @@ def test_purge_clears_every_tmdb_copy_and_hides_what_shows_one(owner):
     ).fetchone() == (True,)
 
 
+# --- TMDB ratings (0011) -----------------------------------------------------
+
+
+def rating_of(owner, tmdb_id):
+    return owner.execute(
+        "select tmdb_rating::float8, tmdb_vote_count, rating_updated_at is not null "
+        "from public.sources where tmdb_id = %s",
+        (tmdb_id,),
+    ).fetchone()
+
+
+def rated(tmdb_id: int, title: str = "A movie", rating=7.4, votes=120):
+    from dataclasses import replace
+
+    return replace(details(tmdb_id, title), rating=rating, vote_count=votes)
+
+
+@needs_database
+def test_refresh_saves_the_rating_with_the_copy(owner):
+    tmdb_id = new_id()
+    add_movie(owner, details(tmdb_id))
+    age(owner, tmdb_id, REFRESH_AFTER.days + 1)
+    assert rating_of(owner, tmdb_id) == (None, None, False)
+
+    refresh(owner, lambda kind, tmdb_id: rated(tmdb_id))
+
+    assert rating_of(owner, tmdb_id) == (7.4, 120, True)
+
+
+@needs_database
+def test_a_title_tmdb_has_no_rating_for_is_still_marked_as_asked(owner):
+    tmdb_id = new_id()
+    add_movie(owner, details(tmdb_id))
+    age(owner, tmdb_id, REFRESH_AFTER.days + 1)
+
+    refresh(owner, lambda kind, tmdb_id: details(tmdb_id))
+
+    assert rating_of(owner, tmdb_id) == (None, None, True)
+
+
+@needs_database
+def test_clearing_an_expired_copy_clears_its_rating(owner):
+    tmdb_id = new_id()
+    shown = add_movie(owner, details(tmdb_id))
+    set_published(owner, str(shown), True)
+    catalogue.save_details(owner, rated(tmdb_id), "movie")
+    age(owner, tmdb_id, DELETE_AFTER.days)
+
+    def fetch(kind, tmdb_id):
+        raise TmdbNotFound(f"TMDB has no movie {tmdb_id}")
+
+    now = owner.execute("select now()").fetchone()[0]
+    refresh(owner, fetch, now=now)
+
+    assert rating_of(owner, tmdb_id) == (None, None, False)
+
+
+@needs_database
+def test_purge_clears_every_rating(owner):
+    tmdb_id = new_id()
+    add_movie(owner, details(tmdb_id))
+    catalogue.save_details(owner, rated(tmdb_id), "movie")
+
+    purge_tmdb(owner)
+
+    assert rating_of(owner, tmdb_id) == (None, None, False)
+
+
+@pytest.mark.parametrize(
+    ("rating", "votes"), [(7.0, None), (None, 5), (10.5, 5), (-0.1, 5), (5.0, -1)]
+)
+@needs_database
+def test_the_database_refuses_a_strange_rating(owner, rating, votes):
+    tmdb_id = new_id()
+    add_movie(owner, details(tmdb_id))
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        owner.execute(
+            "update public.sources set tmdb_rating = %s, tmdb_vote_count = %s "
+            "where tmdb_id = %s",
+            (rating, votes, tmdb_id),
+        )
+
+
+@needs_database
+def test_the_api_role_can_refresh_a_published_sources_rating(owner, app_url):
+    tmdb_id = new_id()
+    shown = add_movie(owner, details(tmdb_id))
+    set_published(owner, str(shown), True)
+    owner.commit()
+    try:
+        with psycopg.connect(app_url) as conn:
+            changed = catalogue.save_details(conn, rated(tmdb_id, rating=6.1), "movie")
+            conn.commit()
+        assert changed == 1
+        assert rating_of(owner, tmdb_id) == (6.1, 120, True)
+    finally:
+        delete_editions(owner, "test")
+        owner.commit()
+
+
 # --- Deleting the test films -------------------------------------------------
 
 

@@ -8,6 +8,7 @@ import 'loading_placeholder.dart';
 import 'movie_card.dart';
 import 'movie_poster.dart';
 import 'poster_grid.dart';
+import 'rating_badge.dart';
 
 /// "2023 · Series", or just "Series".
 String editionSubtitle(AppLocalizations l, EditionCard edition) => [
@@ -15,7 +16,8 @@ String editionSubtitle(AppLocalizations l, EditionCard edition) => [
   if (edition.kind == EditionKind.series) l.seriesBadge,
 ].join(' · ');
 
-/// One edition's poster card, with only the VJ's name on the poster.
+/// One edition's poster card: the VJ's name top-left on the poster, and
+/// TMDB's rating bottom-right when there is one.
 class EditionTile extends StatelessWidget {
   const EditionTile({super.key, required this.edition, this.dense = false});
 
@@ -26,10 +28,14 @@ class EditionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = editionSubtitle(context.l10n, edition);
+    final l = context.l10n;
+    final subtitle = editionSubtitle(l, edition);
+    final rating = edition.rating;
     return MovieCard(
       title: edition.title,
       cornerLabel: edition.vjName,
+      bottomCorner: rating == null ? null : PosterRating(rating),
+      bottomCornerLabel: rating == null ? null : l.ratingSemantics(rating),
       subtitle: subtitle.isEmpty ? null : subtitle,
       artwork: MoviePoster(url: edition.posterUrl),
       dense: dense,

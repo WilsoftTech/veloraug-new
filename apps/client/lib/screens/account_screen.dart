@@ -23,7 +23,8 @@ import 'account/settings_screen.dart';
 import 'account/watch_list_screen.dart';
 import 'downloads_screen.dart';
 
-export 'account/settings_screen.dart' show AboutSection, tmdbLogoAsset;
+export '../widgets/tmdb_attribution.dart' show tmdbLogoAsset;
+export 'account/settings_screen.dart' show AboutSection;
 
 /// The account hub: who is signed in, then grouped rows that open a page
 /// each. Signed out, only what needs no account shows, with a way to sign

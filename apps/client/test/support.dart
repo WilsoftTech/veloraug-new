@@ -58,6 +58,7 @@ Map<String, Object?> card(
   String? vj = 'VJ Junior',
   String language = 'lg',
   int? year = 2023,
+  double? rating,
 }) => {
   'id': id,
   'kind': kind,
@@ -68,6 +69,7 @@ Map<String, Object?> card(
   'vj_slug': vj?.toLowerCase().replaceAll(' ', '-'),
   'language': language,
   'label': vj == null ? 'Test' : 'Luganda · $vj',
+  'rating': rating,
 };
 
 /// A movie edition's page.
@@ -77,8 +79,11 @@ Map<String, Object?> movieDetail(
   String vj = 'VJ Junior',
   bool playable = true,
   String? trailer = 'https://www.youtube.com/watch?v=abc123',
+  double? rating,
+  int? votes,
 }) => {
-  ...card(id, title: title, vj: vj),
+  ...card(id, title: title, vj: vj, rating: rating),
+  'vote_count': votes,
   'source_title': title,
   'overview': 'Dom races again.',
   'runtime_minutes': 141,

@@ -128,6 +128,42 @@ void main() {
       expect(page.editions.last.vjName, isNull);
     });
 
+    test('a rating is read as a number out of 10, or dropped', () async {
+      final page = await _api(
+        (_) => _json({
+          'editions': [
+            {...card('a'), 'rating': 7.4},
+            {...card('b'), 'rating': 7},
+            {...card('c'), 'rating': null},
+            {...card('d'), 'rating': '7.4'},
+            {...card('e'), 'rating': 11},
+            {...card('f'), 'rating': -1},
+            card('g'),
+          ],
+          'next_offset': null,
+        }),
+      ).editions();
+
+      expect(
+        [for (final e in page.editions) e.rating],
+        [7.4, 7.0, null, null, null, null, null],
+      );
+    });
+
+    test("an edition's page has its rating and vote count", () async {
+      final rated = await _api(
+        (_) => _json({...seriesDetail(), 'rating': 8.1, 'vote_count': 1234}),
+      ).edition('s1');
+      final unrated = await _api((_) => _json(seriesDetail())).edition('s1');
+      final strange = await _api(
+        (_) => _json({...seriesDetail(), 'rating': 8.1, 'vote_count': -3}),
+      ).edition('s1');
+
+      expect((rated.rating, rated.voteCount), (8.1, 1234));
+      expect((unrated.rating, unrated.voteCount), (null, null));
+      expect(strange.voteCount, isNull);
+    });
+
     test('a series has its seasons in order, and its trailer', () async {
       final edition = await _api((_) => _json(seriesDetail())).edition('s1');
 

@@ -2678,4 +2678,72 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get reuseMovieConfirm =>
       'Choose a movie to share its details. Its poster and VJ credit fill any empty fields. Your title and video stay as they are.';
+
+  @override
+  String ratingValue(double rating) {
+    final intl.NumberFormat ratingNumberFormat =
+        intl.NumberFormat.decimalPatternDigits(
+          locale: localeName,
+          decimalDigits: 1,
+        );
+    final String ratingString = ratingNumberFormat.format(rating);
+
+    return '$ratingString';
+  }
+
+  @override
+  String ratingVotes(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString votes',
+      one: '1 vote',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ratingSemantics(double rating) {
+    final intl.NumberFormat ratingNumberFormat =
+        intl.NumberFormat.decimalPatternDigits(
+          locale: localeName,
+          decimalDigits: 1,
+        );
+    final String ratingString = ratingNumberFormat.format(rating);
+
+    return 'Rated $ratingString out of 10 on TMDB';
+  }
+
+  @override
+  String ratingSemanticsWithVotes(double rating, int count) {
+    final intl.NumberFormat ratingNumberFormat =
+        intl.NumberFormat.decimalPatternDigits(
+          locale: localeName,
+          decimalDigits: 1,
+        );
+    final String ratingString = ratingNumberFormat.format(rating);
+    final intl.NumberFormat countNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString votes',
+      one: '1 vote',
+    );
+    return 'Rated $ratingString out of 10 on TMDB, from $_temp0';
+  }
+
+  @override
+  String get ratingsFromTmdb => 'Ratings from';
+
+  @override
+  String get ratingsFromTmdbSemantics =>
+      'Ratings from TMDB, The Movie Database';
 }
