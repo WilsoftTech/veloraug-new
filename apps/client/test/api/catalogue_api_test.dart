@@ -164,6 +164,54 @@ void main() {
       expect(strange.voteCount, isNull);
     });
 
+    test("the hero's titles, with their backdrop, genres and item", () async {
+      final asked = <Uri>[];
+      final titles = await _api(
+        (_) => _json([
+          {
+            ...card('m1'),
+            'rating': 7.4,
+            'genres': ['Action', 'Crime'],
+            'backdrop_url': 'https://image.tmdb.org/t/p/w1280/b.jpg',
+            'item_id': 'item-1',
+          },
+          {
+            ...card('s1', kind: 'series', title: 'Kabaka'),
+            'genres': <String>[],
+            'backdrop_url': 'https://evil.example/b.jpg',
+            'item_id': null,
+          },
+        ]),
+        asked,
+      ).featured();
+
+      expect(asked.single.path, '/api/v1/featured');
+      expect(titles.first.card.rating, 7.4);
+      expect(titles.first.genres, ['Action', 'Crime']);
+      expect(
+        titles.first.backdropUrl,
+        'https://image.tmdb.org/t/p/w1280/b.jpg',
+      );
+      expect(titles.first.itemId, 'item-1');
+      expect(titles.last.kind, EditionKind.series);
+      expect(titles.last.itemId, isNull);
+      // Only TMDB's image server or the gateway.
+      expect(titles.last.backdropUrl, isNull);
+    });
+
+    test('a malformed hero answer is unexpected', () async {
+      expect(
+        await _failure(
+          () => _api(
+            (_) => _json([
+              {...card('m1'), 'genres': 'Action'},
+            ]),
+          ).featured(),
+        ),
+        CatalogueFailure.unexpected,
+      );
+    });
+
     test('a series has its seasons in order, and its trailer', () async {
       final edition = await _api((_) => _json(seriesDetail())).edition('s1');
 

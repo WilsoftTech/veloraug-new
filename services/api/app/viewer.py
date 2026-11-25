@@ -223,6 +223,54 @@ def get_edition(conn: psycopg.Connection, edition_id: UUID) -> EditionDetail | N
     return detail
 
 
+# How many titles Home's hero shows.
+FEATURED_COUNT = 3
+
+
+@dataclass(frozen=True)
+class Featured:
+    """A title for Home's hero: a summary, with what the hero adds."""
+
+    summary: EditionSummary
+    genres: list[str]
+    backdrop_path: str | None
+    # A movie's one item, to play. None for a series.
+    movie_item: UUID | None
+
+
+def list_featured(
+    conn: psycopg.Connection, limit: int = FEATURED_COUNT
+) -> list[Featured]:
+    """The newest published editions with something to watch, test films
+    left out. Row-level security shows the API's role only approved items
+    and ready originals, so the exists() means "playable"."""
+    rows = conn.execute(
+        f"""
+        select {_SUMMARY}, s.genres, s.backdrop_path,
+               (select i.id from public.items i
+                where i.edition_id = e.id and e.kind = 'movie' limit 1)
+        {_FROM}
+        where not e.test and {_SERVABLE}
+          and exists (
+            select from public.items i
+            join public.media_originals o on o.item_id = i.id
+            where i.edition_id = e.id)
+        order by e.published_at desc, e.id
+        limit %(limit)s
+        """,
+        {**_AGES, "limit": limit},
+    ).fetchall()
+    return [
+        Featured(
+            summary=EditionSummary(*row[:_SUMMARY_COLUMNS]),
+            genres=list(row[_SUMMARY_COLUMNS] or ()),
+            backdrop_path=row[_SUMMARY_COLUMNS + 1],
+            movie_item=row[_SUMMARY_COLUMNS + 2],
+        )
+        for row in rows
+    ]
+
+
 @dataclass(frozen=True)
 class VjSummary:
     id: UUID

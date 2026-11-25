@@ -2746,4 +2746,30 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get ratingsFromTmdbSemantics =>
       'Ratings from TMDB, The Movie Database';
+
+  @override
+  String get heroEyebrow => 'Recently added';
+
+  @override
+  String get heroRegion => 'Recently added titles, slideshow';
+
+  @override
+  String heroSlide(int number, int count) {
+    return 'Show title $number of $count';
+  }
+
+  @override
+  String get heroPause => 'Pause slideshow';
+
+  @override
+  String get heroPlay => 'Play slideshow';
+
+  @override
+  String get watchNow => 'Watch now';
+
+  @override
+  String get heroDetails => 'Details';
+
+  @override
+  String get heroInWatchList => 'In Watch List';
 }

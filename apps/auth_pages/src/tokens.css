@@ -59,6 +59,9 @@
   --velora-motion-fast: 120ms;
   --velora-motion-standard: 200ms;
   --velora-motion-slow: 320ms;
+  --velora-motion-hero-interval: 6000ms;
+  --velora-motion-hero-crossfade: 600ms;
+  --velora-motion-hero-zoom: 1.06;
 
   --velora-font-family:
     Roboto, 'Segoe UI', 'Helvetica Neue', 'Noto Sans', Arial, sans-serif;

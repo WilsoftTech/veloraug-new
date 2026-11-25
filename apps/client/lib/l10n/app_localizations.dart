@@ -4515,6 +4515,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ratings from TMDB, The Movie Database'**
   String get ratingsFromTmdbSemantics;
+
+  /// Above the title in Home's hero, and read as its heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get heroEyebrow;
+
+  /// No description provided for @heroRegion.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added titles, slideshow'**
+  String get heroRegion;
+
+  /// A dot under Home's hero, read out by screen readers.
+  ///
+  /// In en, this message translates to:
+  /// **'Show title {number} of {count}'**
+  String heroSlide(int number, int count);
+
+  /// No description provided for @heroPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause slideshow'**
+  String get heroPause;
+
+  /// No description provided for @heroPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play slideshow'**
+  String get heroPlay;
+
+  /// No description provided for @watchNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch now'**
+  String get watchNow;
+
+  /// No description provided for @heroDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get heroDetails;
+
+  /// Home's hero, for a movie already in the viewer's Watch List. Pressing it removes the movie.
+  ///
+  /// In en, this message translates to:
+  /// **'In Watch List'**
+  String get heroInWatchList;
 }
 
 class _AppLocalizationsDelegate
