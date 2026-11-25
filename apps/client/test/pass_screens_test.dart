@@ -83,19 +83,22 @@ void main() {
       expect(find.text('Payments'), findsOneWidget);
 
       await openRow(tester, 'Plans & membership');
-      expect(find.text('My membership'), findsOneWidget);
+      // The page's heading names it; the card doesn't again.
+      expect(find.text('My membership'), findsNothing);
       expect(find.text('No active plan'), findsOneWidget);
       expect(find.text('Choose a plan'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
 
       await openRow(tester, 'Payments');
-      expect(find.text('No payments yet.'), findsOneWidget);
+      expect(find.text('No payments yet'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      await openRow(tester, 'Settings');
+      // My devices is under Membership now, not in Settings.
       expect(find.text('My devices'), findsOneWidget);
+      await openRow(tester, 'Settings');
+      expect(find.text('My devices'), findsNothing);
     });
 
     testWidgets('with a plan: dates, time left, allowances, what comes next', (
@@ -184,14 +187,14 @@ void main() {
       await goTo(tester, 'Account');
 
       await openRow(tester, 'Payments');
-      expect(find.text('Velora Prime · UGX 18,000'), findsOneWidget);
+      expect(find.text('Velora Prime'), findsOneWidget);
+      expect(find.text('UGX 18,000'), findsOneWidget);
       expect(find.textContaining('Ref. MTN123'), findsOneWidget);
       expect(find.text('Paid'), findsOneWidget);
       expect(find.text('Failed'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      await openRow(tester, 'Settings');
       await openRow(tester, 'My devices');
       expect(find.text('Kitchen laptop'), findsOneWidget);
       expect(find.text('This device'), findsOneWidget);

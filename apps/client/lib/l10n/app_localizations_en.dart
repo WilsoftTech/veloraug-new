@@ -392,11 +392,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signingOut => 'Signing out…';
 
   @override
-  String signedInAs(String email) {
-    return 'Signed in as $email.';
-  }
-
-  @override
   String get signedInOnDevice => 'Your account is signed in on this device.';
 
   @override
@@ -1738,8 +1733,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get devicesNone =>
-      'No devices yet. A device registers itself the first time it plays.';
+  String get devicesNone => 'No devices yet';
 
   @override
   String devicesOverLimit(int count) {
@@ -1820,7 +1814,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentsHeading => 'Payments';
 
   @override
-  String get paymentsNone => 'No payments yet.';
+  String get paymentsNone => 'No payments yet';
 
   @override
   String get paymentsCouldNotLoad => 'Couldn\'t load your payments.';
@@ -2257,16 +2251,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTitle => 'Profile';
 
   @override
-  String get accountStatusTitle => 'Account status';
-
-  @override
   String get settingsTitle => 'Settings';
 
   @override
   String get dangerZoneTitle => 'Danger zone';
-
-  @override
-  String get signInEmail => 'Sign-in email';
 
   @override
   String get signInToSeeThis => 'Sign in to see this page.';
@@ -2375,20 +2363,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get accountStatusIntro =>
-      'What our systems say about your account. Sign-in and membership are checked separately.';
-
-  @override
   String get statusSignIn => 'Sign-in';
-
-  @override
-  String get statusMembership => 'Membership';
-
-  @override
-  String get statusDeletion => 'Account deletion';
-
-  @override
-  String get statusUnknown => 'Unknown: couldn\'t be checked';
 
   @override
   String get emailVerified => 'Email verified';
@@ -2402,23 +2377,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get statusFromSignIn =>
       'From your sign-in provider, when you last signed in.';
-
-  @override
-  String get statusFromVeloraUG => 'From VeloraUG, now.';
-
-  @override
-  String membershipRenewsUntil(String date) {
-    return 'Plans bought in advance run until $date';
-  }
-
-  @override
-  String get deletionPending => 'Started, not finished';
-
-  @override
-  String get deletionCompleted => 'Completed';
-
-  @override
-  String get devicesGroup => 'Devices';
 
   @override
   String get securityGroup => 'Security and notifications';
@@ -2483,25 +2441,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pushTitle => 'Push notifications';
 
   @override
-  String get pushNotSetUp => 'VeloraUG can\'t send push notifications yet.';
-
-  @override
   String get pushNotOnWeb =>
       'Push notifications are only offered in the Android app.';
-
-  @override
-  String get pushOsAllowed => 'Android allows notifications from VeloraUG.';
-
-  @override
-  String get pushOsBlocked =>
-      'Notifications from VeloraUG are off in Android\'s settings.';
-
-  @override
-  String get pushOsUnknown => 'Couldn\'t read Android\'s notification setting.';
-
-  @override
-  String get pushInboxStillWorks =>
-      'Your inbox in Account › Notifications works either way.';
 
   @override
   String get passwordResetTitle => 'Reset password';
@@ -2878,4 +2819,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get filterAnyCategory => 'Any category';
+
+  @override
+  String get hubNoPlan => 'No plan · Choose a plan';
+
+  @override
+  String notificationsNew(int count) {
+    return '$count new';
+  }
+
+  @override
+  String get devicesNoneHelp =>
+      'A device registers itself the first time it plays a title.';
+
+  @override
+  String get paymentsNoneHelp => 'When you buy a plan, the payment shows here.';
+
+  @override
+  String get pushComingSoon =>
+      'Coming soon. Notifications still arrive in your inbox.';
 }

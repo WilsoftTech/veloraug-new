@@ -103,6 +103,15 @@ abstract final class VeloraLayout {
 
   static const double minTouchTarget = 48;
 
+  /// The viewer's initial on Account.
+  static const double avatarSize = 56;
+
+  /// A poster beside a line of text, such as in Watch history.
+  static const double thumbWidth = 48;
+
+  /// The dot that marks something unread.
+  static const double dotSize = 8;
+
   /// Width over height of a movie poster.
   static const double posterAspectRatio = 2 / 3;
   static const double minPosterWidthCompact = 136;

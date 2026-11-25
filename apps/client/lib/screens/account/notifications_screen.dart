@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/account_api.dart';
 import '../../l10n/l10n.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_placeholder.dart';
@@ -209,6 +210,7 @@ class _NotificationTile extends StatelessWidget {
     final (icon, title, body) = notificationText(l, notification);
     final unread = !notification.read;
     final when = formatWhen(context, notification.at);
+    final accent = VeloraPalette.of(context).accentText;
     return Semantics(
       label: [if (unread) l.unread, title, body, when].join('. '),
       excludeSemantics: true,
@@ -221,12 +223,15 @@ class _NotificationTile extends StatelessWidget {
           children: [
             Icon(icon),
             if (unread)
-              const Positioned(
-                right: -2,
-                top: -2,
-                child: CircleAvatar(
-                  radius: 4,
-                  backgroundColor: VeloraColors.accentText,
+              Positioned(
+                right: -VeloraLayout.dotSize / 4,
+                top: -VeloraLayout.dotSize / 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const SizedBox.square(dimension: VeloraLayout.dotSize),
                 ),
               ),
           ],
@@ -242,9 +247,7 @@ class _NotificationTile extends StatelessWidget {
         trailing: unread
             ? Text(
                 l.unread,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: VeloraColors.accentText,
-                ),
+                style: theme.textTheme.labelSmall?.copyWith(color: accent),
               )
             : null,
       ),

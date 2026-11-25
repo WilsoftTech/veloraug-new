@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/profile_section.dart';
 import '../../widgets/screen_body.dart';
+import '../../widgets/status_badge.dart';
 import '../../widgets/velora_button.dart';
 import '../devices_screen.dart';
 import '../pass_screen.dart';
@@ -181,8 +182,9 @@ class AccountGroup extends StatelessWidget {
   }
 }
 
-/// One row: an icon, a label, an optional line under it, and a chevron.
-/// A row with no [onTap] shows as unavailable, with [subtitle] saying why.
+/// One row: an icon, a label, an optional line under it, an optional
+/// badge such as "2 new", and a chevron. A row with no [onTap] shows as
+/// unavailable, with [subtitle] saying why.
 class AccountRow extends StatelessWidget {
   const AccountRow({
     super.key,
@@ -191,6 +193,7 @@ class AccountRow extends StatelessWidget {
     this.subtitle,
     this.onTap,
     this.trailing,
+    this.badge,
     this.danger = false,
   });
 
@@ -199,6 +202,9 @@ class AccountRow extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onTap;
   final Widget? trailing;
+
+  /// A short count beside the chevron, read out with the title.
+  final String? badge;
   final bool danger;
 
   @override
@@ -206,13 +212,25 @@ class AccountRow extends StatelessWidget {
     final palette = VeloraPalette.of(context);
     final color = danger ? palette.danger : null;
     final subtitle = this.subtitle;
+    final badge = this.badge;
+    final chevron = onTap == null ? null : const Icon(Icons.chevron_right);
     return ListTile(
       enabled: onTap != null || trailing != null,
       leading: Icon(icon, color: color),
       title: Text(title, style: TextStyle(color: color)),
       subtitle: subtitle == null ? null : Text(subtitle),
       trailing:
-          trailing ?? (onTap == null ? null : const Icon(Icons.chevron_right)),
+          trailing ??
+          (badge == null
+              ? chevron
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: VeloraSpacing.xs,
+                  children: [
+                    StatusBadge(label: badge, tone: StatusTone.info),
+                    ?chevron,
+                  ],
+                )),
       onTap: onTap,
       minTileHeight: VeloraLayout.minTouchTarget + VeloraSpacing.xs,
     );
@@ -227,15 +245,10 @@ AccountPage profilePage(BuildContext context) {
     title: l.profileTitle,
     builder: (context) {
       final auth = AuthScope.of(context)!;
-      final email = auth.email;
       return ScreenBody(
         heading: l.profileTitle,
         children: [
-          if (email != null)
-            AccountCard(
-              title: l.signInEmail,
-              child: Text(email, style: Theme.of(context).textTheme.bodyLarge),
-            ),
+          SignInCard(auth: auth),
           ProfileSection(auth: auth),
         ],
       );
@@ -243,13 +256,15 @@ AccountPage profilePage(BuildContext context) {
   );
 }
 
+// The page's own heading names these sections, so their cards don't again.
+
 AccountPage plansPage(BuildContext context) {
   final l = context.l10n;
   return AccountPage(
     title: l.plansTitle,
     builder: (context) => ScreenBody(
       heading: l.plansTitle,
-      children: const [MembershipSection()],
+      children: const [MembershipSection(titled: false)],
     ),
   );
 }
@@ -258,8 +273,10 @@ AccountPage paymentsPage(BuildContext context) {
   final l = context.l10n;
   return AccountPage(
     title: l.payments,
-    builder: (context) =>
-        ScreenBody(heading: l.payments, children: const [PaymentsSection()]),
+    builder: (context) => ScreenBody(
+      heading: l.payments,
+      children: const [PaymentsSection(titled: false)],
+    ),
   );
 }
 
@@ -267,7 +284,48 @@ AccountPage devicesPage(BuildContext context) {
   final l = context.l10n;
   return AccountPage(
     title: l.myDevices,
-    builder: (context) =>
-        ScreenBody(heading: l.myDevices, children: const [DevicesSection()]),
+    builder: (context) => ScreenBody(
+      heading: l.myDevices,
+      children: const [DevicesSection(titled: false)],
+    ),
   );
+}
+
+/// The sign-in email and whether the sign-in provider has verified it, as
+/// the provider says.
+class SignInCard extends StatelessWidget {
+  const SignInCard({super.key, required this.auth});
+
+  final AuthController auth;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final verified = auth.emailVerified;
+    return AccountCard(
+      title: l.statusSignIn,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: VeloraSpacing.xs,
+        children: [
+          if (auth.email case final email?)
+            Text(email, style: theme.textTheme.bodyLarge),
+          StatusBadge(
+            label: switch (verified) {
+              true => l.emailVerified,
+              false => l.emailNotVerified,
+              null => l.emailVerificationUnknown,
+            },
+            tone: switch (verified) {
+              true => StatusTone.success,
+              false => StatusTone.warning,
+              null => StatusTone.neutral,
+            },
+          ),
+          Text(l.statusFromSignIn, style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
 }

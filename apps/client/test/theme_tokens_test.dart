@@ -159,6 +159,9 @@ void main() {
       'stroke-focus': VeloraStroke.focus,
       'width-form': VeloraLayout.formWidth,
       'touch-target': VeloraLayout.minTouchTarget,
+      'avatar-size': VeloraLayout.avatarSize,
+      'thumb-width': VeloraLayout.thumbWidth,
+      'dot-size': VeloraLayout.dotSize,
     };
 
     for (final MapEntry(key: name, value: size) in sizes.entries) {

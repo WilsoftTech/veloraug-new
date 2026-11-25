@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../auth/auth_controller.dart';
 import '../../config/public_links.dart';
 import '../../l10n/l10n.dart';
 import '../../notifications/push_status.dart';
@@ -33,8 +32,6 @@ class SettingsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final auth = AuthScope.of(context);
-    final signedIn = auth?.status == AuthStatus.signedIn;
     final links = this.links ?? PublicLinks.fromSettings();
     final lock = AppLockScope.of(context);
     final reset = links.reset;
@@ -44,18 +41,6 @@ class SettingsBody extends StatelessWidget {
     return ScreenBody(
       heading: l.settingsTitle,
       children: [
-        if (signedIn)
-          AccountGroup(
-            title: l.devicesGroup,
-            rows: [
-              AccountRow(
-                icon: Icons.devices_outlined,
-                title: l.myDevices,
-                subtitle: l.myDevicesRowHelp,
-                onTap: () => AccountPage.open(context, devicesPage(context)),
-              ),
-            ],
-          ),
         AccountGroup(
           title: l.securityGroup,
           rows: [
@@ -207,24 +192,16 @@ class _PushRowState extends State<_PushRow> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final status = _status;
-    final lines = <String>[
-      switch (status?.availability) {
-        PushAvailability.notOnThisPlatform => l.pushNotOnWeb,
-        PushAvailability.notSetUp || null => l.pushNotSetUp,
-      },
-      if (status != null &&
-          status.availability != PushAvailability.notOnThisPlatform)
-        switch (status.osAllowed) {
-          true => l.pushOsAllowed,
-          false => l.pushOsBlocked,
-          null => l.pushOsUnknown,
-        },
-      l.pushInboxStillWorks,
-    ];
+    // One line: push can't deliver anything yet, so what Android allows
+    // doesn't matter today. The inbox works either way.
+    final line = switch (status?.availability) {
+      PushAvailability.notOnThisPlatform => l.pushNotOnWeb,
+      PushAvailability.notSetUp || null => l.pushComingSoon,
+    };
     return SwitchListTile(
       secondary: const Icon(Icons.notifications_active_outlined),
       title: Text(l.pushTitle),
-      subtitle: Text(lines.join('\n')),
+      subtitle: Text(line),
       // Off and disabled: no push service can deliver anything yet.
       value: false,
       onChanged: null,
