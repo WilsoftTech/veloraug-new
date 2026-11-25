@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { authClient, followResponse, hasSignedQuery } from './auth.js';
 import {
@@ -10,6 +10,7 @@ import {
   requestHasExpired,
   returnToAppHref,
 } from './messages.js';
+import { backdropImages } from './backdrop.js';
 import { allowedReturnTarget } from './returnTarget.js';
 
 // The sign-in pages Neon Auth redirects to. They never log, and they word every
@@ -60,48 +61,100 @@ async function continueFlow() {
   followResponse(data);
 }
 
-function EmailField({ value, onChange }) {
+// A field whose label sits inside it and floats up once there is something in
+// it. The placeholder is a single space so CSS can tell when it's empty. The
+// hint under it shows only once the browser finds the value invalid, after
+// the person has interacted with it, and the field names it for screen
+// readers.
+function Field({ label, error, children, toggle }) {
+  const id = useId();
+  const hintId = `${id}-hint`;
   return (
-    <label>
-      Email
-      <input
-        type="email"
-        autoComplete="username"
-        required
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
+    <div className={toggle ? 'field field-with-toggle' : 'field'}>
+      {children({ id, placeholder: ' ', 'aria-describedby': hintId })}
+      <label htmlFor={id}>{label}</label>
+      {toggle}
+      <p className="field-hint" id={hintId}>
+        {error}
+      </p>
+    </div>
   );
 }
 
-function PasswordField({ label, autoComplete, value, onChange }) {
+function EmailField({ value, onChange }) {
   return (
-    <label>
-      {label}
-      <input
-        type="password"
-        autoComplete={autoComplete}
-        required
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
+    <Field label="Email" error="Enter an email address, like name@example.com.">
+      {(props) => (
+        <input
+          {...props}
+          type="email"
+          autoComplete="username"
+          required
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+    </Field>
+  );
+}
+
+function EyeIcon({ crossed }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5Zm0 11.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+      {crossed && <path d="M3.3 2 22 20.7 20.7 22 2 3.3Z" />}
+    </svg>
+  );
+}
+
+// Show password is a toggle: screen readers hear its name and whether it's on.
+function PasswordField({ label, autoComplete, value, onChange }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <Field
+      label={label}
+      error="Enter a password."
+      toggle={
+        <button
+          type="button"
+          className="field-toggle"
+          aria-label="Show password"
+          aria-pressed={shown}
+          title={shown ? 'Hide password' : 'Show password'}
+          onClick={() => setShown((now) => !now)}
+        >
+          <EyeIcon crossed={shown} />
+        </button>
+      }
+    >
+      {(props) => (
+        <input
+          {...props}
+          type={shown ? 'text' : 'password'}
+          autoComplete={autoComplete}
+          required
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+    </Field>
   );
 }
 
 function CodeField({ value, onChange }) {
   return (
-    <label>
-      Code from your email
-      <input
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        required
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
+    <Field label="Code from your email" error="Enter the code from your email.">
+      {(props) => (
+        <input
+          {...props}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          required
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+    </Field>
   );
 }
 
@@ -270,16 +323,18 @@ function SignUpPage({ onExpired }) {
     <>
       <h1>Create an account</h1>
       <form onSubmit={signUp}>
-        <label>
-          Display name
-          <input
-            autoComplete="name"
-            required
-            maxLength={80}
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-          />
-        </label>
+        <Field label="Display name" error="Enter a display name.">
+          {(props) => (
+            <input
+              {...props}
+              autoComplete="name"
+              required
+              maxLength={80}
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          )}
+        </Field>
         <EmailField value={email} onChange={setEmail} />
         <PasswordField
           label="Password, at least 8 characters"
@@ -573,16 +628,56 @@ export function App() {
 
   return (
     <>
-      <header className="brand">
-        <svg className="brand-mark" viewBox="0 0 100 100" aria-hidden="true">
-          <path className="brand-mark-left" d="M4 14H32L60 88H40Z" />
-          <path className="brand-mark-right" d="M68 14H96L66 88L53 54Z" />
-        </svg>
-        <span>
-          Velora<span className="brand-suffix">UG</span>
-        </span>
-      </header>
-      <main>{page}</main>
+      <Backdrop />
+      <div className="layout">
+        <div className="card">
+          <header className="brand">
+            <img
+              className="brand-mark"
+              src="/brand/velora-mark-48.png"
+              srcSet="/brand/velora-mark-48.png 1x, /brand/velora-mark-96.png 2x"
+              alt=""
+            />
+            <span>
+              Velora<span className="brand-suffix">UG</span>
+            </span>
+          </header>
+          <main>{page}</main>
+        </div>
+        <footer className="footer">
+          VeloraUG · Movies and series translated into Luganda by Uganda&apos;s
+          VJs
+        </footer>
+      </div>
     </>
+  );
+}
+
+// How many tiles the collage has. Pictures repeat to fill it.
+const BACKDROP_TILES = 24;
+
+// A still collage of posters behind the card, darkened towards the page's
+// colour so the card always reads. Without pictures, tiles in the brand's
+// colours stand in. It's decoration, so screen readers skip it.
+function Backdrop() {
+  return (
+    <div className="backdrop" aria-hidden="true">
+      <div className="backdrop-tiles">
+        {Array.from({ length: BACKDROP_TILES }, (_, i) =>
+          backdropImages.length ? (
+            <img
+              key={i}
+              className="backdrop-tile"
+              src={backdropImages[i % backdropImages.length]}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span key={i} className={`backdrop-tile backdrop-tile-${i % 4}`} />
+          ),
+        )}
+      </div>
+    </div>
   );
 }

@@ -16,64 +16,164 @@
 
 body {
   margin: 0;
-  padding: var(--velora-space-lg) var(--velora-space-md);
   min-height: 100vh;
   background: var(--velora-color-canvas);
+}
+
+/* --- The backdrop ---------------------------------------------------------
+   A still collage of posters, tilted and larger than the screen, darkened
+   towards the page's colour so the card over it always reads. It never
+   moves. */
+
+.backdrop {
+  inset: 0;
+  overflow: hidden;
+  position: fixed;
+  z-index: 0;
+}
+
+.backdrop-tiles {
+  display: grid;
+  gap: var(--velora-space-sm);
+  grid-template-columns: repeat(4, 1fr);
+  inset: calc(var(--velora-space-xxxl) * -2);
+  position: absolute;
+  transform: rotate(-8deg);
+}
+
+.backdrop-tile {
+  aspect-ratio: var(--velora-poster-aspect);
+  border-radius: var(--velora-radius-md);
+  display: block;
+  height: auto;
+  object-fit: cover;
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .backdrop-tiles {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* Stand-ins until there is artwork: brand colours, no pictures. */
+.backdrop-tile-0 {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--velora-color-accent) 30%, var(--velora-color-surface)),
+    var(--velora-color-surface)
+  );
+}
+
+.backdrop-tile-1 {
+  background: linear-gradient(
+    200deg,
+    var(--velora-color-surface-overlay),
+    var(--velora-color-surface)
+  );
+}
+
+.backdrop-tile-2 {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--velora-color-accent) 60%, var(--velora-color-surface)),
+    var(--velora-color-info-container)
+  );
+}
+
+.backdrop-tile-3 {
+  background: linear-gradient(
+    180deg,
+    var(--velora-color-surface-raised),
+    var(--velora-color-canvas)
+  );
+}
+
+/* Darker at the edges and towards the bottom, where the card and the footer
+   sit. */
+.backdrop::after {
+  background:
+    radial-gradient(
+      ellipse at 50% 35%,
+      var(--velora-color-scrim-light),
+      var(--velora-color-scrim-heavy) 55%,
+      var(--velora-color-canvas) 100%
+    ),
+    linear-gradient(
+      180deg,
+      var(--velora-color-scrim-light),
+      var(--velora-color-canvas)
+    );
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+/* --- The card -------------------------------------------------------------- */
+
+.layout {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--velora-space-lg);
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--velora-space-xxl) var(--velora-space-md) var(--velora-space-lg);
+  position: relative;
+  z-index: 1;
+}
+
+.card {
+  animation: card-in var(--velora-motion-standard) ease-out both;
+  background: var(--velora-color-surface);
+  border: var(--velora-stroke-hairline) solid var(--velora-color-outline-subtle);
+  border-radius: var(--velora-radius-lg);
+  box-shadow: var(--velora-shadow-raised);
+  max-width: var(--velora-width-form);
+  padding: var(--velora-space-lg);
+  width: 100%;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--velora-space-xs));
+  }
+}
+
+@media (min-width: 600px) {
+  .card {
+    padding: var(--velora-space-xl);
+  }
 }
 
 .brand {
   align-items: center;
   display: flex;
-  font-size: 1.25rem;
+  flex-wrap: wrap;
+  font-size: 1.375rem;
   font-weight: 800;
-  gap: var(--velora-space-xs);
+  gap: var(--velora-space-sm);
   letter-spacing: -0.01em;
-  margin: 0 auto var(--velora-space-lg);
-  max-width: var(--velora-width-form);
+  margin: 0 0 var(--velora-space-lg);
 }
 
 .brand-mark {
   flex: none;
-  height: 24px;
-  width: 24px;
-}
-
-.brand-mark-left {
-  fill: var(--velora-color-text-primary);
-}
-
-.brand-mark-right {
-  fill: var(--velora-color-accent-text);
+  height: var(--velora-brand-mark-size);
+  object-fit: contain;
+  width: var(--velora-brand-mark-size);
 }
 
 .brand-suffix {
   color: var(--velora-color-accent-text);
 }
 
-main {
-  background: var(--velora-color-surface);
-  border: var(--velora-stroke-hairline) solid var(--velora-color-outline-subtle);
-  border-radius: var(--velora-radius-lg);
-  margin: 0 auto;
-  max-width: var(--velora-width-form);
-  padding: var(--velora-space-lg);
-}
-
-@media (min-width: 600px) {
-  body {
-    padding-top: var(--velora-space-xxl);
-  }
-
-  main {
-    padding: var(--velora-space-xl);
-  }
-}
-
 h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   margin: 0 0 var(--velora-space-lg);
 }
 
@@ -96,52 +196,161 @@ form,
   gap: var(--velora-space-md);
 }
 
-label {
-  color: var(--velora-color-text-secondary);
-  display: flex;
-  flex-direction: column;
-  font-size: 0.875rem;
-  gap: var(--velora-space-xxs);
+/* --- Fields ---------------------------------------------------------------
+   The label sits inside the field and floats up once it has a value, has
+   focus, or the browser has filled it in. */
+
+.field {
+  position: relative;
 }
 
-input {
+.field input {
   background: var(--velora-color-canvas);
   border: var(--velora-stroke-hairline) solid var(--velora-color-outline);
   border-radius: var(--velora-radius-md);
   color: var(--velora-color-text-primary);
   font: inherit;
   font-size: 1rem;
-  min-height: var(--velora-touch-target);
-  padding: var(--velora-space-sm) var(--velora-space-md);
+  min-height: calc(var(--velora-touch-target) + var(--velora-space-xs));
+  padding: var(--velora-space-lg) var(--velora-space-md) var(--velora-space-xs);
   transition: border-color var(--velora-motion-fast) ease-out;
   width: 100%;
 }
 
-input:hover {
+.field-with-toggle input {
+  padding-right: calc(var(--velora-touch-target) + var(--velora-space-xs));
+}
+
+.field label {
+  color: var(--velora-color-text-secondary);
+  font-size: 1rem;
+  left: var(--velora-space-md);
+  pointer-events: none;
+  position: absolute;
+  top: var(--velora-space-md);
+  transform-origin: left top;
+  transition:
+    transform var(--velora-motion-fast) ease-out,
+    color var(--velora-motion-fast) ease-out;
+}
+
+/* Not on very narrow pages, where labels sit above their fields. */
+@media (min-width: 300px) {
+  .field input:focus + label,
+  .field input:not(:placeholder-shown) + label,
+  .field input:autofill + label {
+    transform: translateY(calc(var(--velora-space-xs) * -1)) scale(0.8);
+  }
+}
+
+.field input:focus + label {
+  color: var(--velora-color-accent-text);
+}
+
+.field input::placeholder {
+  color: transparent;
+}
+
+.field input:hover {
   border-color: var(--velora-color-text-secondary);
 }
 
-input:focus {
+.field input:focus {
   border-color: var(--velora-color-accent-text);
   outline: var(--velora-stroke-hairline) solid var(--velora-color-accent-text);
 }
 
-input:user-invalid {
+.field input:user-invalid {
   border-color: var(--velora-color-danger);
 }
 
-input:disabled {
+.field input:disabled {
   border-color: var(--velora-color-outline-subtle);
   color: var(--velora-color-text-disabled);
 }
 
 /* Keeps a browser's autofill from painting a light box on the dark page. */
-input:-webkit-autofill,
-input:-webkit-autofill:focus {
+.field input:-webkit-autofill,
+.field input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--velora-color-text-primary);
   box-shadow: 0 0 0 1000px var(--velora-color-surface-raised) inset;
   caret-color: var(--velora-color-text-primary);
 }
+
+/* Shown only once the browser finds the value invalid, after the person has
+   interacted with the field. */
+.field-hint {
+  color: var(--velora-color-danger);
+  display: none;
+  font-size: 0.875rem;
+  margin: var(--velora-space-xxs) 0 0;
+}
+
+.field input:user-invalid ~ .field-hint {
+  display: block;
+}
+
+/* Show password: a 48-pixel target at the end of the field. */
+.field .field-toggle {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--velora-radius-md);
+  color: var(--velora-color-text-secondary);
+  display: flex;
+  height: var(--velora-touch-target);
+  justify-content: center;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+  position: absolute;
+  right: var(--velora-space-xxs);
+  top: var(--velora-space-xxs);
+  width: var(--velora-touch-target);
+}
+
+.field .field-toggle svg {
+  fill: currentColor;
+  height: var(--velora-icon-standard);
+  width: var(--velora-icon-standard);
+}
+
+.field .field-toggle:hover:not(:disabled) {
+  background: var(--velora-color-surface-raised);
+  color: var(--velora-color-text-primary);
+}
+
+.field .field-toggle[aria-pressed='true'] {
+  color: var(--velora-color-accent-text);
+}
+
+/* Very narrow, as on a phone zoomed to 200%: a long label such as "Password,
+   at least 8 characters" can't fit inside the field, so labels sit above
+   their fields and wrap, and Show password goes under the field. */
+@media (max-width: 299px) {
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--velora-space-xxs);
+  }
+
+  .field label {
+    order: -1;
+    position: static;
+  }
+
+  .field input,
+  .field-with-toggle input {
+    padding: var(--velora-space-sm) var(--velora-space-md);
+  }
+
+  .field .field-toggle {
+    align-self: flex-end;
+    position: static;
+  }
+}
+
+/* --- Buttons --------------------------------------------------------------- */
 
 button,
 .button {
@@ -153,10 +362,10 @@ button,
   cursor: pointer;
   display: flex;
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   justify-content: center;
-  min-height: var(--velora-touch-target);
+  min-height: calc(var(--velora-touch-target) + var(--velora-space-xs));
   padding: var(--velora-space-sm) var(--velora-space-lg);
   text-align: center;
   text-decoration: none;
@@ -212,6 +421,8 @@ button:disabled {
   color: var(--velora-color-text-disabled);
 }
 
+/* --- Links and the rest ----------------------------------------------------- */
+
 a {
   color: var(--velora-color-accent-text);
   text-underline-offset: 3px;
@@ -221,10 +432,17 @@ a:hover {
   color: var(--velora-color-text-primary);
 }
 
-/* A link alone on its line gets a comfortable height to tap. */
+/* A link alone on its line, such as Create an account: quieter than the
+   button, with a comfortable height to tap. */
 main > p > a:only-child {
   display: inline-block;
+  font-weight: 600;
   padding: var(--velora-space-xxs) 0;
+  text-decoration: none;
+}
+
+main > p > a:only-child:hover {
+  text-decoration: underline;
 }
 
 .button,
@@ -237,7 +455,7 @@ main > p > a:only-child {
   outline-offset: var(--velora-stroke-focus);
 }
 
-input:focus-visible {
+.field input:focus-visible {
   outline-offset: 0;
 }
 
@@ -269,6 +487,13 @@ dt {
 dd {
   margin: 0 0 var(--velora-space-sm);
   overflow-wrap: anywhere;
+}
+
+.footer {
+  color: var(--velora-color-text-secondary);
+  font-size: 0.875rem;
+  max-width: var(--velora-width-form);
+  text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {

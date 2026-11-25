@@ -160,6 +160,7 @@ void main() {
       'width-form': VeloraLayout.formWidth,
       'touch-target': VeloraLayout.minTouchTarget,
       'avatar-size': VeloraLayout.avatarSize,
+      'brand-mark-size': VeloraLayout.brandMarkSize,
       'thumb-width': VeloraLayout.thumbWidth,
       'dot-size': VeloraLayout.dotSize,
       'icon-badge': VeloraIconSizes.badge,
@@ -173,6 +174,18 @@ void main() {
       'progress-bar-height': VeloraLayout.progressBarHeight,
       'progress-ring-size': VeloraLayout.progressRingSize,
     };
+
+    test('the poster shape and the raised shadow', () {
+      expect(cssValue('poster-aspect'), '2 / 3');
+      expect(VeloraLayout.posterAspectRatio, 2 / 3);
+      final shadow = VeloraShadows.raised.single;
+      final alpha = (shadow.color.a * 100).round() / 100;
+      expect(
+        cssValue('shadow-raised'),
+        '0 ${shadow.offset.dy.toInt()}px ${shadow.blurRadius.toInt()}px '
+        'rgba(0, 0, 0, $alpha)',
+      );
+    });
 
     test('colours over artwork and video', () {
       String rgba(Color c) {

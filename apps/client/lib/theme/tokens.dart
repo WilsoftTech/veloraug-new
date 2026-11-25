@@ -141,6 +141,9 @@ abstract final class VeloraLayout {
   /// The viewer's initial on Account.
   static const double avatarSize = 56;
 
+  /// The mark at the top of the sign-in pages' card.
+  static const double brandMarkSize = 48;
+
   /// A poster beside a line of text, such as in Watch history.
   static const double thumbWidth = 48;
 

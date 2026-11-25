@@ -58,9 +58,14 @@
   --velora-stroke-hairline: 1px;
   --velora-stroke-focus: 2px;
 
+  /* VeloraShadows.raised: something lifted off the page, such as a card. */
+  --velora-shadow-raised: 0 6px 16px rgba(0, 0, 0, 0.32);
+
   --velora-width-form: 420px;
   --velora-touch-target: 48px;
   --velora-avatar-size: 56px;
+  --velora-brand-mark-size: 48px;
+  --velora-poster-aspect: 2 / 3;
   --velora-thumb-width: 48px;
   --velora-dot-size: 8px;
   --velora-icon-badge: 14px;

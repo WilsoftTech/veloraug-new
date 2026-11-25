@@ -138,7 +138,7 @@ The sign-in pages can't load web fonts, because their Content-Security-Policy al
 | `hairline` | 1 | Control and card edges |
 | `focus` | 2 | Focus rings, focused fields |
 
-**Depth comes mainly from lighter surfaces.** A hovered movie card adds a plain black shadow (`0 6px 16px`, 32% black), and dialogs use Material elevation 8. Nothing has a coloured glow.
+**Depth comes mainly from lighter surfaces.** A hovered movie card, and the sign-in card, add a plain black shadow (`raised`: `0 6px 16px`, 32% black; `--velora-shadow-raised` on the sign-in pages), and dialogs use Material elevation 8. Nothing has a coloured glow.
 
 ## Posters, cards and content widths
 
@@ -151,6 +151,7 @@ The sign-in pages can't load web fonts, because their Content-Security-Policy al
 | Reading screens, such as Search and Account | 720 pixels at most |
 | Browsing screens, such as Home | 1280 pixels at most |
 | An avatar, such as the viewer's initial on Account (`avatarSize`) | 56 pixels |
+| The mark at the top of the sign-in card (`brandMarkSize`) | 48 pixels |
 | A poster beside a line of text, such as in Watch history (`thumbWidth`) | 48 pixels wide, 2:3 |
 | The dot marking something unread (`dotSize`) | 8 pixels, in `accentText` |
 | Backdrops and episode thumbnails (`backdropAspectRatio`) | 16:9 |
@@ -180,7 +181,7 @@ Cards use neutral local artwork until a real poster exists. The real screens sho
 
 Top and bottom padding don't change with width, so content starts at the same height on every layout. Every screen scrolls, so large text makes a page longer and doesn't clip it.
 
-The sign-in pages are one centred card, at most 420 pixels wide, with more padding from 600 pixels up.
+The sign-in pages are one centred card, at most 420 pixels wide, with more padding from 600 pixels up. Behind it is a still collage of tilted posters (`--velora-poster-aspect`), darkened through `scrimLight` and `scrimHeavy` into `canvas` so the card always reads; until the owner supplies artwork they have the rights to, brand-coloured tiles stand in. The card is `surface` with the `raised` shadow and the 48-pixel mark (`brandMarkSize`) at its top. Each field's label sits inside it and floats up once it has a value; a short hint shows under a field the browser finds invalid, once the person has interacted with it. Password fields have a Show password toggle. The card fades and rises 8 pixels once on load, over `standard`, and not with reduced motion.
 
 ## States
 
