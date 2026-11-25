@@ -9,6 +9,7 @@ import '../downloads/downloads.dart';
 import '../downloads/download_ui.dart';
 import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
+import '../widgets/discovery_rails.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/movie_card.dart';
@@ -405,6 +406,19 @@ class _DetailsState extends State<_Details> {
                       ),
                   ],
                 ),
+              ),
+            ),
+          ),
+          // Below everything about this title, in the same column, so the
+          // left edges line up.
+          Padding(
+            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, VeloraSpacing.xxl),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: VeloraLayout.readingWidth + 240,
+                ),
+                child: DiscoveryRails(edition: edition),
               ),
             ),
           ),

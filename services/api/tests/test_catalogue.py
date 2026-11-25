@@ -857,6 +857,25 @@ def test_clearing_an_expired_copy_clears_its_rating(owner):
 
 
 @needs_database
+def test_tmdb_popularity_is_saved_and_cleared_with_the_copy(owner):
+    from dataclasses import replace
+
+    tmdb_id = new_id()
+    add_movie(owner, details(tmdb_id))
+    catalogue.save_details(owner, replace(details(tmdb_id), popularity=81.25), "movie")
+
+    def popularity():
+        return owner.execute(
+            "select tmdb_popularity::float8 from public.sources where tmdb_id = %s",
+            (tmdb_id,),
+        ).fetchone()[0]
+
+    assert popularity() == 81.25
+    purge_tmdb(owner)
+    assert popularity() is None
+
+
+@needs_database
 def test_purge_clears_every_rating(owner):
     tmdb_id = new_id()
     add_movie(owner, details(tmdb_id))

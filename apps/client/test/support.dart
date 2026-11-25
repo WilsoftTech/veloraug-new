@@ -171,6 +171,14 @@ class FakeApi {
   /// Home keeps its welcome panel.
   final featured = <Map<String, Object?>>[];
   int featuredStatus = 200;
+
+  /// An edition page's rails, by edition ID, as {key: cards}. None by
+  /// default.
+  final rails = <String, Map<String, List<Map<String, Object?>>>>{};
+  int railsStatus = 200;
+
+  /// Because you watched, by edition ID: (watched title, cards).
+  final because = <String, (String, List<Map<String, Object?>>)>{};
   List<Map<String, Object?>> languages = [
     {'code': 'lg', 'name': 'Luganda', 'editions': 1},
   ];
@@ -349,6 +357,18 @@ class FakeApi {
           ? json(history)
           : json({'detail': 'x'}, historyStatus);
     }
+    if (path.startsWith('/api/v1/me/because-you-watched/')) {
+      final found = because[request.url.pathSegments.last];
+      return json(
+        found == null
+            ? null
+            : {
+                'watched_id': 'watched',
+                'watched_title': found.$1,
+                'editions': found.$2,
+              },
+      );
+    }
     if (path == '/api/v1/me/watch-list') {
       return json(watchList.values.toList());
     }
@@ -468,6 +488,16 @@ class FakeApi {
           : json({'detail': 'x'}, featuredStatus);
     }
     if (path == '/api/v1/editions') return _list(request.url.queryParameters);
+    if (path.startsWith('/api/v1/editions/') && path.endsWith('/rails')) {
+      if (railsStatus != 200) return json({'detail': 'x'}, railsStatus);
+      final found = rails[request.url.pathSegments[3]] ?? const {};
+      return json({
+        'rails': [
+          for (final MapEntry(:key, :value) in found.entries)
+            {'key': key, 'editions': value},
+        ],
+      });
+    }
     if (path.startsWith('/api/v1/editions/')) {
       final detail = details[request.url.pathSegments.last];
       return detail == null

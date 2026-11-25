@@ -56,6 +56,9 @@ class MovieDetails:
     # from. Both None when nobody has voted or the values are strange.
     rating: float | None = None
     vote_count: int | None = None
+    # TMDB's popularity score: how much attention a title gets on TMDB now.
+    # Only the fallback for ranking Most popular; our own viewers come first.
+    popularity: float | None = None
 
     @property
     def year(self) -> int | None:
@@ -104,6 +107,21 @@ def _rating(data: dict) -> tuple[float | None, int | None]:
     return round(float(average), 1), count
 
 
+# The most public.sources.tmdb_popularity (numeric(12, 3)) holds.
+MAX_POPULARITY = 999_999_999.0
+
+
+def _popularity(data: dict) -> float | None:
+    value = data.get("popularity")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not 0 <= value <= MAX_POPULARITY
+    ):
+        return None
+    return round(float(value), 3)
+
+
 def parse_movie(data: Any, tmdb_id: int) -> MovieDetails:
     """MovieDetails from TMDB's /movie/{id} answer, or TmdbUnavailable."""
     if not isinstance(data, dict) or data.get("id") != tmdb_id:
@@ -131,6 +149,7 @@ def parse_movie(data: Any, tmdb_id: int) -> MovieDetails:
         backdrop_path=_image_path(data.get("backdrop_path")),
         rating=rating,
         vote_count=votes,
+        popularity=_popularity(data),
     )
 
 
@@ -162,6 +181,7 @@ def parse_series(data: Any, tmdb_id: int) -> MovieDetails:
         backdrop_path=_image_path(data.get("backdrop_path")),
         rating=rating,
         vote_count=votes,
+        popularity=_popularity(data),
     )
 
 

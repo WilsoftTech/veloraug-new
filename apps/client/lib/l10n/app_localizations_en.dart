@@ -2772,4 +2772,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get heroInWatchList => 'In Watch List';
+
+  @override
+  String get railsHeading => 'More like this';
+
+  @override
+  String get railsFilters => 'Show';
+
+  @override
+  String get railsAll => 'All';
+
+  @override
+  String get railsSameVj => 'Same VJ';
+
+  @override
+  String get railsSameGenre => 'Same genre';
+
+  @override
+  String get railsTopRated => 'Top rated';
+
+  @override
+  String get railsNew => 'New';
+
+  @override
+  String railMoreFromVj(String vj) {
+    return 'More from $vj';
+  }
+
+  @override
+  String get railMoreFromThisVj => 'More from this VJ';
+
+  @override
+  String get railRecommended => 'Recommended for you';
+
+  @override
+  String get railRecommendedSeries => 'Recommended series';
+
+  @override
+  String get railMostPopular => 'Most popular';
+
+  @override
+  String get railTrendingSeries => 'Trending series';
+
+  @override
+  String get railTopRated => 'Top rated';
+
+  @override
+  String get railRecentlyAdded => 'Recently added';
+
+  @override
+  String get railNewEpisodes => 'New episodes this week';
+
+  @override
+  String railBecauseYouWatched(String title) {
+    return 'Because you watched $title';
+  }
+
+  @override
+  String get railsLoadFailed => 'Couldn\'t load more titles';
 }

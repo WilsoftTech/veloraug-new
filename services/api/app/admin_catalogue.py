@@ -543,10 +543,10 @@ def use_source(
         """
         insert into public.sources (kind, tmdb_id, title, original_title, overview,
           release_date, runtime_minutes, genres, poster_path, backdrop_path,
-          trailer_key, tmdb_rating, tmdb_vote_count, details_from, fetched_at,
-          rating_updated_at)
-        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'tmdb', now(),
-          now())
+          trailer_key, tmdb_rating, tmdb_vote_count, tmdb_popularity, details_from,
+          fetched_at, rating_updated_at)
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'tmdb',
+          now(), now())
         on conflict (kind, tmdb_id) do update set
           title = excluded.title, original_title = excluded.original_title,
           overview = excluded.overview, release_date = excluded.release_date,
@@ -554,6 +554,7 @@ def use_source(
           poster_path = excluded.poster_path, backdrop_path = excluded.backdrop_path,
           trailer_key = excluded.trailer_key, tmdb_rating = excluded.tmdb_rating,
           tmdb_vote_count = excluded.tmdb_vote_count,
+          tmdb_popularity = excluded.tmdb_popularity,
           fetched_at = excluded.fetched_at,
           rating_updated_at = excluded.rating_updated_at
         returning id
@@ -572,6 +573,7 @@ def use_source(
             trailer,
             details.rating,
             details.vote_count,
+            details.popularity,
         ),
     ).fetchone()
     eligible = posters or ([details.poster_path] if details.poster_path else [])

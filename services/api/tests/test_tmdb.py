@@ -295,3 +295,26 @@ def test_the_hero_backdrop_uses_the_closest_wider_size():
 
     assert images.hero_backdrop_url("/b.jpg").endswith("/w1920/b.jpg")
     assert DEFAULT_IMAGES.hero_backdrop_url(None) is None
+
+
+@pytest.mark.parametrize(
+    ("value", "popularity"),
+    [
+        (123.4567, 123.457),
+        (0, 0.0),
+        (7, 7.0),
+        (None, None),
+        ("12.5", None),
+        (True, None),
+        (-1, None),
+        (1e12, None),
+    ],
+)
+def test_tmdb_popularity_is_kept_when_sensible(value, popularity):
+    movie = parse_movie({**FIGHT_CLUB, "popularity": value}, 550)
+    series = parse_series(
+        {"id": 1396, "name": "Breaking Bad", "popularity": value}, 1396
+    )
+
+    assert movie.popularity == popularity
+    assert series.popularity == popularity

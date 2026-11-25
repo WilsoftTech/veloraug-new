@@ -4563,6 +4563,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'In Watch List'**
   String get heroInWatchList;
+
+  /// No description provided for @railsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'More like this'**
+  String get railsHeading;
+
+  /// Read before the chips that choose which rails show.
+  ///
+  /// In en, this message translates to:
+  /// **'Show'**
+  String get railsFilters;
+
+  /// No description provided for @railsAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get railsAll;
+
+  /// No description provided for @railsSameVj.
+  ///
+  /// In en, this message translates to:
+  /// **'Same VJ'**
+  String get railsSameVj;
+
+  /// No description provided for @railsSameGenre.
+  ///
+  /// In en, this message translates to:
+  /// **'Same genre'**
+  String get railsSameGenre;
+
+  /// No description provided for @railsTopRated.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated'**
+  String get railsTopRated;
+
+  /// No description provided for @railsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get railsNew;
+
+  /// No description provided for @railMoreFromVj.
+  ///
+  /// In en, this message translates to:
+  /// **'More from {vj}'**
+  String railMoreFromVj(String vj);
+
+  /// No description provided for @railMoreFromThisVj.
+  ///
+  /// In en, this message translates to:
+  /// **'More from this VJ'**
+  String get railMoreFromThisVj;
+
+  /// No description provided for @railRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for you'**
+  String get railRecommended;
+
+  /// No description provided for @railRecommendedSeries.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended series'**
+  String get railRecommendedSeries;
+
+  /// No description provided for @railMostPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Most popular'**
+  String get railMostPopular;
+
+  /// No description provided for @railTrendingSeries.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending series'**
+  String get railTrendingSeries;
+
+  /// No description provided for @railTopRated.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated'**
+  String get railTopRated;
+
+  /// No description provided for @railRecentlyAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get railRecentlyAdded;
+
+  /// No description provided for @railNewEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'New episodes this week'**
+  String get railNewEpisodes;
+
+  /// No description provided for @railBecauseYouWatched.
+  ///
+  /// In en, this message translates to:
+  /// **'Because you watched {title}'**
+  String railBecauseYouWatched(String title);
+
+  /// No description provided for @railsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load more titles'**
+  String get railsLoadFailed;
 }
 
 class _AppLocalizationsDelegate

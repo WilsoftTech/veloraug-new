@@ -164,6 +164,44 @@ void main() {
       expect(strange.voteCount, isNull);
     });
 
+    test("an edition's rails, in order, with their cards", () async {
+      final asked = <Uri>[];
+      final rails = await _api(
+        (_) => _json({
+          'rails': [
+            {
+              'key': 'vj',
+              'editions': [card('a'), card('b'), card('c')],
+            },
+            {
+              'key': 'top_rated',
+              'editions': [card('d')],
+            },
+          ],
+        }),
+        asked,
+      ).rails('m 1');
+
+      expect(asked.single.path, '/api/v1/editions/m%201/rails');
+      expect([for (final rail in rails) rail.key], ['vj', 'top_rated']);
+      expect([for (final c in rails.first.editions) c.id], ['a', 'b', 'c']);
+    });
+
+    test('malformed rails are unexpected', () async {
+      expect(
+        await _failure(
+          () => _api(
+            (_) => _json({
+              'rails': [
+                {'key': 'vj'},
+              ],
+            }),
+          ).rails('m1'),
+        ),
+        CatalogueFailure.unexpected,
+      );
+    });
+
     test("the hero's titles, with their backdrop, genres and item", () async {
       final asked = <Uri>[];
       final titles = await _api(

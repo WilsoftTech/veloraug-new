@@ -2210,5 +2210,40 @@
   "heroInWatchList": "In Watch List",
   "@heroInWatchList": {
     "description": "Home's hero, for a movie already in the viewer's Watch List. Pressing it removes the movie."
-  }
+  },
+  "railsHeading": "More like this",
+  "railsFilters": "Show",
+  "@railsFilters": {
+    "description": "Read before the chips that choose which rails show."
+  },
+  "railsAll": "All",
+  "railsSameVj": "Same VJ",
+  "railsSameGenre": "Same genre",
+  "railsTopRated": "Top rated",
+  "railsNew": "New",
+  "railMoreFromVj": "More from {vj}",
+  "@railMoreFromVj": {
+    "placeholders": {
+      "vj": {
+        "type": "String"
+      }
+    }
+  },
+  "railMoreFromThisVj": "More from this VJ",
+  "railRecommended": "Recommended for you",
+  "railRecommendedSeries": "Recommended series",
+  "railMostPopular": "Most popular",
+  "railTrendingSeries": "Trending series",
+  "railTopRated": "Top rated",
+  "railRecentlyAdded": "Recently added",
+  "railNewEpisodes": "New episodes this week",
+  "railBecauseYouWatched": "Because you watched {title}",
+  "@railBecauseYouWatched": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "railsLoadFailed": "Couldn't load more titles"
 }

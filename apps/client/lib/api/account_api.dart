@@ -4,6 +4,19 @@ import '../l10n/app_localizations.dart';
 import 'catalogue_api.dart';
 import 'playback_api.dart';
 
+/// A rail on an edition's page: titles like [watchedTitle].
+class BecauseYouWatched {
+  const BecauseYouWatched({
+    required this.watchedId,
+    required this.watchedTitle,
+    required this.editions,
+  });
+
+  final String watchedId;
+  final String watchedTitle;
+  final List<EditionCard> editions;
+}
+
 class SavedItem {
   const SavedItem({
     required this.itemId,
@@ -184,6 +197,28 @@ class AccountApi {
     } on CatalogueException {
       _bad();
     }
+  }
+
+  /// Titles like the one the viewer played most recently, other than
+  /// [editionId], for its page. Null without history or with too few.
+  Future<BecauseYouWatched?> becauseYouWatched(String editionId) async {
+    final json = (await _send(
+      'GET',
+      '/api/v1/me/because-you-watched/${Uri.encodeComponent(editionId)}',
+    )).json;
+    if (json == null) return null;
+    if (json case {
+      'watched_id': final String watchedId,
+      'watched_title': final String watchedTitle,
+      'editions': final List<Object?> editions,
+    }) {
+      return BecauseYouWatched(
+        watchedId: watchedId,
+        watchedTitle: watchedTitle,
+        editions: [for (final edition in editions) _savedCard(edition!)],
+      );
+    }
+    _bad();
   }
 
   Future<Set<String>> savedItemsFor(String editionId) async {
