@@ -11,7 +11,13 @@ import '../widgets/velora_button.dart';
 
 /// Which published editions a list shows.
 class BrowseFilter {
-  const BrowseFilter({this.kind, this.vj, this.language, this.genre});
+  const BrowseFilter({
+    this.kind,
+    this.vj,
+    this.language,
+    this.genre,
+    this.category,
+  });
 
   final EditionKind? kind;
 
@@ -19,6 +25,9 @@ class BrowseFilter {
   final String? vj;
   final String? language;
   final String? genre;
+
+  /// A category's slug.
+  final String? category;
 }
 
 enum _Phase { loading, ready, failed }
@@ -86,6 +95,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         vj: filter.vj,
         language: filter.language,
         genre: filter.genre,
+        category: filter.category,
       );
       if (!mounted || generation != _generation) return;
       setState(() {

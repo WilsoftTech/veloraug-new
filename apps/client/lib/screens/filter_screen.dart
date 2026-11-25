@@ -17,7 +17,7 @@ class _Options<T> {
   bool get loading => items == null && failure == null;
 }
 
-/// Narrows the catalogue by type, genre, VJ and language, then shows the
+/// Narrows the catalogue by type, category, genre, VJ and language, then shows the
 /// matching titles with the server doing the filtering, a page at a time.
 /// Every choice comes from the catalogue itself, so only filters that can
 /// match something are offered. The choices stay when the person comes back.
@@ -34,17 +34,23 @@ class _FilterScreenState extends State<FilterScreen> {
   /// Each load gets a number; an answer for an older one is ignored.
   int _generation = 0;
 
+  final _categories = _Options<Category>();
   final _genres = _Options<Genre>();
   final _vjs = _Options<VjCard>();
   final _languages = _Options<Language>();
 
   EditionKind? _kind;
+  String? _category;
   String? _genre;
   String? _vj;
   String? _language;
 
   bool get _anyChosen =>
-      _kind != null || _genre != null || _vj != null || _language != null;
+      _kind != null ||
+      _category != null ||
+      _genre != null ||
+      _vj != null ||
+      _language != null;
 
   @override
   void didChangeDependencies() {
@@ -58,6 +64,7 @@ class _FilterScreenState extends State<FilterScreen> {
 
   void _loadAll() {
     final generation = ++_generation;
+    _load(_categories, generation, (api) => api.categories());
     _load(_genres, generation, (api) => api.genres());
     _load(_vjs, generation, (api) => api.vjs());
     _load(_languages, generation, (api) => api.languages());
@@ -93,6 +100,10 @@ class _FilterScreenState extends State<FilterScreen> {
   /// A choice that is no longer in the catalogue is cleared, so a filter
   /// never asks for something that can't match.
   void _dropMissingChoices() {
+    if (_categories.items case final categories?
+        when !categories.any((c) => c.slug == _category)) {
+      _category = null;
+    }
     if (_genres.items case final genres?
         when !genres.any((g) => g.name == _genre)) {
       _genre = null;
@@ -108,6 +119,7 @@ class _FilterScreenState extends State<FilterScreen> {
 
   void _clear() => setState(() {
     _kind = null;
+    _category = null;
     _genre = null;
     _vj = null;
     _language = null;
@@ -120,6 +132,8 @@ class _FilterScreenState extends State<FilterScreen> {
         EditionKind.series => l.series,
         null => null,
       },
+      if (_category case final slug?)
+        _categories.items?.where((c) => c.slug == slug).firstOrNull?.name,
       ?_genre,
       if (_vj case final slug?)
         _vjs.items?.where((v) => v.slug == slug).firstOrNull?.name,
@@ -139,6 +153,7 @@ class _FilterScreenState extends State<FilterScreen> {
             kind: _kind,
             genre: _genre,
             vj: _vj,
+            category: _category,
             language: _language,
           ),
         ),
@@ -162,10 +177,17 @@ class _FilterScreenState extends State<FilterScreen> {
       );
     }
     final languages = _languages.items;
+    final categories = _categories.items;
     return ScreenBody(
       heading: l.filterHeading,
       intro: l.filterIntro,
       children: [
+        // Straight to Indian movies, when there are some.
+        if (hasIndianMovies(categories))
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: IndianMoviesChip(onPressed: () => openIndianMovies(context)),
+          ),
         _Section(
           title: l.filterType,
           child: SegmentedButton<EditionKind?>(
@@ -180,6 +202,25 @@ class _FilterScreenState extends State<FilterScreen> {
                 setState(() => _kind = chosen.first),
           ),
         ),
+        // Only once there are categories with titles.
+        if (_categories.loading ||
+            _categories.failure != null ||
+            (categories != null && categories.isNotEmpty))
+          _Section(
+            title: l.filterCategory,
+            child: _OptionsView(
+              options: _categories,
+              label: l.filterCategory,
+              onRetry: () =>
+                  _load(_categories, _generation, (api) => api.categories()),
+              builder: (categories) => _Chips(
+                anyLabel: l.filterAnyCategory,
+                selected: _category,
+                choices: [for (final c in categories) (c.slug, c.name)],
+                onSelected: (value) => setState(() => _category = value),
+              ),
+            ),
+          ),
         _Section(
           title: l.filterGenre,
           child: _OptionsView(
@@ -246,6 +287,53 @@ class _FilterScreenState extends State<FilterScreen> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// True when the catalogue has Indian movies to show.
+bool hasIndianMovies(List<Category>? categories) =>
+    categories?.any((c) => c.slug == Category.indianSlug && c.movies > 0) ??
+    false;
+
+/// The Indian movies, newest first.
+void openIndianMovies(BuildContext context) {
+  final l = context.l10n;
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => BrowseScreen(
+        title: l.indianMovies,
+        filter: const BrowseFilter(
+          kind: EditionKind.movie,
+          category: Category.indianSlug,
+        ),
+      ),
+    ),
+  );
+}
+
+/// The prominent way into Indian movies, on Home and Filter.
+class IndianMoviesChip extends StatelessWidget {
+  const IndianMoviesChip({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ActionChip(
+      key: const ValueKey('indian-movies'),
+      avatar: Icon(
+        Icons.local_movies_outlined,
+        color: theme.colorScheme.onPrimary,
+      ),
+      label: Text(context.l10n.indianMovies),
+      labelStyle: theme.textTheme.labelLarge?.copyWith(
+        color: theme.colorScheme.onPrimary,
+      ),
+      backgroundColor: theme.colorScheme.primary,
+      side: BorderSide.none,
+      onPressed: onPressed,
     );
   }
 }

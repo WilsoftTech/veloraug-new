@@ -23,7 +23,7 @@ For each published edition that isn't a test and isn't on production yet:
 2. every copied file's size is checked in the production bucket;
 3. its rows go to production in one transaction: language, VJ, source,
    edition, the playable items, and each one's upload key (already used),
-   ready original and qualities.
+   ready original and qualities, and its categories, matched by name.
 
 An edition already on production is skipped, so running it again copies
 nothing twice. If a run stops between the files and the rows, the next run
@@ -108,6 +108,8 @@ class Edition:
     keys: list[dict[str, Any]] = field(default_factory=list)
     originals: list[dict[str, Any]] = field(default_factory=list)
     renditions: list[dict[str, Any]] = field(default_factory=list)
+    # (name, slug) of each category, matched on production by name.
+    categories: list[tuple[str, str]] = field(default_factory=list)
     skipped_items: int = 0
 
     @property
@@ -194,6 +196,14 @@ def gather(conn, edition: dict[str, Any]) -> Edition:
             conn, "select * from public.sources where id = %s", (edition["source_id"],)
         ),
     )
+    found.categories = conn.execute(
+        """
+        select c.name, c.slug from public.edition_categories ec
+        join public.categories c on c.id = ec.category_id
+        where ec.edition_id = %s order by ec.added_at, c.name
+        """,
+        (edition["id"],),
+    ).fetchall()
     items = rows(
         conn,
         "select * from public.items where edition_id = %s order by season, episode",
@@ -281,6 +291,32 @@ def copy_rows(conn, found: Edition) -> None:
         insert(conn, "media_originals", original)
     for rendition in found.renditions:
         insert(conn, "media_renditions", rendition)
+    for name, slug in found.categories:
+        copy_category(conn, found.edition["id"], name, slug)
+
+
+def copy_category(conn, edition_id, name: str, slug: str) -> None:
+    """Links the edition to production's category of that name, whatever its
+    case, adding the category if production hasn't one. Production's own
+    seeds have their own IDs, so categories go by name, not ID."""
+    row = conn.execute(
+        "select id from public.categories where lower(name) = lower(%s)", (name,)
+    ).fetchone()
+    if row is None:
+        row = conn.execute(
+            "insert into public.categories (name, slug) values (%s, %s) "
+            "on conflict (slug) do nothing returning id",
+            (name, slug),
+        ).fetchone()
+    if row is None:
+        raise CopyError(
+            f"production has another category at the address {slug}. Fix it there first"
+        )
+    conn.execute(
+        "insert into public.edition_categories (edition_id, category_id) "
+        "values (%s, %s)",
+        (edition_id, row[0]),
+    )
 
 
 def copy_files(

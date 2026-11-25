@@ -4671,6 +4671,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t load more titles'**
   String get railsLoadFailed;
+
+  /// No description provided for @categoriesSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get categoriesSection;
+
+  /// No description provided for @categoriesIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. Viewers can browse by category, such as Indian or Kids. Each change is saved straight away.'**
+  String get categoriesIntro;
+
+  /// No description provided for @categoryField.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a category'**
+  String get categoryField;
+
+  /// No description provided for @categoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type a name, then Enter or a comma'**
+  String get categoryHint;
+
+  /// No description provided for @categoryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} of {max}'**
+  String categoryCount(int count, int max);
+
+  /// No description provided for @categoryTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'A category is at most {max} characters'**
+  String categoryTooLong(int max);
+
+  /// No description provided for @categoriesFull.
+  ///
+  /// In en, this message translates to:
+  /// **'A title has at most {max} categories. Remove one to add another.'**
+  String categoriesFull(int max);
+
+  /// No description provided for @categoryRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name}'**
+  String categoryRemove(String name);
+
+  /// No description provided for @categoriesNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No categories yet.'**
+  String get categoriesNone;
+
+  /// No description provided for @categoriesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories saved'**
+  String get categoriesSaved;
+
+  /// No description provided for @indianMovies.
+  ///
+  /// In en, this message translates to:
+  /// **'Indian Movies'**
+  String get indianMovies;
+
+  /// No description provided for @filterCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get filterCategory;
+
+  /// No description provided for @filterAnyCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Any category'**
+  String get filterAnyCategory;
 }
 
 class _AppLocalizationsDelegate

@@ -117,10 +117,11 @@ def list_editions(
     vj: str | None = None,
     language: str | None = None,
     genre: str | None = None,
+    category: str | None = None,
     query: str | None = None,
 ) -> list[EditionSummary]:
     """Published editions, newest first; when searching, titles that start
-    with the query first. `vj` is a VJ's slug."""
+    with the query first. `vj` and `category` are slugs."""
     where = [_SERVABLE]
     params: dict = {**_AGES, "limit": limit, "offset": offset}
     if kind:
@@ -135,6 +136,13 @@ def list_editions(
     if genre:
         where.append("%(genre)s = any(s.genres)")
         params["genre"] = genre
+    if category:
+        where.append(
+            "exists (select from public.edition_categories ec "
+            "join public.categories c on c.id = ec.category_id "
+            "where ec.edition_id = e.id and c.slug = %(category)s)"
+        )
+        params["category"] = category
     order = "e.published_at desc, e.id"
     if query:
         title = "lower(case when e.test then s.title else e.display_title end)"
@@ -334,6 +342,33 @@ def list_genres(conn: psycopg.Connection) -> list[tuple[str, int]]:
         """,
         _AGES,
     ).fetchall()
+
+
+@dataclass(frozen=True)
+class CategorySummary:
+    slug: str
+    name: str
+    editions: int
+    movies: int
+
+
+def list_categories(conn: psycopg.Connection) -> list[CategorySummary]:
+    """Categories with published editions that can be shown, the most
+    editions first. `movies` counts the movies among them."""
+    rows = conn.execute(
+        f"""
+        select c.slug, c.name, count(e.id), count(e.id) filter (where e.kind = 'movie')
+        from public.categories c
+        join public.edition_categories ec on ec.category_id = c.id
+        join public.editions e on e.id = ec.edition_id
+        join public.sources s on s.id = e.source_id
+        where not e.test and {_SERVABLE}
+        group by c.id
+        order by count(e.id) desc, lower(c.name)
+        """,
+        _AGES,
+    ).fetchall()
+    return [CategorySummary(*row) for row in rows]
 
 
 def playable_item(conn: psycopg.Connection, item_id: UUID) -> bool:

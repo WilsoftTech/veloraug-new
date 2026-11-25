@@ -197,6 +197,7 @@ class Edition(BaseModel):
     items: list[Item]
     missing: list[str]
     matches: list[Match]
+    categories: list[str] = []
 
 
 class EditionList(BaseModel):
@@ -283,6 +284,20 @@ class CreditChoice(BaseModel):
         ]
         | None
     ) = None
+
+
+class CategoryOut(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    editions: int
+
+
+class Categories(BaseModel):
+    # Checked again, after trimming, by admin_catalogue.set_categories.
+    names: list[Annotated[str, StringConstraints(max_length=200)]] = Field(
+        max_length=50
+    )
 
 
 class Preview(BaseModel):
@@ -402,6 +417,7 @@ def _edition(state: work.EditionState, images: ImageUrls) -> Edition:
             for item in state.items
         ],
         missing=state.missing,
+        categories=state.categories,
         matches=[
             Match(
                 tmdb_id=m.tmdb_id,
@@ -761,6 +777,31 @@ def set_credit(
         work.set_credit(conn, edition_id, vj_id)
     logger.info(
         "Admin %s credited VJ %s on edition %s", user.user_id, vj_id, edition_id
+    )
+    return _current(db, user, edition_id, images)
+
+
+@router.get("/categories")
+def list_categories(user: AdminUser, db: EditorDatabase) -> list[CategoryOut]:
+    """Every category, the most used first, for autocomplete."""
+    with editing(db, user) as conn:
+        return [CategoryOut(**asdict(c)) for c in work.list_categories(conn)]
+
+
+@router.put("/editions/{edition_id}/categories")
+def set_categories(
+    edition_id: UUID,
+    body: Categories,
+    user: AdminUser,
+    db: EditorDatabase,
+    images: Images,
+) -> Edition:
+    """Replaces the edition's categories. New names are added as categories;
+    a name matching one whatever its case uses that one."""
+    with editing(db, user) as conn:
+        saved = work.set_categories(conn, edition_id, body.names)
+    logger.info(
+        "Admin %s set %d categories on edition %s", user.user_id, len(saved), edition_id
     )
     return _current(db, user, edition_id, images)
 

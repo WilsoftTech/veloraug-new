@@ -11,6 +11,8 @@ import '../widgets/hero_carousel.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/screen_body.dart';
 import 'browse_screen.dart';
+import 'filter_screen.dart'
+    show IndianMoviesChip, hasIndianMovies, openIndianMovies;
 import 'vj_screen.dart';
 
 enum _Phase { loading, ready, failed }
@@ -36,6 +38,9 @@ const List<String> homeGenres = [
   'Animation',
 ];
 
+/// At most this many category shelves: Indian first, then the most used.
+const int maxCategoryRows = 6;
+
 /// At most this many genre shelves.
 const int maxGenreRows = 5;
 
@@ -43,7 +48,8 @@ const int maxGenreRows = 5;
 /// a burst of requests.
 const int shelfFetchesAtOnce = 4;
 
-/// A shelf after the first three: a VJ's, a genre's or a language's.
+/// A shelf after the first three: a category's, a genre's, a VJ's or a
+/// language's.
 class _Shelf {
   const _Shelf({
     required this.key,
@@ -63,7 +69,7 @@ class _Shelf {
 }
 
 /// The hero's newest titles, Latest editions, Movies and Series, then
-/// shelves for genres, VJs and languages as they load. A shelf that fails or is empty is left out, and
+/// shelves for categories, genres, VJs and languages as they load. A shelf that fails or is empty is left out, and
 /// never holds up the others.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,6 +89,11 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Home's hero. Null while it loads; empty when there is nothing to
   /// feature or it failed, and then the welcome panel shows instead.
   List<FeaturedTitle>? _featured = const [];
+
+  /// Categories with titles: they decide the Indian Movies chip and the
+  /// category shelves. Empty until they load, or if they fail.
+  List<Category> _categories = const [];
+  Future<List<Category>> _categoriesLoading = Future.value(const []);
 
   List<EditionCard> _latest = const [];
   List<EditionCard> _movies = const [];
@@ -122,6 +133,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _latest = _movies = _series = const [];
     _failure = null;
     _featured = null;
+    _categories = const [];
+    // On its own, like the hero: Indian Movies shows as soon as it's known.
+    _categoriesLoading = api.categories().then((categories) {
+      if (current()) setState(() => _categories = categories);
+      return categories;
+    }, onError: (Object _) => <Category>[]);
     // On its own: a failure here leaves the welcome panel, and never holds
     // up the shelves.
     api.featured().then(
@@ -180,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final genresLoading = orNothing<Genre>(api.genres());
     final vjsLoading = orNothing<VjCard>(api.vjs());
     final languagesLoading = orNothing<Language>(api.languages());
+    final categories = await _categoriesLoading;
     final genres = await genresLoading;
     final vjs = await vjsLoading;
     final languages = await languagesLoading;
@@ -188,7 +206,23 @@ class _HomeScreenState extends State<HomeScreen> {
       for (final genre in genres)
         if (genre.editions > 0) genre.name,
     };
+    final byUse = [
+      ...categories.where((c) => c.slug == Category.indianSlug),
+      ...categories.where((c) => c.slug != Category.indianSlug),
+    ];
     final shelves = <_Shelf>[
+      for (final category
+          in byUse.where((c) => c.editions > 0).take(maxCategoryRows))
+        _Shelf(
+          key: 'category:${category.slug}',
+          title: category.name,
+          load: (api) => api.editions(limit: rowSize, category: category.slug),
+          seeAll: (context) => _browse(
+            context,
+            category.name,
+            BrowseFilter(category: category.slug),
+          ),
+        ),
       for (final name in homeGenres.where(present.contains).take(maxGenreRows))
         _Shelf(
           key: 'genre:$name',
@@ -266,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       maxWidth: VeloraLayout.browseWidth,
       children: [
-        const _Shortcuts(),
+        _Shortcuts(indianMovies: hasIndianMovies(_categories)),
         ...switch (_phase) {
           _Phase.loading => [const EditionGridSkeleton()],
           _Phase.failed when _api == null => [
@@ -361,10 +395,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Quick ways to Search and, on Android, Downloads, through the menu's own
+/// Indian Movies, when there are some, and quick ways to Search and, on
+/// Android, Downloads, through the menu's own
 /// destinations.
 class _Shortcuts extends StatelessWidget {
-  const _Shortcuts();
+  const _Shortcuts({required this.indianMovies});
+
+  /// Indian Movies comes first, when there are some.
+  final bool indianMovies;
 
   @override
   Widget build(BuildContext context) {
@@ -375,6 +413,8 @@ class _Shortcuts extends StatelessWidget {
       spacing: VeloraSpacing.xs,
       runSpacing: VeloraSpacing.xs,
       children: [
+        if (indianMovies)
+          IndianMoviesChip(onPressed: () => openIndianMovies(context)),
         ActionChip(
           avatar: const Icon(Icons.search, size: 18),
           label: Text(l.searchShortcut),

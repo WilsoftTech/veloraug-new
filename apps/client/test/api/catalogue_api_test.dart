@@ -295,6 +295,45 @@ void main() {
     });
   });
 
+  group('categories', () {
+    test('are listed with their movies, and filter by slug', () async {
+      final asked = <Uri>[];
+      final api = _api(
+        (url) => url.path == '/api/v1/categories'
+            ? _json([
+                {
+                  'slug': 'indian',
+                  'name': 'Indian',
+                  'editions': 4,
+                  'movies': 3,
+                },
+              ])
+            : _json({'editions': [], 'next_offset': null}),
+        asked,
+      );
+
+      final indian = (await api.categories()).single;
+      expect(indian.slug, Category.indianSlug);
+      expect(indian.name, 'Indian');
+      expect(indian.editions, 4);
+      expect(indian.movies, 3);
+
+      await api.editions(kind: EditionKind.movie, category: 'indian');
+      expect(asked.last.queryParameters['category'], 'indian');
+      expect(asked.last.queryParameters['kind'], 'movie');
+    });
+
+    test('a malformed list is unexpected', () async {
+      final api = _api(
+        (_) => _json([
+          {'slug': 'indian'},
+        ]),
+      );
+
+      expect(await _failure(api.categories), CatalogueFailure.unexpected);
+    });
+  });
+
   test('VJs, a VJ page and languages', () async {
     final api = _api(
       (url) => switch (url.path) {

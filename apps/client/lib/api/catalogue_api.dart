@@ -228,6 +228,28 @@ class Genre {
   final int editions;
 }
 
+/// One of VeloraUG's own categories with published editions, such as
+/// Indian or Kids. [slug] is passed back to [CatalogueApi.editions] as
+/// `category`.
+class Category {
+  const Category({
+    required this.slug,
+    required this.name,
+    this.editions = 0,
+    this.movies = 0,
+  });
+
+  /// The category behind the Indian Movies chip.
+  static const String indianSlug = 'indian';
+
+  final String slug;
+  final String name;
+  final int editions;
+
+  /// How many of [editions] are movies.
+  final int movies;
+}
+
 enum CatalogueFailure {
   /// 404: it doesn't exist, or isn't published.
   notFound,
@@ -286,8 +308,8 @@ class CatalogueApi {
 
   static const int pageSize = 24;
 
-  /// Published editions, newest first. [vj] is a VJ's slug; [query]
-  /// searches titles and VJ names.
+  /// Published editions, newest first. [vj] and [category] are slugs;
+  /// [query] searches titles and VJ names.
   Future<EditionPage> editions({
     int offset = 0,
     int limit = pageSize,
@@ -296,6 +318,7 @@ class CatalogueApi {
     String? vj,
     String? language,
     String? genre,
+    String? category,
   }) async {
     final json = await _getObject('/api/v1/editions', {
       'limit': '$limit',
@@ -305,6 +328,7 @@ class CatalogueApi {
       'vj': ?vj,
       'language': ?language,
       'genre': ?genre,
+      'category': ?category,
     });
     final editions = _need<List<Object?>>(json['editions']);
     return EditionPage(
@@ -419,6 +443,21 @@ class CatalogueApi {
           Genre(
             name: _need<String>(genre['name']),
             editions: _need<int>(genre['editions'] ?? 0),
+          ),
+    ];
+  }
+
+  /// Categories with published editions, most editions first.
+  Future<List<Category>> categories() async {
+    final json = await _get('/api/v1/categories');
+    return [
+      for (final row in _need<List<Object?>>(json))
+        if (_need<Map<String, Object?>>(row) case final category)
+          Category(
+            slug: _need<String>(category['slug']),
+            name: _need<String>(category['name']),
+            editions: _need<int>(category['editions'] ?? 0),
+            movies: _need<int>(category['movies'] ?? 0),
           ),
     ];
   }

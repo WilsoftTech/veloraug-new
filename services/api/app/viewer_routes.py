@@ -6,6 +6,7 @@ docs/step-09a-vj-catalogue-plan.md, section 5. The routes from Milestone 6,
 """
 
 import logging
+from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -165,6 +166,14 @@ class LanguageOut(BaseModel):
     editions: int
 
 
+class CategoryOut(BaseModel):
+    # Passed back as /editions?category=.
+    slug: str
+    name: str
+    editions: int
+    movies: int
+
+
 class GenreOut(BaseModel):
     # Exactly as stored, so it can be passed back as /editions?genre=.
     name: str
@@ -215,6 +224,7 @@ def list_editions(
     vj: Annotated[str | None, Query(max_length=80)] = None,
     language: Annotated[str | None, Query(max_length=3)] = None,
     genre: Annotated[str | None, Query(max_length=50)] = None,
+    category: Annotated[str | None, Query(max_length=60)] = None,
     q: SearchText | None = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 24,
     offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
@@ -230,6 +240,7 @@ def list_editions(
             vj=vj,
             language=language,
             genre=genre,
+            category=category,
             query=q,
         )
     refresher = request.app.state.refresher
@@ -400,6 +411,17 @@ def list_genres(db: AppDatabase) -> list[GenreOut]:
         return [
             GenreOut(name=name, editions=count)
             for name, count in viewer.list_genres(conn)
+        ]
+
+
+@router.get("/categories")
+def list_categories(db: AppDatabase) -> list[CategoryOut]:
+    """VeloraUG's categories with published titles, most titles first, for
+    browsing and filtering. Each slug is what /editions?category= matches.
+    Needs no sign-in."""
+    with db.anonymous() as conn:
+        return [
+            CategoryOut(**asdict(category)) for category in viewer.list_categories(conn)
         ]
 
 

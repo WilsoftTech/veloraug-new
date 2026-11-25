@@ -88,6 +88,14 @@ Map<String, Object?> featuredTitle(
   'item_id': kind == 'movie' ? 'item-$id' : null,
 };
 
+/// A category as GET /api/v1/categories lists it.
+Map<String, Object?> category(
+  String slug,
+  String name, {
+  int editions = 3,
+  int movies = 3,
+}) => {'slug': slug, 'name': name, 'editions': editions, 'movies': movies};
+
 /// A movie edition's page.
 Map<String, Object?> movieDetail(
   String id, {
@@ -186,6 +194,11 @@ class FakeApi {
   /// Genres as GET /api/v1/genres lists them. An edition matches a genre
   /// when its `genres` holds exactly that value.
   List<Map<String, Object?>> genres = [];
+
+  /// Categories as GET /api/v1/categories lists them. An edition matches a
+  /// category when its `categories` holds that slug.
+  List<Map<String, Object?>> categories = [];
+  int categoriesStatus = 200;
 
   /// Answers any catalogue request with this status instead, when set.
   int? catalogueStatus;
@@ -511,6 +524,11 @@ class FakeApi {
     }
     if (path == '/api/v1/languages') return json(languages);
     if (path == '/api/v1/genres') return json(genres);
+    if (path == '/api/v1/categories') {
+      return categoriesStatus == 200
+          ? json(categories)
+          : json({'detail': 'Busy'}, categoriesStatus);
+    }
     return json({}, 404);
   }
 
@@ -524,6 +542,10 @@ class FakeApi {
             (query['genre'] == null ||
                 ((e['genres'] as List?) ?? const []).contains(
                   query['genre'],
+                )) &&
+            (query['category'] == null ||
+                ((e['categories'] as List?) ?? const []).contains(
+                  query['category'],
                 )) &&
             (q == null ||
                 '${e['title']} ${e['vj_name']}'.toLowerCase().contains(q)))
