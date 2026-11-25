@@ -69,7 +69,11 @@ class StatusBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ExcludeSemantics(
-                child: Icon(icon ?? defaultIcon, size: 14, color: foreground),
+                child: Icon(
+                  icon ?? defaultIcon,
+                  size: VeloraIconSizes.badge,
+                  color: foreground,
+                ),
               ),
               const SizedBox(width: VeloraSpacing.xxs),
               Flexible(

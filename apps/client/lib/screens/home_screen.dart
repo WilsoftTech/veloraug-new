@@ -416,18 +416,21 @@ class _Shortcuts extends StatelessWidget {
         if (indianMovies)
           IndianMoviesChip(onPressed: () => openIndianMovies(context)),
         ActionChip(
-          avatar: const Icon(Icons.search, size: 18),
+          avatar: const Icon(Icons.search, size: VeloraIconSizes.button),
           label: Text(l.searchShortcut),
           onPressed: () => shell.select(AppDestination.search),
         ),
         ActionChip(
-          avatar: const Icon(Icons.tune, size: 18),
+          avatar: const Icon(Icons.tune, size: VeloraIconSizes.button),
           label: Text(l.filter),
           onPressed: () => shell.select(AppDestination.filter),
         ),
         if (shell.available.contains(AppDestination.downloads))
           ActionChip(
-            avatar: const Icon(Icons.download_for_offline_outlined, size: 18),
+            avatar: const Icon(
+              Icons.download_for_offline_outlined,
+              size: VeloraIconSizes.button,
+            ),
             label: Text(l.downloads),
             onPressed: () => shell.select(AppDestination.downloads),
           ),

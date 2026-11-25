@@ -16,6 +16,7 @@ class VeloraButton extends StatelessWidget {
     required this.onPressed,
     this.variant = VeloraButtonVariant.primary,
     this.icon,
+    this.leading,
     this.isLoading = false,
     this.loadingLabel,
     this.expand = false,
@@ -28,6 +29,10 @@ class VeloraButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final VeloraButtonVariant variant;
   final IconData? icon;
+
+  /// In place of [icon], a picture such as a download's progress ring,
+  /// fitted to an icon's size. The label says what it shows.
+  final Widget? leading;
 
   /// Disables the button and replaces its label with [loadingLabel], so
   /// waiting isn't shown by the spinner alone.
@@ -46,6 +51,7 @@ class VeloraButton extends StatelessWidget {
     final content = _ButtonContent(
       label: isLoading ? loadingLabel ?? context.l10n.loading : label,
       icon: icon,
+      leading: leading,
       isLoading: isLoading,
     );
     final Widget button = switch (variant) {
@@ -110,18 +116,39 @@ class _ButtonContent extends StatelessWidget {
   const _ButtonContent({
     required this.label,
     required this.icon,
+    required this.leading,
     required this.isLoading,
   });
 
   final String label;
   final IconData? icon;
+  final Widget? leading;
   final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    final picture = this.leading;
     final leading = isLoading
-        ? const VeloraSpinner(size: 18)
-        : (icon == null ? null : ExcludeSemantics(child: Icon(icon, size: 18)));
+        ? const VeloraSpinner(size: VeloraIconSizes.button)
+        : picture != null
+        ? ExcludeSemantics(
+            child: SizedBox.square(
+              dimension: VeloraIconSizes.button,
+              child: FittedBox(
+                child: IconTheme.merge(
+                  data: const IconThemeData(
+                    size: VeloraLayout.progressRingSize,
+                  ),
+                  child: picture,
+                ),
+              ),
+            ),
+          )
+        : (icon == null
+              ? null
+              : ExcludeSemantics(
+                  child: Icon(icon, size: VeloraIconSizes.button),
+                ));
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,

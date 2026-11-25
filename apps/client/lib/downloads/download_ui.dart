@@ -6,6 +6,7 @@ import '../l10n/l10n.dart';
 import '../screens/devices_screen.dart';
 import '../screens/downloads_screen.dart';
 import '../screens/pass_screen.dart';
+import '../theme/palette.dart';
 import '../theme/tokens.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
@@ -188,7 +189,7 @@ class _DownloadSheetState extends State<_DownloadSheet> {
             mainAxisSize: MainAxisSize.min,
             spacing: VeloraSpacing.md,
             children: [
-              const VeloraSpinner(size: 32),
+              const VeloraSpinner(size: VeloraIconSizes.large),
               Text(l.downloadPreparing),
             ],
           ),
@@ -266,8 +267,41 @@ class _DownloadSheetState extends State<_DownloadSheet> {
   }
 }
 
+/// How a download looks, the same on a movie's button and an episode's: an
+/// arrow before it starts, a clock while queued, a ring filling as it
+/// downloads (with a pause mark while paused), a tick once done, and a
+/// warning mark if it failed.
+Widget downloadIcon(BuildContext context, Download? download) {
+  final palette = VeloraPalette.of(context);
+  Widget ring({bool paused = false}) => SizedBox.square(
+    dimension: VeloraLayout.progressRingSize,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        // The button's tooltip says the percentage; the ring is a picture.
+        ExcludeSemantics(
+          child: CircularProgressIndicator(
+            value: download?.progress,
+            strokeWidth: VeloraStroke.focus,
+          ),
+        ),
+        if (paused)
+          const Icon(Icons.pause, size: VeloraLayout.progressRingSize / 2),
+      ],
+    ),
+  );
+  return switch (download?.state) {
+    null => const Icon(Icons.download_outlined),
+    FileState.waiting => const Icon(Icons.schedule),
+    FileState.running => ring(),
+    FileState.paused => ring(paused: true),
+    FileState.done => Icon(Icons.download_done, color: palette.success),
+    FileState.failed => Icon(Icons.error_outline, color: palette.danger),
+  };
+}
+
 /// Download on a movie's page. On a phone it then shows the download's
-/// progress, and opens it once done.
+/// progress, and opens it once done. Failed, it offers to download again.
 class DownloadButton extends StatelessWidget {
   const DownloadButton({super.key, required this.itemId, required this.info});
 
@@ -283,16 +317,14 @@ class DownloadButton extends StatelessWidget {
     if (download == null || download.state == FileState.failed) {
       return VeloraButton(
         label: download == null ? l.download : l.downloadAgain,
-        icon: Icons.download_outlined,
+        leading: downloadIcon(context, download),
         variant: VeloraButtonVariant.secondary,
         onPressed: () => startDownload(context, itemId: itemId, info: info),
       );
     }
     return VeloraButton(
       label: downloadStateLabel(l, download),
-      icon: download.state == FileState.done
-          ? Icons.download_done
-          : Icons.downloading,
+      leading: downloadIcon(context, download),
       variant: VeloraButtonVariant.secondary,
       onPressed: () => download.state == FileState.done
           ? openDownload(context, download)
@@ -301,7 +333,10 @@ class DownloadButton extends StatelessWidget {
   }
 }
 
-/// Download beside an episode: an icon, with its progress around it.
+/// An episode's download button: an icon, 48 by 48, whose tooltip and
+/// screen-reader label say which episode and where its download has got
+/// to. Tapped, it starts one, follows one in Downloads, plays a finished
+/// one, or tries a failed one again.
 class EpisodeDownloadButton extends StatelessWidget {
   const EpisodeDownloadButton({
     super.key,
@@ -319,34 +354,24 @@ class EpisodeDownloadButton extends StatelessWidget {
     final l = context.l10n;
     final download = downloads.latestOf(itemId);
     final name = l.downloadEpisode(info.season ?? 0, info.episode ?? 0);
-    if (download == null || download.state == FileState.failed) {
-      return IconButton(
-        tooltip: download == null ? name : '$name: ${l.downloadFailed}',
-        icon: Icon(
-          download == null ? Icons.download_outlined : Icons.error_outline,
-        ),
-        onPressed: () => startDownload(context, itemId: itemId, info: info),
-      );
-    }
-    final label = '$name: ${downloadStateLabel(l, download)}';
-    if (download.state == FileState.done) {
-      return IconButton(
-        tooltip: label,
-        icon: const Icon(Icons.download_done),
-        onPressed: () => openDownload(context, download),
-      );
-    }
+    final label = switch (download?.state) {
+      null => name,
+      FileState.failed => '$name: ${l.downloadFailedTryAgain}',
+      _ => '$name: ${downloadStateLabel(l, download!)}',
+    };
     return IconButton(
+      key: ValueKey('download-$itemId'),
       tooltip: label,
-      onPressed: () => DownloadsScreen.open(context),
-      icon: SizedBox.square(
-        dimension: 24,
-        child: CircularProgressIndicator(
-          value: download.progress,
-          strokeWidth: 2.5,
-          semanticsLabel: label,
+      icon: downloadIcon(context, download),
+      onPressed: switch (download?.state) {
+        null || FileState.failed => () => startDownload(
+          context,
+          itemId: itemId,
+          info: info,
         ),
-      ),
+        FileState.done => () => openDownload(context, download!),
+        _ => () => DownloadsScreen.open(context),
+      },
     );
   }
 }

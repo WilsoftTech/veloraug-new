@@ -15,7 +15,7 @@ class VeloraSpinner extends StatelessWidget {
     }
     return SizedBox.square(
       dimension: size,
-      child: const CircularProgressIndicator(strokeWidth: 2),
+      child: const CircularProgressIndicator(strokeWidth: VeloraStroke.focus),
     );
   }
 }

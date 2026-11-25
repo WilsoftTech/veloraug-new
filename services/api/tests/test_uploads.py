@@ -338,7 +338,7 @@ def test_the_database_checks_cover_uploads(app_url):
     for name in (
         "RLS and forced RLS on the upload tables",
         "can't read or change upload keys or qualities",
-        "reads only the ID, item and state of originals, and changes none",
+        "reads only the ID, item, state and duration of originals, and changes none",
         "sees ready originals of published, approved items only",
     ):
         assert results[name].passed, results[name]

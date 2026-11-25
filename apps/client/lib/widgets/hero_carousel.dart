@@ -596,7 +596,7 @@ class _Slide extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.star_rounded,
-                      size: 18,
+                      size: VeloraIconSizes.button,
                       color: VeloraColors.rating,
                     ),
                     Text(

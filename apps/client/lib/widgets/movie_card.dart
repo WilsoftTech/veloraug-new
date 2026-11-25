@@ -25,7 +25,7 @@ class PosterPlaceholder extends StatelessWidget {
           child: Center(
             child: Icon(
               Icons.movie_outlined,
-              size: 40,
+              size: VeloraIconSizes.poster,
               color: VeloraPalette.of(context).textMuted,
             ),
           ),
@@ -235,13 +235,13 @@ class PosterChip extends StatelessWidget {
   /// Light, bold text for a chip.
   static TextStyle? textStyle(BuildContext context) =>
       Theme.of(context).textTheme.labelMedium
-          ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700);
+          ?.copyWith(color: VeloraColors.onChip, fontWeight: FontWeight.w700);
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.82),
+        color: VeloraColors.chip,
         borderRadius: BorderRadius.circular(VeloraRadii.sm),
       ),
       child: Padding(

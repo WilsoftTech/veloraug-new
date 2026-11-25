@@ -96,7 +96,11 @@ class VeloraFieldError extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ExcludeSemantics(
-          child: Icon(Icons.error_outline, size: 16, color: color),
+          child: Icon(
+            Icons.error_outline,
+            size: VeloraIconSizes.small,
+            color: color,
+          ),
         ),
         const SizedBox(width: VeloraSpacing.xxs),
         Expanded(

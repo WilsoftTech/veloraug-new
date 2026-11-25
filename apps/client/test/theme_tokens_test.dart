@@ -162,7 +162,34 @@ void main() {
       'avatar-size': VeloraLayout.avatarSize,
       'thumb-width': VeloraLayout.thumbWidth,
       'dot-size': VeloraLayout.dotSize,
+      'icon-badge': VeloraIconSizes.badge,
+      'icon-small': VeloraIconSizes.small,
+      'icon-button': VeloraIconSizes.button,
+      'icon-medium': VeloraIconSizes.medium,
+      'icon-standard': VeloraIconSizes.standard,
+      'icon-large': VeloraIconSizes.large,
+      'icon-poster': VeloraIconSizes.poster,
+      'episode-thumb-width': VeloraLayout.episodeThumbWidth,
+      'progress-bar-height': VeloraLayout.progressBarHeight,
+      'progress-ring-size': VeloraLayout.progressRingSize,
     };
+
+    test('colours over artwork and video', () {
+      String rgba(Color c) {
+        final a = (c.a * 100).round() / 100;
+        return 'rgba(${(c.r * 255).round()}, ${(c.g * 255).round()}, '
+            '${(c.b * 255).round()}, $a)';
+      }
+
+      expect(cssValue('color-chip'), rgba(VeloraColors.chip));
+      expect(cssValue('color-scrim-light'), rgba(VeloraColors.scrimLight));
+      expect(cssValue('color-scrim-heavy'), rgba(VeloraColors.scrimHeavy));
+      expect(cssValue('color-on-chip'), _hex(VeloraColors.onChip));
+      expect(cssValue('color-video'), _hex(VeloraColors.video));
+      // White on the chip, over a white picture, still reads.
+      final over = Color.alphaBlend(VeloraColors.chip, const Color(0xFFFFFFFF));
+      expect(_contrast(VeloraColors.onChip, over), greaterThanOrEqualTo(4.5));
+    });
 
     for (final MapEntry(key: name, value: size) in sizes.entries) {
       test('size $name', () {

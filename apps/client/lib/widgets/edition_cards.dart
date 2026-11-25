@@ -122,7 +122,7 @@ class ShelfHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(l.seeAll, semanticsLabel: l.seeAllOf(title)),
-                const Icon(Icons.chevron_right, size: 20),
+                const Icon(Icons.chevron_right, size: VeloraIconSizes.medium),
               ],
             ),
           ),

@@ -103,6 +103,31 @@ def history(conn: psycopg.Connection, user_id: UUID, limit: int) -> list[History
     return [HistoryEntry(*row[:7], edition=EditionSummary(*row[7:])) for row in rows]
 
 
+@dataclass(frozen=True)
+class Progress:
+    item_id: UUID
+    position_seconds: int | None
+    finished: bool
+
+
+def progress(
+    conn: psycopg.Connection, user_id: UUID, edition_id: UUID
+) -> list[Progress]:
+    """Where the viewer got to in each item of one edition they have played,
+    from their own history. Items they never played aren't listed."""
+    rows = conn.execute(
+        """
+        select h.item_id, h.position_seconds, h.finished
+        from public.watch_history h
+        join public.items i on i.id = h.item_id
+        where h.user_id = %s and i.edition_id = %s
+          and (h.position_seconds is not null or h.finished)
+        """,
+        (user_id, edition_id),
+    ).fetchall()
+    return [Progress(*row) for row in rows]
+
+
 # _FROM starts "from public.editions e"; history joins editions itself.
 _FROM_REST = _FROM.split("public.editions e", 1)[1]
 

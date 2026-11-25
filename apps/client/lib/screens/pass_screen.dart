@@ -292,7 +292,11 @@ class _Fact extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       spacing: VeloraSpacing.xs,
       children: [
-        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: VeloraIconSizes.button,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
         Flexible(child: Text(text)),
       ],
     );
@@ -640,7 +644,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
               Center(
                 child: VeloraLoadingRegion(
                   label: l.checkingPayment,
-                  child: const VeloraSpinner(size: 24),
+                  child: const VeloraSpinner(size: VeloraIconSizes.standard),
                 ),
               ),
             ],
@@ -734,7 +738,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
                 children: [
                   Icon(
                     Icons.error_outline,
-                    size: 20,
+                    size: VeloraIconSizes.medium,
                     color: theme.colorScheme.onErrorContainer,
                   ),
                   Expanded(
@@ -790,7 +794,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
         children: [
           Icon(
             Icons.lock_outline,
-            size: 16,
+            size: VeloraIconSizes.small,
             color: theme.colorScheme.onSurfaceVariant,
           ),
           Expanded(
@@ -872,7 +876,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
         children: [
           Icon(
             Icons.lock_outline,
-            size: 16,
+            size: VeloraIconSizes.small,
             color: theme.colorScheme.onSurfaceVariant,
           ),
           Expanded(
@@ -909,7 +913,7 @@ class _Note extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: VeloraSpacing.xs,
           children: [
-            Icon(icon, size: 20),
+            Icon(icon, size: VeloraIconSizes.medium),
             Expanded(child: Text(text)),
           ],
         ),
@@ -1108,7 +1112,10 @@ class _PlanCardState extends State<PlanCard> {
                   Text(text, style: theme.textTheme.bodyMedium),
                 ],
                 const SizedBox(height: VeloraSpacing.md),
-                Divider(color: VeloraColors.outlineSubtle, height: 1),
+                Divider(
+                  color: VeloraColors.outlineSubtle,
+                  height: VeloraStroke.hairline,
+                ),
                 const SizedBox(height: VeloraSpacing.md),
                 _Benefit(
                   Icons.devices_outlined,
@@ -1155,7 +1162,7 @@ class _Benefit extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: VeloraSpacing.xs,
         children: [
-          Icon(icon, size: 18, color: palette.accentText),
+          Icon(icon, size: VeloraIconSizes.button, color: palette.accentText),
           Expanded(child: Text(text)),
         ],
       ),

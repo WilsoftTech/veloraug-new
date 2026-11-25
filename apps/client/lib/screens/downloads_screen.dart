@@ -63,7 +63,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       return Center(
         child: VeloraLoadingRegion(
           label: l.downloads,
-          child: const VeloraSpinner(size: 32),
+          child: const VeloraSpinner(size: VeloraIconSizes.large),
         ),
       );
     }
@@ -201,7 +201,7 @@ class _DownloadTile extends StatelessWidget {
                   state == FileState.done
                       ? Icons.movie_outlined
                       : Icons.downloading,
-                  size: 32,
+                  size: VeloraIconSizes.large,
                 ),
                 Expanded(
                   child: Column(

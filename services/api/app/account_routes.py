@@ -154,6 +154,28 @@ def my_history(
     ]
 
 
+class ProgressOut(BaseModel):
+    item_id: UUID
+    # Null once finished.
+    position_seconds: int | None
+    finished: bool
+
+
+@router.get("/editions/{edition_id}/progress")
+def my_progress(edition_id: UUID, user: Viewer, db: AppDatabase) -> list[ProgressOut]:
+    """Where the viewer got to in each movie or episode of one edition, for
+    the progress bars on its page. Only what they have played is listed."""
+    with db.as_user(user.user_id) as conn:
+        return [
+            ProgressOut(
+                item_id=p.item_id,
+                position_seconds=p.position_seconds,
+                finished=p.finished,
+            )
+            for p in account.progress(conn, user.user_id, edition_id)
+        ]
+
+
 @router.put(
     "/history/{item_id}/position",
     status_code=status.HTTP_204_NO_CONTENT,

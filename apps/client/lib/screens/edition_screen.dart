@@ -11,6 +11,7 @@ import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 import '../widgets/discovery_rails.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/episode_row.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/movie_card.dart';
 import '../widgets/movie_poster.dart';
@@ -107,12 +108,7 @@ class _EditionScreenState extends State<EditionScreen> {
       ),
       body: SafeArea(
         child: switch (_phase) {
-          _Phase.loading => Center(
-            child: VeloraLoadingRegion(
-              label: context.l10n.loadingEdition,
-              child: const VeloraSpinner(size: 32),
-            ),
-          ),
+          _Phase.loading => const EditionSkeleton(),
           _Phase.failed => _Failed(failure: _failure!, onRetry: _retry),
           _Phase.ready => _Details(
             key: ValueKey((edition!.id, AuthScope.of(context)?.accountKey)),
@@ -551,8 +547,8 @@ class _Header extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       stops: [0, 0.55, 1],
                       colors: [
-                        Color(0x660E1014),
-                        Color(0xB30E1014),
+                        VeloraColors.scrimLight,
+                        VeloraColors.scrimHeavy,
                         VeloraColors.canvas,
                       ],
                     ),
@@ -768,7 +764,51 @@ class _SignInToWatch extends StatelessWidget {
   }
 }
 
-/// A series' seasons, and each season's episodes with a play button.
+/// The shape of a title's page while it loads: the poster, the title and
+/// its facts, the buttons, and a few rows, pulsing gently.
+class EditionSkeleton extends StatelessWidget {
+  const EditionSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final gutter = VeloraLayout.gutterFor(MediaQuery.sizeOf(context).width);
+    return VeloraLoadingRegion(
+      label: context.l10n.loadingEdition,
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.all(gutter),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: VeloraLayout.readingWidth,
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: VeloraSpacing.md,
+              children: [
+                SizedBox(
+                  width: VeloraLayout.minPosterWidthWide,
+                  child: AspectRatio(
+                    aspectRatio: VeloraLayout.posterAspectRatio,
+                    child: VeloraSkeleton(),
+                  ),
+                ),
+                VeloraSkeleton(width: 240, height: 28),
+                VeloraSkeleton(width: 180, height: 16),
+                VeloraSkeleton(height: VeloraLayout.minTouchTarget),
+                VeloraSkeleton(height: 72),
+                VeloraSkeleton(height: 72),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A series' seasons, and each season's episodes as rows with Play,
+/// Download and Watch List, and how far the viewer got.
 class _Seasons extends StatefulWidget {
   const _Seasons({required this.edition, required this.watchListButton});
 
@@ -781,6 +821,28 @@ class _Seasons extends StatefulWidget {
 
 class _SeasonsState extends State<_Seasons> {
   int _shown = 0;
+
+  /// Where the viewer got to in each episode, by item ID. Empty signed out,
+  /// before it loads, or if it fails: the rows then just have no bars.
+  Map<String, WatchProgress> _progress = const {};
+  String? _progressFor;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = AuthScope.of(context);
+    final user = auth?.status == AuthStatus.signedIn ? auth?.accountKey : null;
+    if (user == _progressFor) return;
+    _progressFor = user;
+    _progress = const {};
+    final api = accountApiOf(context);
+    if (user == null || api == null) return;
+    api.progress(widget.edition.id).then((progress) {
+      if (mounted && _progressFor == user) {
+        setState(() => _progress = progress);
+      }
+    }, onError: (Object _) {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -837,77 +899,59 @@ class _SeasonsState extends State<_Seasons> {
             spacing: VeloraSpacing.sm,
             children: [
               for (final episode in season.episodes)
-                Card.outlined(
-                  key: ValueKey(episode.itemId),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: VeloraSpacing.md,
-                      vertical: VeloraSpacing.xs,
-                    ),
-                    // A Wrap, so the status moves below at large text sizes.
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: VeloraSpacing.sm,
-                      runSpacing: VeloraSpacing.xs,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              l.episodeNumber(episode.episode),
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            if (episode.title case final name?)
-                              Text(
-                                name,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                          ],
-                        ),
-                        episode.playable && can == WatchAccess.yes
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  EpisodeDownloadButton(
-                                    itemId: episode.itemId,
-                                    info: downloadInfo(widget.edition, episode),
-                                  ),
-                                  IconButton(
-                                    tooltip: l.playEpisode(
-                                      season.season,
-                                      episode.episode,
-                                    ),
-                                    icon: const Icon(Icons.play_circle_outline),
-                                    onPressed: () => openPlayer(
-                                      context,
-                                      itemId: episode.itemId,
-                                      title: widget.edition.title,
-                                      episodes: episodes,
-                                    ),
-                                  ),
-                                  widget.watchListButton(episode.itemId),
-                                ],
-                              )
-                            : StatusBadge(
-                                label: episode.playable
-                                    ? (can == WatchAccess.notHere
-                                          ? l.notAvailableHere
-                                          : l.signInFirst)
-                                    : l.comingSoon,
-                                tone: StatusTone.info,
-                              ),
-                      ],
-                    ),
-                  ),
-                ),
+                _episode(l, season, episode, can, episodes),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _episode(
+    AppLocalizations l,
+    Season season,
+    Episode episode,
+    WatchAccess can,
+    List<Episode> episodes,
+  ) {
+    final edition = widget.edition;
+    final canPlay = episode.playable && can == WatchAccess.yes;
+    void play() => openPlayer(
+      context,
+      itemId: episode.itemId,
+      title: edition.title,
+      episodes: episodes,
+    );
+    return EpisodeRow(
+      key: ValueKey(episode.itemId),
+      episode: episode,
+      artworkUrl: edition.backdropUrl,
+      progress: _progress[episode.itemId],
+      onPlay: canPlay ? play : null,
+      actions: canPlay
+          ? [
+              IconButton.filledTonal(
+                key: ValueKey('play-${episode.itemId}'),
+                tooltip: l.playEpisode(season.season, episode.episode),
+                icon: const Icon(Icons.play_arrow_rounded),
+                onPressed: play,
+              ),
+              EpisodeDownloadButton(
+                itemId: episode.itemId,
+                info: downloadInfo(edition, episode),
+              ),
+              widget.watchListButton(episode.itemId),
+            ]
+          : [
+              StatusBadge(
+                label: episode.playable
+                    ? (can == WatchAccess.notHere
+                          ? l.notAvailableHere
+                          : l.signInFirst)
+                    : l.comingSoon,
+                tone: StatusTone.info,
+              ),
+            ],
     );
   }
 }

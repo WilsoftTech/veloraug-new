@@ -730,8 +730,9 @@ def check_uploads(conn: psycopg.Connection) -> list[Result]:
     )
     results.append(
         Result(
-            "reads only the ID, item and state of originals, and changes none",
-            readable == {"id", "item_id", "state"} and not changes,
+            "reads only the ID, item, state and duration of originals, and "
+            "changes none",
+            readable == {"id", "item_id", "state", "duration_seconds"} and not changes,
             ", ".join(sorted(readable)),
         )
     )

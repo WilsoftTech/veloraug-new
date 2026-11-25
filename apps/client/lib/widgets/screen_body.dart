@@ -124,7 +124,16 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(header: true, child: Text(heading, style: headingStyle)),
+        // Headings stop growing at 1.5 times, so a long word such as
+        // "membership" still fits a phone at the largest text sizes. Body
+        // text keeps growing.
+        MediaQuery.withClampedTextScaling(
+          maxScaleFactor: VeloraLayout.maxHeadingTextScale,
+          child: Semantics(
+            header: true,
+            child: Text(heading, style: headingStyle),
+          ),
+        ),
         if (intro != null) ...[
           const SizedBox(height: VeloraSpacing.sm),
           Text(

@@ -283,7 +283,48 @@ ThemeData buildVeloraTheme() {
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: VeloraColors.accentText,
     ),
+    // One calm transition on every platform, instead of each one's own.
+    pageTransitionsTheme: PageTransitionsTheme(
+      builders: {
+        for (final platform in TargetPlatform.values)
+          platform: VeloraPageTransitionsBuilder(),
+      },
+    ),
   );
+}
+
+/// Pages fade forwards, as Android's own transition does now, on every
+/// platform. With reduced motion, a page simply appears.
+class VeloraPageTransitionsBuilder extends PageTransitionsBuilder {
+  const VeloraPageTransitionsBuilder();
+
+  static const _fade = FadeForwardsPageTransitionsBuilder(
+    backgroundColor: VeloraColors.canvas,
+  );
+
+  @override
+  Duration get transitionDuration => _fade.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration => _fade.reverseTransitionDuration;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (VeloraMotion.reduced(context)) return child;
+    return _fade.buildTransitions(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      child,
+    );
+  }
 }
 
 final _inputIconColor = WidgetStateColor.resolveWith(
