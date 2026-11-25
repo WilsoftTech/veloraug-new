@@ -37,6 +37,11 @@ test('text used on the pages meets WCAG AA on its background', () => {
     ['text-primary', 'info-container'],
     ['text-primary', 'surface-raised'],
     ['text-primary', 'surface-overlay'],
+    // Field labels and text on the field's fill, the footer on the page,
+    // and a field's hint on the card.
+    ['text-secondary', 'canvas'],
+    ['danger', 'surface'],
+    ['accent-text', 'canvas'],
   ]) {
     const ratio = contrast(token(text), token(background));
     assert.ok(ratio >= 4.5, `${text} on ${background} is only ${ratio.toFixed(2)}:1`);
