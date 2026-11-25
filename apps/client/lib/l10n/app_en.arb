@@ -2185,5 +2185,30 @@
   "@ratingsFromTmdb": {
     "description": "Shown before TMDB's logo wherever ratings appear."
   },
-  "ratingsFromTmdbSemantics": "Ratings from TMDB, The Movie Database"
+  "ratingsFromTmdbSemantics": "Ratings from TMDB, The Movie Database",
+  "heroEyebrow": "Recently added",
+  "@heroEyebrow": {
+    "description": "Above the title in Home's hero, and read as its heading."
+  },
+  "heroRegion": "Recently added titles, slideshow",
+  "heroSlide": "Show title {number} of {count}",
+  "@heroSlide": {
+    "description": "A dot under Home's hero, read out by screen readers.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "heroPause": "Pause slideshow",
+  "heroPlay": "Play slideshow",
+  "watchNow": "Watch now",
+  "heroDetails": "Details",
+  "heroInWatchList": "In Watch List",
+  "@heroInWatchList": {
+    "description": "Home's hero, for a movie already in the viewer's Watch List. Pressing it removes the movie."
+  }
 }

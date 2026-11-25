@@ -135,6 +135,18 @@ class EditionDetailOut(EditionCard):
     seasons: list[SeasonOut]
 
 
+class FeaturedOut(EditionCard):
+    """A title in Home's hero. Every one has something to watch."""
+
+    genres: list[str]
+    # Wide enough for a desktop screen. Null without a TMDB backdrop: the
+    # app shows the poster instead.
+    backdrop_url: str | None
+    # For a movie, the item to ask playback for. Null for a series, which
+    # opens its page to choose an episode.
+    item_id: UUID | None
+
+
 class LanguageOut(BaseModel):
     code: str
     name: str
@@ -282,6 +294,31 @@ def get_edition(
             for number, episodes in sorted(seasons.items())
         ],
     )
+
+
+@router.get("/featured")
+def list_featured(
+    request: Request,
+    db: AppDatabase,
+    images: Images,
+    background: BackgroundTasks,
+) -> list[FeaturedOut]:
+    """The newest published titles with something to watch, for Home's
+    hero: at most three, test films left out. Needs no sign-in."""
+    with db.anonymous() as conn:
+        rows = viewer.list_featured(conn)
+    refresher = request.app.state.refresher
+    if refresher is not None and refresher.sweep_due():
+        background.add_task(refresher.sweep)
+    return [
+        FeaturedOut(
+            **_card(row.summary, images).model_dump(),
+            genres=row.genres,
+            backdrop_url=images.hero_backdrop(row.backdrop_path),
+            item_id=row.movie_item,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/vjs")

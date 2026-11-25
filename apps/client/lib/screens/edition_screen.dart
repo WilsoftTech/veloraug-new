@@ -185,7 +185,7 @@ class _DetailsState extends State<_Details> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_requestedSaved && _canWatch(context) == _CanWatch.yes) {
+    if (!_requestedSaved && watchAccess(context) == WatchAccess.yes) {
       _requestedSaved = true;
       _loadSaved();
     }
@@ -285,7 +285,7 @@ class _DetailsState extends State<_Details> {
         edition.kind == EditionKind.movie &&
         edition.playable &&
         edition.itemId != null &&
-        _canWatch(context) == _CanWatch.yes;
+        watchAccess(context) == WatchAccess.yes;
 
     final badges = Wrap(
       spacing: VeloraSpacing.xs,
@@ -657,15 +657,16 @@ class _StorylineState extends State<_Storyline> {
 }
 
 /// What a viewer can do about watching: watch, sign in first, or nothing
-/// in this build.
-enum _CanWatch { yes, signInFirst, notHere }
+/// in this build. Home's hero asks the same question, so both lead to the
+/// same sign-in and the same player, which checks the pass and device.
+enum WatchAccess { yes, signInFirst, notHere }
 
-_CanWatch _canWatch(BuildContext context) {
+WatchAccess watchAccess(BuildContext context) {
   final auth = AuthScope.of(context);
   final playback = PlaybackScope.of(context);
-  if (auth == null || playback == null) return _CanWatch.notHere;
-  if (auth.status != AuthStatus.signedIn) return _CanWatch.signInFirst;
-  return _CanWatch.yes;
+  if (auth == null || playback == null) return WatchAccess.notHere;
+  if (auth.status != AuthStatus.signedIn) return WatchAccess.signInFirst;
+  return WatchAccess.yes;
 }
 
 /// What a download of this edition, or one of its episodes, keeps with it.
@@ -710,8 +711,8 @@ class _WatchButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final itemId = edition.itemId;
-    final can = _canWatch(context);
-    if (!edition.playable || itemId == null || can == _CanWatch.notHere) {
+    final can = watchAccess(context);
+    if (!edition.playable || itemId == null || can == WatchAccess.notHere) {
       return Wrap(
         spacing: VeloraSpacing.sm,
         runSpacing: VeloraSpacing.xs,
@@ -725,7 +726,7 @@ class _WatchButton extends StatelessWidget {
         ],
       );
     }
-    if (can == _CanWatch.signInFirst) return _SignInToWatch(expand: expand);
+    if (can == WatchAccess.signInFirst) return _SignInToWatch(expand: expand);
     return VeloraButton(
       label: l.watch,
       icon: Icons.play_arrow,
@@ -780,7 +781,7 @@ class _SeasonsState extends State<_Seasons> {
       );
     }
     final season = seasons[_shown.clamp(0, seasons.length - 1)];
-    final can = _canWatch(context);
+    final can = watchAccess(context);
     final episodes = widget.edition.episodes;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -808,7 +809,7 @@ class _SeasonsState extends State<_Seasons> {
             l.seasonNumber(season.season),
             style: theme.textTheme.titleMedium,
           ),
-        if (can == _CanWatch.signInFirst) const _SignInToWatch(),
+        if (can == WatchAccess.signInFirst) const _SignInToWatch(),
         AnimatedSwitcher(
           duration: VeloraMotion.of(context, VeloraMotion.standard),
           switchInCurve: VeloraMotion.curve,
@@ -853,7 +854,7 @@ class _SeasonsState extends State<_Seasons> {
                               ),
                           ],
                         ),
-                        episode.playable && can == _CanWatch.yes
+                        episode.playable && can == WatchAccess.yes
                             ? Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -879,7 +880,7 @@ class _SeasonsState extends State<_Seasons> {
                               )
                             : StatusBadge(
                                 label: episode.playable
-                                    ? (can == _CanWatch.notHere
+                                    ? (can == WatchAccess.notHere
                                           ? l.notAvailableHere
                                           : l.signInFirst)
                                     : l.comingSoon,

@@ -35,5 +35,10 @@ class ImageUrls:
     def backdrop(self, path: str | None) -> str | None:
         return self.tmdb.backdrop_url(path) if path and _TMDB.match(path) else None
 
+    def hero_backdrop(self, path: str | None) -> str | None:
+        if path and _TMDB.match(path):
+            return self.tmdb.hero_backdrop_url(path)
+        return None
+
     def photo(self, path: str | None) -> str | None:
         return self._uploaded(path) if path else None

@@ -185,6 +185,10 @@ def test_image_settings_are_read_from_tmdb():
     # w342 isn't offered, so the next wider size is used.
     assert images.poster_url("/a.jpg") == "https://image.tmdb.org/t/p/w500/a.jpg"
     assert images.backdrop_url("/b.jpg") == "https://image.tmdb.org/t/p/w780/b.jpg"
+    # w1280 isn't offered here and nothing wider is, so it is kept as asked.
+    assert (
+        images.hero_backdrop_url("/b.jpg") == "https://image.tmdb.org/t/p/w1280/b.jpg"
+    )
 
 
 @pytest.mark.parametrize(
@@ -282,3 +286,12 @@ def test_a_series_has_a_rating_too():
 
     assert series.rating == 8.9
     assert series.vote_count == 1500
+
+
+def test_the_hero_backdrop_uses_the_closest_wider_size():
+    images = parse_image_config(
+        {"images": {"backdrop_sizes": ["w300", "w780", "w1920", "original"]}}
+    )
+
+    assert images.hero_backdrop_url("/b.jpg").endswith("/w1920/b.jpg")
+    assert DEFAULT_IMAGES.hero_backdrop_url(None) is None

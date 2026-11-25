@@ -174,6 +174,15 @@ void main() {
         '${VeloraMotion.standard.inMilliseconds}ms',
       );
       expect(cssValue('motion-slow'), '${VeloraMotion.slow.inMilliseconds}ms');
+      expect(
+        cssValue('motion-hero-interval'),
+        '${VeloraMotion.heroInterval.inMilliseconds}ms',
+      );
+      expect(
+        cssValue('motion-hero-crossfade'),
+        '${VeloraMotion.heroCrossfade.inMilliseconds}ms',
+      );
+      expect(cssValue('motion-hero-zoom'), '${VeloraMotion.heroZoom}');
     });
   });
 

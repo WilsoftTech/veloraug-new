@@ -72,6 +72,22 @@ Map<String, Object?> card(
   'rating': rating,
 };
 
+/// A title in Home's hero. A movie has its item to play; a series none.
+Map<String, Object?> featuredTitle(
+  String id, {
+  String kind = 'movie',
+  String title = 'Fast X',
+  String? vj = 'VJ Junior',
+  double? rating,
+  List<String> genres = const ['Action'],
+  bool backdrop = true,
+}) => {
+  ...card(id, kind: kind, title: title, vj: vj, rating: rating),
+  'genres': genres,
+  'backdrop_url': backdrop ? 'https://image.tmdb.org/t/p/w1280/$id.jpg' : null,
+  'item_id': kind == 'movie' ? 'item-$id' : null,
+};
+
 /// A movie edition's page.
 Map<String, Object?> movieDetail(
   String id, {
@@ -150,6 +166,11 @@ class FakeApi {
   final details = <String, Map<String, Object?>>{};
   final vjs = <Map<String, Object?>>[];
   final vjPages = <String, Map<String, Object?>>{};
+
+  /// Home's hero, as GET /api/v1/featured lists it. Empty by default, so
+  /// Home keeps its welcome panel.
+  final featured = <Map<String, Object?>>[];
+  int featuredStatus = 200;
   List<Map<String, Object?>> languages = [
     {'code': 'lg', 'name': 'Luganda', 'editions': 1},
   ];
@@ -441,6 +462,11 @@ class FakeApi {
     if (catalogueStatus case final status?) {
       return json({'detail': 'x'}, status);
     }
+    if (path == '/api/v1/featured') {
+      return featuredStatus == 200
+          ? json(featured)
+          : json({'detail': 'x'}, featuredStatus);
+    }
     if (path == '/api/v1/editions') return _list(request.url.queryParameters);
     if (path.startsWith('/api/v1/editions/')) {
       final detail = details[request.url.pathSegments.last];
@@ -517,6 +543,10 @@ Future<AuthController> pumpApp(
   UploadQueue Function(AuthController auth)? uploads,
   Future<List<PickedVideo>> Function()? pickVideos,
   Downloads? downloads,
+
+  /// False when something keeps moving, such as Home's hero: the app is
+  /// pumped for a second instead of until it settles.
+  bool settle = true,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -535,7 +565,13 @@ Future<AuthController> pumpApp(
       downloads: downloads,
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
   return auth;
 }
 

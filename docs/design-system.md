@@ -140,6 +140,8 @@ The sign-in pages can't load web fonts, because their Content-Security-Policy al
 | Forms | 420 pixels at most |
 | Reading screens, such as Search and Account | 720 pixels at most |
 | Browsing screens, such as Home | 1280 pixels at most |
+| Home's hero, narrower than 600 pixels | The full screen width, edge to edge, 4:5 |
+| Home's hero, 600 pixels and wider | The content width, 21:9, between 420 and 560 pixels tall, rounded |
 
 A movie card's height follows its content, and all cards in a row share the tallest height. Titles stop at two lines with an ellipsis, and the full title is always read by screen readers. `MovieCardGrid` builds every card, so a real catalogue will need a lazy grid.
 
@@ -184,8 +186,13 @@ Use Flutter's themed `AlertDialog` and `SnackBar` directly. They don't need wrap
 | `standard` | 200 ms | Reserved for small transitions |
 | `slow` | 320 ms | Navigation indicator |
 | `pulse` | 1400 ms | One full fade of a loading placeholder, between 55% and 100% |
+| `heroInterval` | 6000 ms | How long Home's hero shows each title |
+| `heroCrossfade` | 600 ms | One hero title fading into the next |
+| `heroZoom` | 1.06 | How far the hero's artwork slowly zooms over `heroInterval` |
 
 The curve is `easeOutCubic`. No media autoplays, and nothing flashes. The placeholder fade stays well under the WCAG limit of three flashes a second.
+
+**Home's hero** is the one thing that moves without being asked. It moves gently: it moves on every 6 seconds with a crossfade while its artwork zooms 6%, and nothing flashes. It stops while the pointer is over it, while it is touched, while anything in it has keyboard focus, while the app is in the background or another screen covers it, and when the viewer presses its pause button, which WCAG 2.2.2 requires for anything that moves for more than 5 seconds. With reduced motion it doesn't move on by itself and doesn't zoom, and titles change at once.
 
 **Reduced motion** comes from the system setting, through `MediaQuery.disableAnimations` in Flutter and `prefers-reduced-motion` in CSS.
 

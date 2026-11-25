@@ -51,6 +51,29 @@ class EditionCard {
   final double? rating;
 }
 
+/// A title in Home's hero. Every one has something to watch.
+class FeaturedTitle {
+  const FeaturedTitle({
+    required this.card,
+    this.genres = const [],
+    this.backdropUrl,
+    this.itemId,
+  });
+
+  final EditionCard card;
+  final List<String> genres;
+
+  /// Wide artwork for the hero. Null without one: the poster stands in.
+  final String? backdropUrl;
+
+  /// A movie's one video, to play. Null for a series.
+  final String? itemId;
+
+  String get id => card.id;
+  String get title => card.title;
+  EditionKind get kind => card.kind;
+}
+
 /// One page of editions. [nextOffset] is null on the last page.
 class EditionPage {
   const EditionPage({required this.editions, this.nextOffset});
@@ -300,6 +323,28 @@ class CatalogueApi {
       playable: _need<bool>(json['playable'] ?? false),
       seasons: [for (final season in seasons) _season(season)],
     );
+  }
+
+  /// The newest titles with something to watch, for Home's hero: at most
+  /// three.
+  Future<List<FeaturedTitle>> featured() async {
+    final json = await _get('/api/v1/featured');
+    return [
+      for (final row in _need<List<Object?>>(json))
+        if (_need<Map<String, Object?>>(row) case final title)
+          FeaturedTitle(
+            card: _card(title),
+            genres: [
+              for (final genre in _need<List<Object?>>(title['genres']))
+                _need<String>(genre),
+            ],
+            backdropUrl: safeImageUrl(
+              title['backdrop_url'],
+              gateway: mediaBaseUrl,
+            ),
+            itemId: _maybe<String>(title['item_id']),
+          ),
+    ];
   }
 
   /// VJs with something published, by name.

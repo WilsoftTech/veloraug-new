@@ -108,6 +108,16 @@ abstract final class VeloraLayout {
   static const double minPosterWidthCompact = 136;
   static const double minPosterWidthWide = 176;
 
+  /// Home's hero, width over height. On a phone it is taller than wide, with
+  /// room for the title and buttons over the artwork.
+  static const double heroAspectCompact = 4 / 5;
+  static const double heroAspectWide = 21 / 9;
+
+  /// The wide hero's height stays between these, and grows past the larger
+  /// with large text rather than clip it.
+  static const double heroMinHeight = 420;
+  static const double heroMaxHeight = 560;
+
   /// The space on each side of a screen's content.
   static double gutterFor(double screenWidth) {
     if (screenWidth >= expandedBreakpoint) return VeloraSpacing.xxl;
@@ -124,6 +134,14 @@ abstract final class VeloraMotion {
   /// One full fade out and back of a loading placeholder, slow enough not to
   /// read as a flash.
   static const Duration pulse = Duration(milliseconds: 1400);
+
+  /// How long Home's hero shows each title before moving on, and how long
+  /// one title fades into the next. Neither runs with reduced motion.
+  static const Duration heroInterval = Duration(milliseconds: 6000);
+  static const Duration heroCrossfade = Duration(milliseconds: 600);
+
+  /// How far the hero's artwork slowly zooms over [heroInterval]: 6%.
+  static const double heroZoom = 1.06;
 
   static const Curve curve = Curves.easeOutCubic;
 

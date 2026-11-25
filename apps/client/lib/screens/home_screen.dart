@@ -7,6 +7,7 @@ import '../theme/tokens.dart';
 import '../widgets/edition_cards.dart';
 import '../widgets/tmdb_attribution.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/hero_carousel.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/screen_body.dart';
 import 'browse_screen.dart';
@@ -61,8 +62,8 @@ class _Shelf {
   final VjCard? vj;
 }
 
-/// Latest editions, Movies and Series, then shelves for genres, VJs and
-/// languages as they load. A shelf that fails or is empty is left out, and
+/// The hero's newest titles, Latest editions, Movies and Series, then
+/// shelves for genres, VJs and languages as they load. A shelf that fails or is empty is left out, and
 /// never holds up the others.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -78,6 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Each load gets a number, and answers for an older one are dropped.
   int _generation = 0;
+
+  /// Home's hero. Null while it loads; empty when there is nothing to
+  /// feature or it failed, and then the welcome panel shows instead.
+  List<FeaturedTitle>? _featured = const [];
 
   List<EditionCard> _latest = const [];
   List<EditionCard> _movies = const [];
@@ -116,6 +121,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _loaded.clear();
     _latest = _movies = _series = const [];
     _failure = null;
+    _featured = null;
+    // On its own: a failure here leaves the welcome panel, and never holds
+    // up the shelves.
+    api.featured().then(
+      (titles) {
+        if (current()) setState(() => _featured = titles);
+      },
+      onError: (Object _) {
+        if (current()) setState(() => _featured = const []);
+      },
+    );
     Future<void> loadPrimary(EditionKind? kind) async {
       try {
         final page = await api.editions(limit: rowSize, kind: kind);
@@ -238,10 +254,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final featured = _featured;
     return ScreenBody(
       heading: l.homeHeading,
       intro: l.homeIntro,
       hero: true,
+      banner: switch (featured) {
+        null => const HeroCarouselSkeleton(),
+        [] => null,
+        _ => HeroCarousel(titles: featured),
+      },
       maxWidth: VeloraLayout.browseWidth,
       children: [
         const _Shortcuts(),
@@ -328,6 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       TmdbAttribution(
         editions: [
+          ...?_featured?.map((title) => title.card),
           ..._latest,
           ..._movies,
           ..._series,

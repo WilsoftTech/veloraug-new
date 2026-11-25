@@ -12,6 +12,7 @@ class ScreenBody extends StatelessWidget {
     this.intro,
     this.status,
     this.hero = false,
+    this.banner,
     this.maxWidth = VeloraLayout.readingWidth,
   });
 
@@ -27,6 +28,11 @@ class ScreenBody extends StatelessWidget {
   /// Gives the heading the larger treatment used on the Home screen.
   final bool hero;
 
+  /// Shown instead of the heading, intro and status, such as Home's hero
+  /// carousel, which has its own heading. Edge to edge on a phone, and the
+  /// content's width on wider screens.
+  final Widget? banner;
+
   final double maxWidth;
 
   @override
@@ -39,26 +45,52 @@ class ScreenBody extends StatelessWidget {
       hero: hero,
     );
 
+    final banner = this.banner;
+    final bleed = banner != null && screenWidth < VeloraLayout.mediumBreakpoint;
+    final gutter = VeloraLayout.gutterFor(screenWidth);
+    final body = Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: VeloraSpacing.lg,
+          children: [
+            if (banner == null)
+              hero ? _HeroPanel(child: header) : header
+            else if (!bleed)
+              banner,
+            ...children,
+          ],
+        ),
+      ),
+    );
+    if (bleed) {
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            banner,
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                gutter,
+                VeloraSpacing.lg,
+                gutter,
+                VeloraSpacing.lg,
+              ),
+              child: body,
+            ),
+          ],
+        ),
+      );
+    }
     return SingleChildScrollView(
       // Only the sides change with the screen's width, so content starts at
       // the same height on every layout.
       padding: EdgeInsets.symmetric(
-        horizontal: VeloraLayout.gutterFor(screenWidth),
+        horizontal: gutter,
         vertical: VeloraSpacing.lg,
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: VeloraSpacing.lg,
-            children: [
-              if (hero) _HeroPanel(child: header) else header,
-              ...children,
-            ],
-          ),
-        ),
-      ),
+      child: body,
     );
   }
 }

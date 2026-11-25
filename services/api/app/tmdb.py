@@ -259,12 +259,17 @@ class ImageConfig:
     base_url: str = "https://image.tmdb.org/t/p/"
     poster_size: str = "w342"
     backdrop_size: str = "w780"
+    # Home's hero spans a desktop screen, where w780 looks soft.
+    hero_backdrop_size: str = "w1280"
 
     def poster_url(self, path: str | None) -> str | None:
         return f"{self.base_url}{self.poster_size}{path}" if path else None
 
     def backdrop_url(self, path: str | None) -> str | None:
         return f"{self.base_url}{self.backdrop_size}{path}" if path else None
+
+    def hero_backdrop_url(self, path: str | None) -> str | None:
+        return f"{self.base_url}{self.hero_backdrop_size}{path}" if path else None
 
 
 DEFAULT_IMAGES = ImageConfig()
@@ -302,6 +307,9 @@ def parse_image_config(data: Any) -> ImageConfig:
         base_url=base,
         poster_size=_size(images.get("poster_sizes"), DEFAULT_IMAGES.poster_size),
         backdrop_size=_size(images.get("backdrop_sizes"), DEFAULT_IMAGES.backdrop_size),
+        hero_backdrop_size=_size(
+            images.get("backdrop_sizes"), DEFAULT_IMAGES.hero_backdrop_size
+        ),
     )
 
 

@@ -212,6 +212,96 @@ def test_an_expired_tmdb_copy_isnt_shown(api, owner, catalogue):
     assert "Fast X" not in {card["title"] for card in cards(api)}
 
 
+# --- Home's hero --------------------------------------------------------------
+
+
+def featured(api):
+    response = api.get("/api/v1/featured")
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@needs_database
+def test_featured_has_the_newest_playable_titles_without_test_films(api, catalogue):
+    rows = featured(api)
+
+    # Kabaka was published after Fast X. The Matrix is a test film, and the
+    # draft isn't published.
+    assert [row["title"] for row in rows] == ["Kabaka", "Fast X"]
+    series, movie = rows
+    assert movie == {
+        "id": str(catalogue["movie"].edition_id),
+        "kind": "movie",
+        "title": "Fast X",
+        "year": 2023,
+        "poster_url": "https://image.tmdb.org/t/p/w342/p.jpg",
+        "vj_name": "VJ Junior",
+        "vj_slug": "vj-junior",
+        "language": "lg",
+        "label": "Luganda · VJ Junior",
+        "rating": None,
+        "genres": ["Action"],
+        # Wider than the edition page's, for a desktop screen.
+        "backdrop_url": "https://image.tmdb.org/t/p/w1280/back.jpg",
+        "item_id": str(catalogue["movie"].item_id),
+    }
+    # A series opens its page to choose an episode.
+    assert series["item_id"] is None
+    assert series["genres"] == ["Drama"]
+
+
+@needs_database
+def test_featured_shows_at_most_three(api, owner, catalogue):
+    for n in range(3):
+        draft = editions.create_draft(owner, kind="movie", title=f"New {n}")
+        describe(owner, draft.edition_id, vj_id=catalogue["junior"], title=f"New {n}")
+        ready(owner, draft.item_id)
+        editions.publish(owner, draft.edition_id)
+
+    assert [row["title"] for row in featured(api)] == ["New 2", "New 1", "New 0"]
+
+
+@needs_database
+def test_featured_leaves_out_what_cant_be_watched(api, owner, catalogue):
+    owner.execute(
+        "update public.media_originals set state = 'failed', ready_at = null "
+        "where item_id = %s",
+        (catalogue["movie"].item_id,),
+    )
+
+    assert [row["title"] for row in featured(api)] == ["Kabaka"]
+
+
+@needs_database
+def test_featured_leaves_out_an_expired_tmdb_copy(api, owner, catalogue):
+    owner.execute(
+        "update public.sources set fetched_at = now() - %s where tmdb_id = 385687",
+        (timedelta(days=151),),
+    )
+
+    assert [row["title"] for row in featured(api)] == ["Kabaka"]
+
+
+@needs_database
+def test_featured_keeps_the_ten_vote_rule_for_ratings(api, owner, catalogue):
+    owner.execute(
+        "update public.sources set tmdb_rating = 7.4, tmdb_vote_count = %s "
+        "where tmdb_id = 385687",
+        (9,),
+    )
+    assert featured(api)[1]["rating"] is None
+
+    owner.execute(
+        "update public.sources set tmdb_vote_count = 10 where tmdb_id = 385687"
+    )
+    assert featured(api)[1]["rating"] == 7.4
+
+
+@needs_database
+def test_featured_is_empty_on_an_empty_catalogue(api, owner):
+    assert featured(api) == []
+
+
 # --- VJs and languages -------------------------------------------------------
 
 
