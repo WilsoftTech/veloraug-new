@@ -13,6 +13,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/movie_card.dart';
 import '../widgets/movie_poster.dart';
+import '../widgets/rating_badge.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
 import 'player_screen.dart';
@@ -290,6 +291,8 @@ class _DetailsState extends State<_Details> {
       spacing: VeloraSpacing.xs,
       runSpacing: VeloraSpacing.xs,
       children: [
+        if (edition.rating != null)
+          RatingBadge(rating: edition.rating, voteCount: edition.voteCount),
         StatusBadge(
           label: edition.kind == EditionKind.series
               ? l.seriesBadge

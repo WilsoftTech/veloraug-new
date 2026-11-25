@@ -17,6 +17,7 @@ from app.catalogue import RETRY_AFTER_FAILURE_SECONDS, Refresher
 from app.db import Database
 from app.main import create_app
 from app.tmdb import TmdbClient
+from app.viewer import MIN_VOTES
 from tests.db_support import add_movie, delete_editions, needs_database, set_published
 from tests.test_catalogue import details
 
@@ -30,6 +31,8 @@ class FakeTmdb:
 
     def __init__(self) -> None:
         self.titles: dict[int, str] = {}
+        # (vote_average, vote_count) per movie; none sent when missing.
+        self.votes: dict[int, tuple[float, int]] = {}
         self.status: dict[int, int] = {}
         self.headers: dict[str, str] = {}
         self.requests: list[str] = []
@@ -62,6 +65,14 @@ class FakeTmdb:
                 "genres": [{"name": "Drama"}],
                 "poster_path": "/fresh.jpg",
                 "backdrop_path": "/fresh-back.jpg",
+                **(
+                    {
+                        "vote_average": self.votes[tmdb_id][0],
+                        "vote_count": self.votes[tmdb_id][1],
+                    }
+                    if tmdb_id in self.votes
+                    else {}
+                ),
             },
         )
 
@@ -183,6 +194,8 @@ def test_the_list_shows_published_movies_newest_first(api, owner):
         "vj_slug": None,
         "language": "lg",
         "label": "Test",
+        # No TMDB rating on this copy.
+        "rating": None,
     }
 
 
@@ -277,6 +290,8 @@ def test_the_detail_has_every_field(api, owner):
         "vj_slug": None,
         "language": "lg",
         "label": "Test",
+        "rating": None,
+        "vote_count": None,
         "source_title": "Mine",
         "overview": "An overview.",
         "runtime_minutes": 101,
@@ -317,6 +332,62 @@ def test_an_unpublished_movie_disappears_at_once(api, owner):
 
 def test_a_malformed_id_is_refused(api):
     assert api.get("/api/v1/editions/not-a-uuid").status_code == 422
+
+
+# --- Ratings -----------------------------------------------------------------
+
+
+def set_rating(owner, tmdb_id: int, rating: float | None, votes: int | None):
+    owner.execute(
+        "update public.sources set tmdb_rating = %s, tmdb_vote_count = %s, "
+        "rating_updated_at = now() where kind = 'movie' and tmdb_id = %s",
+        (rating, votes, tmdb_id),
+    )
+
+
+def test_a_rating_shows_on_cards_and_the_detail(api, owner):
+    movie_id, tmdb_id = published(owner, "Rated")
+    set_rating(owner, tmdb_id, 7.4, 1234)
+
+    card = api.get("/api/v1/editions").json()["editions"][0]
+    detail = api.get(f"/api/v1/editions/{movie_id}").json()
+
+    assert card["rating"] == 7.4
+    assert "vote_count" not in card
+    assert detail["rating"] == 7.4
+    assert detail["vote_count"] == 1234
+
+
+def test_a_rating_from_too_few_votes_is_not_shown(api, owner):
+    movie_id, tmdb_id = published(owner, "Few votes")
+    set_rating(owner, tmdb_id, 10.0, MIN_VOTES - 1)
+
+    card = api.get("/api/v1/editions").json()["editions"][0]
+    detail = api.get(f"/api/v1/editions/{movie_id}").json()
+
+    assert card["rating"] is None
+    assert detail["rating"] is None
+    assert detail["vote_count"] is None
+
+
+def test_a_rating_from_exactly_the_minimum_is_shown(api, owner):
+    movie_id, tmdb_id = published(owner, "Just enough")
+    set_rating(owner, tmdb_id, 6.0, MIN_VOTES)
+
+    detail = api.get(f"/api/v1/editions/{movie_id}").json()
+
+    assert (detail["rating"], detail["vote_count"]) == (6.0, MIN_VOTES)
+
+
+def test_the_background_refresh_saves_the_rating(api, owner, tmdb):
+    movie_id, tmdb_id = published(owner, "Old", age_days=8)
+    tmdb.votes[tmdb_id] = (8.25, 5000)
+
+    api.get(f"/api/v1/editions/{movie_id}")
+    detail = api.get(f"/api/v1/editions/{movie_id}").json()
+
+    assert detail["rating"] == 8.2
+    assert detail["vote_count"] == 5000
 
 
 # --- Ages and refreshing -----------------------------------------------------

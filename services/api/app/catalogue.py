@@ -78,7 +78,8 @@ def save_details(
         update public.sources set
           title = %s, original_title = %s, overview = %s, release_date = %s,
           runtime_minutes = %s, genres = %s, poster_path = %s,
-          backdrop_path = %s, fetched_at = now()
+          backdrop_path = %s, tmdb_rating = %s, tmdb_vote_count = %s,
+          fetched_at = now(), rating_updated_at = now()
         where kind = %s and tmdb_id = %s
         """,
         (
@@ -90,6 +91,8 @@ def save_details(
             list(details.genres),
             details.poster_path,
             details.backdrop_path,
+            details.rating,
+            details.vote_count,
             kind,
             details.tmdb_id,
         ),

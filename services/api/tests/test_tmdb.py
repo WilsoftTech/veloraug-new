@@ -13,6 +13,7 @@ from app.tmdb import (
     TmdbUnavailable,
     parse_image_config,
     parse_movie,
+    parse_series,
 )
 
 TOKEN = "eyJ-test-token-SECRET"
@@ -28,6 +29,8 @@ FIGHT_CLUB = {
     "poster_path": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
     "backdrop_path": "/hZkgoQYus5vegHoetLkCJzb17zJ.jpg",
     "adult": False,
+    "vote_average": 8.438,
+    "vote_count": 30195,
 }
 
 
@@ -54,6 +57,8 @@ def test_a_movie_is_fetched_with_the_token_in_the_header_only():
     assert movie.runtime_minutes == 139
     assert movie.genres == ("Drama", "Thriller")
     assert movie.poster_path == "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
+    assert movie.rating == 8.4
+    assert movie.vote_count == 30195
     (request,) = requests
     assert str(request.url) == "https://api.themoviedb.org/3/movie/550?language=en-US"
     assert request.headers["Authorization"] == f"Bearer {TOKEN}"
@@ -205,3 +210,75 @@ def test_image_settings_failures_are_unavailable():
 
     with pytest.raises(TmdbUnavailable):
         client.image_config()
+
+
+# --- Ratings -----------------------------------------------------------------
+
+
+def _with_votes(average, count) -> dict:
+    return {**FIGHT_CLUB, "vote_average": average, "vote_count": count}
+
+
+@pytest.mark.parametrize(
+    ("average", "count", "rating", "votes"),
+    [
+        (7.25, 12, 7.2, 12),  # Python rounds half to even: 7.25 -> 7.2.
+        (7.26, 12, 7.3, 12),
+        (10, 3, 10.0, 3),
+        (0.5, 1, 0.5, 1),
+        # The most the database's integer column holds.
+        (7.5, 2**31 - 1, 7.5, 2**31 - 1),
+    ],
+)
+def test_the_rating_is_kept_to_one_decimal(average, count, rating, votes):
+    movie = parse_movie(_with_votes(average, count), 550)
+
+    assert movie.rating == rating
+    assert movie.vote_count == votes
+
+
+@pytest.mark.parametrize(
+    ("average", "count"),
+    [
+        # TMDB's answer for a title nobody has rated: not a score of 0.
+        (0.0, 0),
+        (7.5, 0),
+        (None, 10),
+        (7.5, None),
+        ("7.5", 10),
+        (7.5, "10"),
+        (True, 10),
+        (7.5, True),
+        (-1, 10),
+        (10.1, 10),
+        (float("nan"), 10),
+        (7.5, -4),
+        (7.5, 2.5),
+        # Too many for the database's integer column.
+        (7.5, 2**31),
+    ],
+)
+def test_no_votes_or_strange_values_give_no_rating(average, count):
+    movie = parse_movie(_with_votes(average, count), 550)
+
+    assert movie.rating is None
+    assert movie.vote_count is None
+
+
+def test_a_movie_without_rating_fields_has_no_rating():
+    data = {k: v for k, v in FIGHT_CLUB.items() if not k.startswith("vote_")}
+
+    movie = parse_movie(data, 550)
+
+    assert movie.rating is None
+    assert movie.vote_count is None
+
+
+def test_a_series_has_a_rating_too():
+    series = parse_series(
+        {"id": 1396, "name": "Breaking Bad", "vote_average": 8.9, "vote_count": 1500},
+        1396,
+    )
+
+    assert series.rating == 8.9
+    assert series.vote_count == 1500

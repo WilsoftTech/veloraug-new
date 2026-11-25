@@ -2127,5 +2127,63 @@
   "reuseMovieSearchHelp": "Search published movies by title. Try the title without its part number.",
   "reuseMovieQueryLength": "Enter 2 to 120 characters to search.",
   "reuseMovieNoResults": "No published movies match that title.",
-  "reuseMovieConfirm": "Choose a movie to share its details. Its poster and VJ credit fill any empty fields. Your title and video stay as they are."
+  "reuseMovieConfirm": "Choose a movie to share its details. Its poster and VJ credit fill any empty fields. Your title and video stay as they are.",
+  "ratingValue": "{rating}",
+  "@ratingValue": {
+    "description": "TMDB's rating out of 10, beside a star, such as 7.4.",
+    "placeholders": {
+      "rating": {
+        "type": "double",
+        "format": "decimalPatternDigits",
+        "optionalParameters": {
+          "decimalDigits": 1
+        }
+      }
+    }
+  },
+  "ratingVotes": "{count, plural, =1{1 vote} other{{count} votes}}",
+  "@ratingVotes": {
+    "description": "How many TMDB votes a rating is from, shortened, such as 1.2K votes.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "ratingSemantics": "Rated {rating} out of 10 on TMDB",
+  "@ratingSemantics": {
+    "description": "Read out for a rating on a poster.",
+    "placeholders": {
+      "rating": {
+        "type": "double",
+        "format": "decimalPatternDigits",
+        "optionalParameters": {
+          "decimalDigits": 1
+        }
+      }
+    }
+  },
+  "ratingSemanticsWithVotes": "Rated {rating} out of 10 on TMDB, from {count, plural, =1{1 vote} other{{count} votes}}",
+  "@ratingSemanticsWithVotes": {
+    "description": "Read out for a rating on an edition's page.",
+    "placeholders": {
+      "rating": {
+        "type": "double",
+        "format": "decimalPatternDigits",
+        "optionalParameters": {
+          "decimalDigits": 1
+        }
+      },
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "ratingsFromTmdb": "Ratings from",
+  "@ratingsFromTmdb": {
+    "description": "Shown before TMDB's logo wherever ratings appear."
+  },
+  "ratingsFromTmdbSemantics": "Ratings from TMDB, The Movie Database"
 }

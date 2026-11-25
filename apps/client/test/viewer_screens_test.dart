@@ -7,11 +7,12 @@ import 'package:veloraug/api/catalogue_api.dart';
 import 'package:veloraug/api/playback_api.dart';
 import 'package:veloraug/l10n/app_localizations.dart';
 import 'package:veloraug/l10n/app_localizations_en.dart';
-import 'package:veloraug/screens/account_screen.dart';
 import 'package:veloraug/screens/edition_screen.dart';
 import 'package:veloraug/screens/player_screen.dart';
 import 'package:veloraug/screens/search_screen.dart';
 import 'package:veloraug/widgets/movie_card.dart';
+import 'package:veloraug/widgets/rating_badge.dart';
+import 'package:veloraug/widgets/tmdb_attribution.dart';
 import 'package:veloraug/widgets/velora_button.dart';
 
 import 'support.dart';
@@ -193,6 +194,47 @@ void main() {
       expect(test.cornerLabel, isNull);
     });
 
+    testWidgets('a rated poster shows its rating, and Home credits TMDB', (
+      tester,
+    ) async {
+      final api = catalogue();
+      api.editions[0] = card(
+        'm1',
+        title: 'Fast X',
+        vj: 'VJ Junior',
+        rating: 7.4,
+      );
+      await pumpApp(tester, api);
+
+      final fast = tester.widget<MovieCard>(
+        find.widgetWithText(MovieCard, 'Fast X').first,
+      );
+      expect(fast.bottomCorner, isA<PosterRating>());
+      expect(
+        find.bySemanticsLabel(
+          RegExp(r'^Fast X, VJ Junior, Rated 7\.4 out of 10 on TMDB, 2023'),
+        ),
+        findsWidgets,
+      );
+      final rambo = tester.widget<MovieCard>(
+        find.widgetWithText(MovieCard, 'Rambo').first,
+      );
+      expect(rambo.bottomCorner, isNull);
+      final credit = find.byType(TmdbAttribution);
+      await tester.ensureVisible(credit);
+      expect(find.text('Ratings from'), findsOneWidget);
+    });
+
+    testWidgets(
+      'without ratings, no poster shows one and nothing credits TMDB',
+      (tester) async {
+        await pumpApp(tester, catalogue());
+
+        expect(find.byType(PosterRating), findsNothing);
+        expect(find.text('Ratings from'), findsNothing);
+      },
+    );
+
     testWidgets('See all opens every series, a page at a time', (tester) async {
       final api = catalogue();
       await pumpApp(tester, api);
@@ -293,6 +335,36 @@ void main() {
       expect(find.text('Movie'), findsOneWidget);
       expect(find.text('Dom races again.'), findsOneWidget);
       expect(find.text('Trailer'), findsOneWidget);
+    });
+
+    testWidgets("shows TMDB's rating with its votes and logo", (tester) async {
+      final api = catalogue()
+        ..details['m1'] = movieDetail('m1', rating: 7.4, votes: 1234);
+      await pumpApp(tester, api);
+      await openEdition(tester, 'Fast X');
+
+      expect(find.byType(RatingBadge), findsOneWidget);
+      expect(find.text('7.4'), findsOneWidget);
+      expect(find.text('1.23K votes'), findsOneWidget);
+      final logo = tester.widget<Image>(
+        find.descendant(
+          of: find.byType(RatingBadge),
+          matching: find.byType(Image),
+        ),
+      );
+      expect((logo.image as AssetImage).assetName, tmdbLogoAsset);
+      expect(
+        find.bySemanticsLabel('Rated 7.4 out of 10 on TMDB, from 1,234 votes'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('without a rating, it shows no rating at all', (tester) async {
+      await pumpApp(tester, catalogue());
+      await openEdition(tester, 'Fast X');
+
+      expect(find.byType(RatingBadge), findsNothing);
+      expect(find.byIcon(Icons.star_rounded), findsNothing);
     });
 
     testWidgets('signed in, Watch plays its item', (tester) async {

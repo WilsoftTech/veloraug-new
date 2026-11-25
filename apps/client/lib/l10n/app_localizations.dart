@@ -4479,6 +4479,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose a movie to share its details. Its poster and VJ credit fill any empty fields. Your title and video stay as they are.'**
   String get reuseMovieConfirm;
+
+  /// TMDB's rating out of 10, beside a star, such as 7.4.
+  ///
+  /// In en, this message translates to:
+  /// **'{rating}'**
+  String ratingValue(double rating);
+
+  /// How many TMDB votes a rating is from, shortened, such as 1.2K votes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 vote} other{{count} votes}}'**
+  String ratingVotes(int count);
+
+  /// Read out for a rating on a poster.
+  ///
+  /// In en, this message translates to:
+  /// **'Rated {rating} out of 10 on TMDB'**
+  String ratingSemantics(double rating);
+
+  /// Read out for a rating on an edition's page.
+  ///
+  /// In en, this message translates to:
+  /// **'Rated {rating} out of 10 on TMDB, from {count, plural, =1{1 vote} other{{count} votes}}'**
+  String ratingSemanticsWithVotes(double rating, int count);
+
+  /// Shown before TMDB's logo wherever ratings appear.
+  ///
+  /// In en, this message translates to:
+  /// **'Ratings from'**
+  String get ratingsFromTmdb;
+
+  /// No description provided for @ratingsFromTmdbSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Ratings from TMDB, The Movie Database'**
+  String get ratingsFromTmdbSemantics;
 }
 
 class _AppLocalizationsDelegate

@@ -39,6 +39,10 @@ abstract final class VeloraColors {
   static const Color danger = Color(0xFFFF8A80);
   static const Color dangerContainer = Color(0xFF301A1A);
   static const Color infoContainer = Color(0xFF14233D);
+
+  // Ratings. The star beside TMDB's score, and nothing else: a rating is
+  // not a status, so it doesn't borrow `warning`.
+  static const Color rating = Color(0xFFF5BE5B);
 }
 
 abstract final class VeloraSpacing {

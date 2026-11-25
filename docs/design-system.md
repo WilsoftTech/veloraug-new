@@ -44,6 +44,9 @@ Minimum contrast is checked on all four surfaces. The target is 4.5:1 (WCAG AA).
 | `success` | `#5FD39A` | 10.2 | 9.4 | 8.5 | 7.2 | Success status |
 | `warning` | `#F5BE5B` | 11.2 | 10.3 | 9.3 | 7.9 | Warning status |
 | `danger` | `#FF8A80` | 8.3 | 7.6 | 6.9 | 5.9 | Errors |
+| `rating` | `#F5BE5B` | 11.2 | 10.3 | 9.3 | 7.9 | The star beside a TMDB rating, and nothing else |
+
+`rating` has the same value as `warning` but is its own token, because a rating isn't a status: changing one must not change the other. On a poster it sits on the same near-black chip as the VJ's name, where it reaches well over 4.5:1 on any artwork.
 
 `textDisabled` (`#7F8691`) is for disabled controls only. WCAG exempts those, but it still reaches 3.67:1 on the lightest surface.
 
@@ -139,6 +142,8 @@ The sign-in pages can't load web fonts, because their Content-Security-Policy al
 | Browsing screens, such as Home | 1280 pixels at most |
 
 A movie card's height follows its content, and all cards in a row share the tallest height. Titles stop at two lines with an ellipsis, and the full title is always read by screen readers. `MovieCardGrid` builds every card, so a real catalogue will need a lazy grid.
+
+**Ratings.** A poster shows the VJ's name in its top-left corner and, when there is one, TMDB's rating in its bottom-right corner, opposite, so neither crowds the other on a narrow phone card: a `rating` star and one decimal on the same near-black chip. Both are read out with the title. An edition's page shows the rating with its vote count and TMDB's logo. A rating from fewer than 10 votes isn't shown at all, and a title without one shows nothing, not a zero or a dash. Every screen that shows ratings ends with one small "Ratings from TMDB" line with TMDB's logo, as TMDB's terms ask, rather than a logo on every card.
 
 Cards use neutral local artwork until a real poster exists. The real screens show no sample movies, only honest empty states. Demonstration titles appear in the showcase only.
 

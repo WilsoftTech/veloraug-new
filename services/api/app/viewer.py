@@ -19,13 +19,20 @@ _AGES = {"refresh_after": REFRESH_AFTER, "serve_for": SERVE_FOR}
 
 _SERVABLE = "(s.details_from = 'manual' or s.fetched_at >= now() - %(serve_for)s)"
 
-_SUMMARY = """
+# TMDB's rating is shown only from this many votes: a handful of votes on a
+# small film gives a misleading 10.0.
+MIN_VOTES = 10
+
+_SUMMARY = f"""
     e.id, e.kind,
     case when e.test then s.title else e.display_title end,
     extract(year from s.release_date)::int,
     case when e.test then s.poster_path else e.poster_path end,
-    v.name, v.slug, e.language, l.name, e.test
+    v.name, v.slug, e.language, l.name, e.test,
+    case when s.tmdb_vote_count >= {MIN_VOTES} then s.tmdb_rating::float8 end,
+    case when s.tmdb_vote_count >= {MIN_VOTES} then s.tmdb_vote_count end
 """
+_SUMMARY_COLUMNS = 12
 
 _FROM = """
     from public.editions e
@@ -47,6 +54,10 @@ class EditionSummary:
     language: str
     language_name: str
     test: bool
+    # TMDB's score for the source title, out of 10, and its votes. None
+    # below MIN_VOTES, for typed-in details, or when TMDB has none.
+    rating: float | None = None
+    vote_count: int | None = None
 
     @property
     def label(self) -> str:
@@ -163,7 +174,7 @@ def get_edition(conn: psycopg.Connection, edition_id: UUID) -> EditionDetail | N
     ).fetchone()
     if row is None:
         return None
-    summary = EditionSummary(*row[:10])
+    summary = EditionSummary(*row[:_SUMMARY_COLUMNS])
     (
         source_title,
         overview,
@@ -177,7 +188,7 @@ def get_edition(conn: psycopg.Connection, edition_id: UUID) -> EditionDetail | N
         vj_id,
         photo,
         servable,
-    ) = row[10:]
+    ) = row[_SUMMARY_COLUMNS:]
     if not servable:
         raise DetailsUnavailable(summary.kind, tmdb_id)
     detail = EditionDetail(

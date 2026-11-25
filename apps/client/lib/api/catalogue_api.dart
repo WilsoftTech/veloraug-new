@@ -27,6 +27,7 @@ class EditionCard {
     this.posterUrl,
     this.vjName,
     this.vjSlug,
+    this.rating,
   });
 
   final String id;
@@ -44,6 +45,10 @@ class EditionCard {
 
   /// "Luganda · VJ Junior", from the API, for the edition's page.
   final String label;
+
+  /// TMDB's score for the source title, out of 10. Null when there is none,
+  /// or too few votes for it to mean much: then nothing is shown.
+  final double? rating;
 }
 
 /// One page of editions. [nextOffset] is null on the last page.
@@ -89,6 +94,7 @@ class EditionDetail {
     this.backdropUrl,
     this.trailerUrl,
     this.vjPhotoUrl,
+    this.voteCount,
     this.itemId,
     this.playable = false,
     this.seasons = const [],
@@ -107,6 +113,9 @@ class EditionDetail {
   final Uri? trailerUrl;
   final String? vjPhotoUrl;
 
+  /// How many TMDB votes [rating] is from. Null whenever it is.
+  final int? voteCount;
+
   /// A movie's one video. Null for a series.
   final String? itemId;
 
@@ -117,6 +126,7 @@ class EditionDetail {
   String get id => card.id;
   String get title => card.title;
   EditionKind get kind => card.kind;
+  double? get rating => card.rating;
 
   /// The series' episodes in watching order: by season, then number.
   List<Episode> get episodes => [
@@ -214,6 +224,13 @@ T _need<T>(Object? value) => value is T ? value : _bad();
 
 T? _maybe<T>(Object? value) => value == null ? null : _need<T>(value);
 
+/// A rating out of 10. JSON may send 7 for 7.0. Anything else is dropped,
+/// not refused: a strange rating mustn't hide the title.
+double? _rating(Object? value) =>
+    value is num && value >= 0 && value <= 10 ? value.toDouble() : null;
+
+int? _voteCount(Object? value) => value is int && value >= 0 ? value : null;
+
 /// Calls the catalogue routes. They need no sign-in, so no token is ever
 /// sent, and browsing works the same signed in or out.
 class CatalogueApi {
@@ -278,6 +295,7 @@ class CatalogueApi {
       backdropUrl: safeImageUrl(json['backdrop_url'], gateway: mediaBaseUrl),
       trailerUrl: safeTrailerUrl(json['trailer_url']),
       vjPhotoUrl: safeImageUrl(json['vj_photo_url'], gateway: mediaBaseUrl),
+      voteCount: _voteCount(json['vote_count']),
       itemId: _maybe<String>(json['item_id']),
       playable: _need<bool>(json['playable'] ?? false),
       seasons: [for (final season in seasons) _season(season)],
@@ -350,6 +368,7 @@ class CatalogueApi {
       vjSlug: _maybe<String>(json['vj_slug']),
       language: _need<String>(json['language']),
       label: _need<String>(json['label']),
+      rating: _rating(json['rating']),
     );
   }
 
