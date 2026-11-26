@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 import 'movie_card.dart';
-import 'tmdb_attribution.dart';
 
 /// TMDB's rating on an edition's page: a star, the score to one decimal,
-/// how many votes it is from, and TMDB's logo. Shows nothing without a
+/// and how many votes it is from. Shows nothing without a
 /// rating, so a title TMDB hasn't rated has no empty or zero badge.
 class RatingBadge extends StatelessWidget {
   const RatingBadge({super.key, required this.rating, this.voteCount});
@@ -64,8 +63,6 @@ class RatingBadge extends StatelessWidget {
                     ),
                   ),
                 ),
-              const SizedBox(width: VeloraSpacing.xxs),
-              const TmdbLogo(height: 10),
             ],
           ),
         ),

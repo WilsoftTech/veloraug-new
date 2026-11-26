@@ -820,30 +820,6 @@ abstract class AppLocalizations {
   /// **'You\'re signed out on this device, but the browser sign-out didn\'t finish, so the browser may still remember you. On a shared device, sign in and out again.'**
   String get signedOutBrowserKept;
 
-  /// No description provided for @credits.
-  ///
-  /// In en, this message translates to:
-  /// **'Credits'**
-  String get credits;
-
-  /// No description provided for @aboutTmdb.
-  ///
-  /// In en, this message translates to:
-  /// **'Movie and series titles, descriptions and images come from TMDB, The Movie Database.'**
-  String get aboutTmdb;
-
-  /// No description provided for @tmdbLogo.
-  ///
-  /// In en, this message translates to:
-  /// **'TMDB logo'**
-  String get tmdbLogo;
-
-  /// TMDB's required wording, word for word. Keep it in English unless TMDB gives a translation.
-  ///
-  /// In en, this message translates to:
-  /// **'This product uses the TMDB API but is not endorsed or certified by TMDB.'**
-  String get tmdbNotice;
-
   /// No description provided for @yourProfile.
   ///
   /// In en, this message translates to:
@@ -4401,18 +4377,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rated {rating} out of 10 on TMDB, from {count, plural, =1{1 vote} other{{count} votes}}'**
   String ratingSemanticsWithVotes(double rating, int count);
-
-  /// Shown before TMDB's logo wherever ratings appear.
-  ///
-  /// In en, this message translates to:
-  /// **'Ratings from'**
-  String get ratingsFromTmdb;
-
-  /// No description provided for @ratingsFromTmdbSemantics.
-  ///
-  /// In en, this message translates to:
-  /// **'Ratings from TMDB, The Movie Database'**
-  String get ratingsFromTmdbSemantics;
 
   /// Above the title in Home's hero, and read as its heading.
   ///

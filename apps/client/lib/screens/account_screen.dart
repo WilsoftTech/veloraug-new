@@ -25,9 +25,6 @@ import 'account/watch_list_screen.dart';
 import 'downloads_screen.dart';
 import 'pass_screen.dart' show timeLeft;
 
-export '../widgets/tmdb_attribution.dart' show tmdbLogoAsset;
-export 'account/settings_screen.dart' show AboutSection;
-
 /// The account hub: who is signed in, then grouped rows that open a page
 /// each, with the plan and unread notifications at a glance. Signed out,
 /// only what needs no account shows, with a way to sign in. Sign out is at

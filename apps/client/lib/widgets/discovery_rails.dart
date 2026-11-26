@@ -9,7 +9,6 @@ import 'edition_cards.dart';
 import 'empty_state.dart';
 import 'loading_placeholder.dart';
 import 'movie_card.dart';
-import 'tmdb_attribution.dart';
 
 /// A rail needs at least this many titles to show. The API checks too.
 const int minRailTitles = 3;
@@ -221,7 +220,6 @@ class _DiscoveryRailsState extends State<DiscoveryRails> {
             title: _title(l, rail),
             editions: rail.editions,
           ),
-        TmdbAttribution(editions: [for (final rail in shown) ...rail.editions]),
       ],
     );
   }

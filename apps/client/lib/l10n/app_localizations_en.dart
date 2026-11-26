@@ -437,20 +437,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'You\'re signed out on this device, but the browser sign-out didn\'t finish, so the browser may still remember you. On a shared device, sign in and out again.';
 
   @override
-  String get credits => 'Credits';
-
-  @override
-  String get aboutTmdb =>
-      'Movie and series titles, descriptions and images come from TMDB, The Movie Database.';
-
-  @override
-  String get tmdbLogo => 'TMDB logo';
-
-  @override
-  String get tmdbNotice =>
-      'This product uses the TMDB API but is not endorsed or certified by TMDB.';
-
-  @override
   String get yourProfile => 'Your profile';
 
   @override
@@ -2680,13 +2666,6 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return 'Rated $ratingString out of 10 on TMDB, from $_temp0';
   }
-
-  @override
-  String get ratingsFromTmdb => 'Ratings from';
-
-  @override
-  String get ratingsFromTmdbSemantics =>
-      'Ratings from TMDB, The Movie Database';
 
   @override
   String get heroEyebrow => 'Recently added';

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:veloraug/api/catalogue_api.dart';
 import 'package:veloraug/l10n/app_localizations.dart';
 import 'package:veloraug/theme/tokens.dart';
 import 'package:veloraug/theme/velora_theme.dart';
 import 'package:veloraug/widgets/movie_card.dart';
 import 'package:veloraug/widgets/rating_badge.dart';
-import 'package:veloraug/widgets/tmdb_attribution.dart';
 
 Widget _app(Widget child, {double textScale = 1}) => MaterialApp(
   localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -24,18 +22,9 @@ Widget _app(Widget child, {double textScale = 1}) => MaterialApp(
   ),
 );
 
-EditionCard _card(String id, {double? rating}) => EditionCard(
-  id: id,
-  kind: EditionKind.movie,
-  title: 'Demo $id',
-  language: 'lg',
-  label: 'Test',
-  rating: rating,
-);
-
 void main() {
   group('RatingBadge', () {
-    testWidgets('shows the score to one decimal, the votes and TMDB', (
+    testWidgets('shows the score to one decimal and the votes, no logo', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -46,8 +35,7 @@ void main() {
       expect(find.text('1.23K votes'), findsOneWidget);
       final star = tester.widget<Icon>(find.byIcon(Icons.star_rounded));
       expect(star.color, VeloraColors.rating);
-      final logo = tester.widget<Image>(find.byType(Image));
-      expect((logo.image as AssetImage).assetName, tmdbLogoAsset);
+      expect(find.byType(Image), findsNothing);
       expect(
         find.bySemanticsLabel('Rated 7.0 out of 10 on TMDB, from 1,234 votes'),
         findsOneWidget,
@@ -153,42 +141,6 @@ void main() {
       expect(rating.right, closeTo(poster.right - VeloraSpacing.xs, 0.5));
       expect(rating.bottom, closeTo(poster.bottom - VeloraSpacing.xs, 0.5));
       expect(find.byType(CornerLabel), findsNothing);
-    });
-  });
-
-  group('TmdbAttribution', () {
-    testWidgets('credits TMDB when any title has a rating', (tester) async {
-      await tester.pumpWidget(
-        _app(TmdbAttribution(editions: [_card('a'), _card('b', rating: 5)])),
-      );
-
-      expect(find.text('Ratings from'), findsOneWidget);
-      expect(find.byType(Image), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('Ratings from TMDB, The Movie Database'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('fits a narrow phone at a large text size', (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(320, 600);
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        _app(TmdbAttribution(editions: [_card('a', rating: 5)]), textScale: 2),
-      );
-
-      expect(tester.takeException(), isNull);
-      expect(find.text('Ratings from'), findsOneWidget);
-    });
-
-    testWidgets('shows nothing when no title has one', (tester) async {
-      await tester.pumpWidget(
-        _app(TmdbAttribution(editions: [_card('a'), _card('b')])),
-      );
-
-      expect(find.text('Ratings from'), findsNothing);
-      expect(find.byType(Image), findsNothing);
     });
   });
 }

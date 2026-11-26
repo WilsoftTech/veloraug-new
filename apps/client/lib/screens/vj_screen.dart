@@ -5,7 +5,6 @@ import '../api/catalogue_api.dart';
 import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 import '../widgets/edition_cards.dart';
-import '../widgets/tmdb_attribution.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_placeholder.dart';
 import '../widgets/screen_body.dart';
@@ -180,7 +179,6 @@ class _VjBody extends StatelessWidget {
           ),
         if (page.movies.isNotEmpty) section(l.movies, page.movies),
         if (page.series.isNotEmpty) section(l.series, page.series),
-        TmdbAttribution(editions: [...page.movies, ...page.series]),
       ],
     );
   }
