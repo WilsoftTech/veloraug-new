@@ -5,7 +5,6 @@ import '../l10n/l10n.dart';
 import '../shell/app_shell.dart';
 import '../theme/tokens.dart';
 import '../widgets/edition_cards.dart';
-import '../widgets/tmdb_attribution.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hero_carousel.dart';
 import '../widgets/loading_placeholder.dart';
@@ -382,15 +381,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: VeloraSkeleton(width: 160, height: 20),
           ),
         ),
-      TmdbAttribution(
-        editions: [
-          ...?_featured?.map((title) => title.card),
-          ..._latest,
-          ..._movies,
-          ..._series,
-          ..._loaded.values.expand((e) => e),
-        ],
-      ),
     ];
   }
 }

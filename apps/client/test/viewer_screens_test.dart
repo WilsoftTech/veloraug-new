@@ -220,9 +220,8 @@ void main() {
         find.widgetWithText(MovieCard, 'Rambo').first,
       );
       expect(rambo.bottomCorner, isNull);
-      final credit = find.byType(TmdbAttribution);
-      await tester.ensureVisible(credit);
-      expect(find.text('Ratings from'), findsOneWidget);
+      // No "Ratings from TMDB" line at the foot of the page.
+      expect(find.text('Ratings from'), findsNothing);
     });
 
     testWidgets(
@@ -370,13 +369,14 @@ void main() {
       expect(find.byType(RatingBadge), findsOneWidget);
       expect(find.text('7.4'), findsOneWidget);
       expect(find.text('1.23K votes'), findsOneWidget);
-      final logo = tester.widget<Image>(
+      // The rating without TMDB's logo beside it.
+      expect(
         find.descendant(
           of: find.byType(RatingBadge),
           matching: find.byType(Image),
         ),
+        findsNothing,
       );
-      expect((logo.image as AssetImage).assetName, tmdbLogoAsset);
       expect(
         find.bySemanticsLabel('Rated 7.4 out of 10 on TMDB, from 1,234 votes'),
         findsOneWidget,

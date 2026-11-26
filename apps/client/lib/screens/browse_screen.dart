@@ -4,7 +4,6 @@ import '../api/catalogue_api.dart';
 import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 import '../widgets/edition_cards.dart';
-import '../widgets/tmdb_attribution.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/screen_body.dart';
 import '../widgets/velora_button.dart';
@@ -165,7 +164,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
                     onPressed: () => _fetch(next),
                   ),
                 ),
-              TmdbAttribution(editions: _editions),
             ],
           },
         ),

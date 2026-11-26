@@ -2682,13 +2682,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get ratingsFromTmdb => 'Ratings from';
-
-  @override
-  String get ratingsFromTmdbSemantics =>
-      'Ratings from TMDB, The Movie Database';
-
-  @override
   String get heroEyebrow => 'Recently added';
 
   @override

@@ -75,9 +75,8 @@ void main() {
       'Top rated',
       'Recently added',
     ]);
-    // The ratings on the posters are credited.
-    await tester.ensureVisible(find.text('Ratings from'));
-    expect(find.text('Ratings from'), findsOneWidget);
+    // No "Ratings from TMDB" line under the rails.
+    expect(find.text('Ratings from'), findsNothing);
   });
 
   testWidgets("a series' rails have the series names", (tester) async {

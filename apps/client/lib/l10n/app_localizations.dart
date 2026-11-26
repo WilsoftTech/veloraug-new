@@ -4402,18 +4402,6 @@ abstract class AppLocalizations {
   /// **'Rated {rating} out of 10 on TMDB, from {count, plural, =1{1 vote} other{{count} votes}}'**
   String ratingSemanticsWithVotes(double rating, int count);
 
-  /// Shown before TMDB's logo wherever ratings appear.
-  ///
-  /// In en, this message translates to:
-  /// **'Ratings from'**
-  String get ratingsFromTmdb;
-
-  /// No description provided for @ratingsFromTmdbSemantics.
-  ///
-  /// In en, this message translates to:
-  /// **'Ratings from TMDB, The Movie Database'**
-  String get ratingsFromTmdbSemantics;
-
   /// Above the title in Home's hero, and read as its heading.
   ///
   /// In en, this message translates to:

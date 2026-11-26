@@ -9,7 +9,6 @@ import 'package:veloraug/screens/edition_screen.dart';
 import 'package:veloraug/screens/player_screen.dart';
 import 'package:veloraug/theme/tokens.dart';
 import 'package:veloraug/widgets/hero_carousel.dart';
-import 'package:veloraug/widgets/tmdb_attribution.dart';
 
 import 'support.dart';
 
@@ -87,9 +86,8 @@ void main() {
         find.bySemanticsLabel('Rated 7.4 out of 10 on TMDB'),
         findsWidgets,
       );
-      // The ratings are credited at the foot of Home.
-      await tester.ensureVisible(find.byType(TmdbAttribution));
-      expect(find.text('Ratings from'), findsOneWidget);
+      // No "Ratings from TMDB" line at the foot of Home.
+      expect(find.text('Ratings from'), findsNothing);
     });
 
     testWidgets('keeps the welcome panel with nothing to feature', (
