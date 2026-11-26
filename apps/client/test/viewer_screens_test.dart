@@ -12,7 +12,6 @@ import 'package:veloraug/screens/player_screen.dart';
 import 'package:veloraug/screens/search_screen.dart';
 import 'package:veloraug/widgets/movie_card.dart';
 import 'package:veloraug/widgets/rating_badge.dart';
-import 'package:veloraug/widgets/tmdb_attribution.dart';
 import 'package:veloraug/widgets/velora_button.dart';
 
 import 'support.dart';
@@ -194,7 +193,7 @@ void main() {
       expect(test.cornerLabel, isNull);
     });
 
-    testWidgets('a rated poster shows its rating, and Home credits TMDB', (
+    testWidgets('a rated poster shows its rating, without a TMDB footer', (
       tester,
     ) async {
       final api = catalogue();
@@ -360,7 +359,7 @@ void main() {
       expect(find.text('Trailer'), findsOneWidget);
     });
 
-    testWidgets("shows TMDB's rating with its votes and logo", (tester) async {
+    testWidgets("shows the rating and votes without a logo", (tester) async {
       final api = catalogue()
         ..details['m1'] = movieDetail('m1', rating: 7.4, votes: 1234);
       await pumpApp(tester, api);
@@ -818,32 +817,18 @@ void main() {
     });
   });
 
-  testWidgets('Settings credits TMDB with its exact notice', (tester) async {
+  testWidgets('Settings shows About links without TMDB credits', (tester) async {
     await pumpApp(tester, catalogue());
     await goTo(tester, 'Account');
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
     final l = AppLocalizationsEn();
-    // Folded away until Credits is tapped.
-    expect(find.text(l.tmdbNotice), findsNothing);
-    await tester.ensureVisible(find.text('Credits'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Credits'));
-    await tester.pumpAndSettle();
-    expect(find.text(l.tmdbNotice), findsOneWidget);
-    expect(
-      l.tmdbNotice,
-      'This product uses the TMDB API but is not endorsed or certified by '
-      'TMDB.',
-    );
-    final logo = tester.widget<Image>(
-      find.byWidgetPredicate(
-        (widget) => widget is Image && widget.semanticLabel == 'TMDB logo',
-      ),
-    );
-    expect((logo.image as AssetImage).assetName, tmdbLogoAsset);
-    expect(logo.height, 16);
+    expect(find.text(l.aboutGroup), findsOneWidget);
+    expect(find.text(l.privacyPolicy), findsOneWidget);
+    expect(find.text('Credits'), findsNothing);
+    expect(find.textContaining('TMDB'), findsNothing);
+    expect(find.bySemanticsLabel('TMDB logo'), findsNothing);
   });
 
   test('runtimes read naturally', () {
