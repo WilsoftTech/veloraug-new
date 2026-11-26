@@ -207,10 +207,15 @@ class VjPage {
     this.bio,
     this.movies = const [],
     this.series = const [],
+    this.links = const {},
   });
 
   final VjCard vj;
   final String? bio;
+
+  /// The VJ's own pages, by site: facebook, instagram, tiktok, youtube, x,
+  /// whatsapp, website. Only https addresses are kept.
+  final Map<String, Uri> links;
   final List<EditionCard> movies;
   final List<EditionCard> series;
 }
@@ -415,6 +420,14 @@ class CatalogueApi {
     return VjPage(
       vj: _vj(json),
       bio: _maybe<String>(json['bio']),
+      links: {
+        for (final MapEntry(:key, :value)
+            in ((json['links'] as Map<String, Object?>?) ?? const {}).entries)
+          if (value is String)
+            if (Uri.tryParse(value) case final uri?
+                when uri.scheme == 'https' && uri.host.isNotEmpty)
+              key: uri,
+      },
       movies: [
         for (final card in _need<List<Object?>>(json['movies'])) _card(card),
       ],

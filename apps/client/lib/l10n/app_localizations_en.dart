@@ -3429,4 +3429,209 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get episodeDeleted => 'Episode deleted';
+
+  @override
+  String get searchVjs => 'Search VJs and their spellings';
+
+  @override
+  String vjCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count VJs',
+      one: '1 VJ',
+      zero: 'No VJs match',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vjActive => 'Active';
+
+  @override
+  String get vjInactive => 'Inactive';
+
+  @override
+  String get vjFeatured => 'Featured';
+
+  @override
+  String vjPlace(int place) {
+    return 'Place $place';
+  }
+
+  @override
+  String get sortName => 'Name';
+
+  @override
+  String get sortMostTitles => 'Most titles';
+
+  @override
+  String get sortAppOrder => 'As in the app';
+
+  @override
+  String hiddenTitleCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hidden',
+      one: '1 hidden',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String draftCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count drafts',
+      one: '1 draft',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vjProfile => 'Profile';
+
+  @override
+  String get vjNoBioYet => 'No bio yet. Edit to add one.';
+
+  @override
+  String get vjNoLinks => 'No links yet.';
+
+  @override
+  String get website => 'Website';
+
+  @override
+  String get makeInactive => 'Make inactive';
+
+  @override
+  String get makeActive => 'Make active';
+
+  @override
+  String deactivateVjTitle(String name) {
+    return 'Make $name inactive?';
+  }
+
+  @override
+  String get deactivateVjMessage =>
+      'They leave the app\'s VJ list, and their page can\'t be found. Their titles stay, still credited to them, and can still be watched. Make them active again at any time.';
+
+  @override
+  String vjActivated(String name) {
+    return '$name is active';
+  }
+
+  @override
+  String vjDeactivated(String name) {
+    return '$name is inactive';
+  }
+
+  @override
+  String get mergeVj => 'Merge into another VJ';
+
+  @override
+  String mergeVjTitle(String name) {
+    return 'Merge $name into…';
+  }
+
+  @override
+  String get mergeVjChoose =>
+      'Choose the VJ who stays. This one\'s titles move to them.';
+
+  @override
+  String mergeVjConfirmTitle(String from, String into) {
+    return 'Merge $from into $into?';
+  }
+
+  @override
+  String mergeVjConfirmMessage(int count, String from, String into) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'All $count of $from\'s titles move to $into.',
+      one: '$from\'s 1 title moves to $into.',
+      zero: '$from has no titles.',
+    );
+    return '$_temp0 $from is then deleted, and their name kept as one of $into\'s other spellings. This can\'t be undone.';
+  }
+
+  @override
+  String vjMerged(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles moved to $name',
+      one: '1 title moved to $name',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String deleteVjTitle(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String get deleteVjMessage => 'They have no titles. This can\'t be undone.';
+
+  @override
+  String vjDeleted(String name) {
+    return '$name deleted';
+  }
+
+  @override
+  String vjTitles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles in the Library',
+      one: '1 title in the Library',
+      zero: 'Titles',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vjNoTitles => 'Nothing published, hidden or withdrawn yet.';
+
+  @override
+  String vjDraftsElsewhere(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'And $count drafts, in Drafts.',
+      one: 'And 1 draft, in Drafts.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vjMoreInLibrary(int count) {
+    return 'And $count more: filter the Library by this VJ.';
+  }
+
+  @override
+  String get vjInTheApp => 'In the app';
+
+  @override
+  String get vjFeaturedHelp => 'Listed first among VJs.';
+
+  @override
+  String get vjPlaceLabel => 'Place in the list (optional)';
+
+  @override
+  String get vjPlaceHelp =>
+      '1 comes first, after featured VJs. Empty: by name, after those with a place.';
+
+  @override
+  String get vjLinks => 'Links';
+
+  @override
+  String get linkMustBeHttps => 'Give the whole address, starting https://';
+
+  @override
+  String vjFollowOn(String name, String site) {
+    return '$name on $site';
+  }
 }

@@ -8,6 +8,7 @@ import 'package:veloraug/admin/draft_screen.dart';
 import 'package:veloraug/admin/drafts_view.dart' show draftsRefreshEvery;
 import 'package:veloraug/admin/library_view.dart' show librarySearchDelay;
 import 'package:veloraug/admin/new_draft_screen.dart';
+import 'package:veloraug/admin/vjs_view.dart';
 import 'package:veloraug/admin/uploads/file_names.dart' show maxVideoBytes;
 import 'package:veloraug/admin/uploads/tus.dart';
 import 'package:veloraug/admin/uploads/upload_queue.dart';
@@ -163,11 +164,12 @@ Future<void> openDraft(WidgetTester tester, FakeApi api, String title) async {
   expect(find.byType(DraftScreen), findsOneWidget);
 }
 
-Map<String, Object?> body(FakeApi api, String call) {
+Map<String, Object?> body(FakeApi api, String call, {String? method}) {
   final request = api.requests.lastWhere(
-    (r) =>
-        '${r.method} ${r.url.path}' == 'PUT /api/v1/admin$call' ||
-        '${r.method} ${r.url.path}' == 'POST /api/v1/admin$call',
+    (r) => method != null
+        ? '${r.method} ${r.url.path}' == '$method /api/v1/admin$call'
+        : '${r.method} ${r.url.path}' == 'PUT /api/v1/admin$call' ||
+              '${r.method} ${r.url.path}' == 'POST /api/v1/admin$call',
   );
   return jsonDecode(request.body) as Map<String, Object?>;
 }
@@ -1072,7 +1074,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('VJ Junior'), findsOneWidget);
-    expect(find.text('Nothing published · Also: Junior'), findsOneWidget);
+    expect(
+      find.text('Nothing published · 0 viewers in 30 days'),
+      findsOneWidget,
+    );
+    expect(find.text('Also: Junior'), findsOneWidget);
   });
 
   group('the Library', () {
@@ -1544,6 +1550,354 @@ void main() {
           'DELETE /items/e2',
         ]),
       );
+    });
+  });
+
+  group('VJs', () {
+    Map<String, Object?> vjRow(
+      String id,
+      String name, {
+      bool active = true,
+      bool featured = false,
+      int? place,
+      int published = 0,
+      int drafts = 0,
+      int editions = 0,
+      int viewers = 0,
+      List<String> spellings = const [],
+      Map<String, String> links = const {},
+      String? bio,
+    }) => {
+      'id': id,
+      'name': name,
+      'slug': name.toLowerCase().replaceAll(' ', '-'),
+      'match_names': spellings,
+      'photo_path': null,
+      'photo_url': null,
+      'bio': bio,
+      'editions': editions,
+      'active': active,
+      'featured': featured,
+      'sort_order': place,
+      'links': links,
+      'published': published,
+      'hidden': 0,
+      'drafts': drafts,
+      'viewers': viewers,
+    };
+
+    (FakeApi, List<Map<String, Object?>>) vjsApi() {
+      final vjs = [
+        vjRow(
+          'vj-1',
+          'VJ Junior',
+          published: 12,
+          drafts: 2,
+          editions: 14,
+          viewers: 340,
+          spellings: ['Junior'],
+          featured: true,
+          bio: 'Junior translates action.',
+          links: {'facebook': 'https://facebook.com/vjjunior'},
+        ),
+        vjRow('vj-2', 'VJ Emmy', published: 3, editions: 3, viewers: 900),
+        vjRow('vj-3', 'Vj Jnr', published: 1, editions: 1, active: false),
+        vjRow('vj-4', 'VJ Unused', place: 1),
+      ];
+      final api = adminApi();
+      api.admin['GET /vjs'] = (_) => json(vjs);
+      for (final vj in vjs) {
+        api.admin['GET /vjs/${vj['id']}'] = (_) => json(vj);
+      }
+      api.admin['GET /library'] = (request) => json({
+        'titles': request.url.queryParameters['vj'] == 'vj-1'
+            ? [
+                {
+                  'id': 'l1',
+                  'kind': 'movie',
+                  'display_title': 'Fast X',
+                  'poster_url': null,
+                  'vj_id': 'vj-1',
+                  'vj_name': 'VJ Junior',
+                  'state': 'published',
+                  'published_at': '2026-11-03T10:00:00Z',
+                  'updated_at': '2026-11-03T10:00:00Z',
+                  'episodes': 1,
+                  'hidden_episodes': 0,
+                  'waiting': 0,
+                  'viewers': 120,
+                  'categories': <String>[],
+                  'year': 2023,
+                },
+              ]
+            : <Object?>[],
+        'total': request.url.queryParameters['vj'] == 'vj-1' ? 1 : 0,
+        'viewer_days': 30,
+      });
+      return (api, vjs);
+    }
+
+    Future<void> openVjs(WidgetTester tester, FakeApi api) async {
+      await openAdmin(tester, api);
+      await tester.tap(find.widgetWithText(Tab, 'VJs'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openVj(WidgetTester tester, FakeApi api, String name) async {
+      await openVjs(tester, api);
+      await tester.tap(find.text(name));
+      await tester.pumpAndSettle();
+      expect(find.byType(VjScreen), findsOneWidget);
+    }
+
+    testWidgets('lists each VJ with their titles, viewers and badges', (
+      tester,
+    ) async {
+      final (api, _) = vjsApi();
+      await openVjs(tester, api);
+
+      expect(find.text('4 VJs'), findsOneWidget);
+      expect(
+        find.text('12 published · 2 drafts · 340 viewers in 30 days'),
+        findsOneWidget,
+      );
+      expect(find.text('Also: Junior'), findsOneWidget);
+      expect(find.text('Featured'), findsWidgets);
+      expect(find.text('Inactive'), findsWidgets);
+      expect(find.text('Place 1'), findsOneWidget);
+    });
+
+    testWidgets('are searched, filtered and sorted', (tester) async {
+      final (api, _) = vjsApi();
+      await openVjs(tester, api);
+      const byId = {
+        'vj-1': 'VJ Junior',
+        'vj-2': 'VJ Emmy',
+        'vj-3': 'Vj Jnr',
+        'vj-4': 'VJ Unused',
+      };
+      // The tiles, in the order shown.
+      List<String> names() => [
+        for (final tile in tester.widgetList(
+          find.byWidgetPredicate(
+            (w) =>
+                w.key is ValueKey<String> &&
+                byId.containsKey((w.key! as ValueKey<String>).value),
+          ),
+        ))
+          byId[(tile.key! as ValueKey<String>).value]!,
+      ];
+
+      expect(names(), ['VJ Emmy', 'Vj Jnr', 'VJ Junior', 'VJ Unused']);
+
+      // A spelling finds its VJ.
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search VJs and their spellings'),
+        'junior',
+      );
+      await tester.pumpAndSettle();
+      expect(names(), ['VJ Junior']);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search VJs and their spellings'),
+        '',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Inactive'));
+      await tester.pumpAndSettle();
+      expect(names(), ['Vj Jnr']);
+      await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Name').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Most viewers').last);
+      await tester.pumpAndSettle();
+      expect(names(), ['VJ Emmy', 'VJ Junior', 'Vj Jnr', 'VJ Unused']);
+
+      await tester.tap(find.text('Most viewers').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('As in the app').last);
+      await tester.pumpAndSettle();
+      // Featured first, then by place, then by name.
+      expect(names(), ['VJ Junior', 'VJ Unused', 'VJ Emmy', 'Vj Jnr']);
+    });
+
+    testWidgets("a VJ's page shows their profile, links and titles", (
+      tester,
+    ) async {
+      final (api, _) = vjsApi();
+      await openVj(tester, api, 'VJ Junior');
+
+      expect(find.text('Junior translates action.'), findsOneWidget);
+      expect(find.text('Facebook'), findsOneWidget);
+      expect(find.text('1 title in the Library'), findsOneWidget);
+      expect(find.text('And 2 drafts, in Drafts.'), findsOneWidget);
+      expect(find.text('Fast X'), findsOneWidget);
+      // They have titles: merge, never delete.
+      expect(
+        find.widgetWithText(VeloraButton, 'Delete permanently'),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('Fast X'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DraftScreen), findsOneWidget);
+    });
+
+    testWidgets('making a VJ inactive says what it does', (tester) async {
+      final (api, vjs) = vjsApi();
+      api.admin['PATCH /vjs/vj-1'] = (_) => json({...vjs[0], 'active': false});
+      await openVj(tester, api, 'VJ Junior');
+
+      await tester.tap(find.text('Make inactive'));
+      await tester.pumpAndSettle();
+      expect(find.text('Make VJ Junior inactive?'), findsOneWidget);
+      expect(
+        find.textContaining('Their titles stay, still credited to them'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(VeloraButton, 'Make inactive').last);
+      await tester.pumpAndSettle();
+
+      expect(body(api, '/vjs/vj-1', method: 'PATCH'), {'active': false});
+      expect(find.text('Make active'), findsOneWidget);
+      expect(find.text('VJ Junior is inactive'), findsOneWidget);
+    });
+
+    testWidgets('a duplicate is merged into the right VJ', (tester) async {
+      final (api, vjs) = vjsApi();
+      api.admin['POST /vjs/vj-3/merge'] = (_) => json({
+        'moved': 1,
+        'into': {...vjs[0], 'published': 13},
+      });
+      await openVj(tester, api, 'Vj Jnr');
+
+      await tester.tap(find.text('Merge into another VJ'));
+      await tester.pumpAndSettle();
+      expect(find.text('Merge Vj Jnr into…'), findsOneWidget);
+      // Not into themselves.
+      expect(find.text('Vj Jnr · 1 published'), findsNothing);
+      await tester.tap(find.text('VJ Junior · 12 published'));
+      await tester.pumpAndSettle();
+      expect(find.text('Merge Vj Jnr into VJ Junior?'), findsOneWidget);
+      expect(
+        find.textContaining("Vj Jnr's 1 title moves to VJ Junior."),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.widgetWithText(VeloraButton, 'Merge into another VJ').last,
+      );
+      await tester.pumpAndSettle();
+
+      expect(body(api, '/vjs/vj-3/merge'), {'into_id': 'vj-1'});
+      expect(find.text('1 title moved to VJ Junior'), findsOneWidget);
+      // On the VJ who stayed.
+      expect(find.text('Junior translates action.'), findsOneWidget);
+    });
+
+    testWidgets('a VJ without titles can be deleted', (tester) async {
+      final (api, _) = vjsApi();
+      api.admin['DELETE /vjs/vj-4'] = (_) => json({'deleted': 1});
+      await openVj(tester, api, 'VJ Unused');
+
+      await tester.tap(find.widgetWithText(VeloraButton, 'Delete permanently'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete VJ Unused?'), findsOneWidget);
+      await tester.tap(
+        find.widgetWithText(VeloraButton, 'Delete permanently').last,
+      );
+      await tester.pumpAndSettle();
+
+      expect(api.adminCalls, contains('DELETE /vjs/vj-4'));
+      expect(find.byType(VjScreen), findsNothing);
+    });
+
+    testWidgets('edits links, featured and place, checking each link', (
+      tester,
+    ) async {
+      final (api, vjs) = vjsApi();
+      api.admin['PATCH /vjs/vj-2'] = (_) => json(vjs[1]);
+      await openVj(tester, api, 'VJ Emmy');
+
+      await tester.tap(find.widgetWithText(VeloraButton, 'Change this VJ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Featured').last);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Place in the list (optional)'),
+        '3',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'TikTok'),
+        'tiktok.com/@vjemmy',
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Give the whole address, starting https://'),
+        findsOneWidget,
+      );
+      expect(api.adminCalls, isNot(contains('PATCH /vjs/vj-2')));
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'TikTok'),
+        'https://www.tiktok.com/@vjemmy',
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final sent = body(api, '/vjs/vj-2', method: 'PATCH');
+      expect(sent['featured'], true);
+      expect(sent['sort_order'], 3);
+      expect(
+        (sent['links'] as Map)['tiktok'],
+        'https://www.tiktok.com/@vjemmy',
+      );
+    });
+
+    testWidgets('a new VJ is added, then given their links', (tester) async {
+      final (api, vjs) = vjsApi();
+      api.admin['POST /vjs'] = (_) => json(vjRow('vj-9', 'VJ Kats'), 201);
+      api.admin['PATCH /vjs/vj-9'] = (_) => json(vjRow('vj-9', 'VJ Kats'));
+      await openVjs(tester, api);
+
+      await tester.tap(find.widgetWithText(VeloraButton, 'Add a VJ'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, "VJ's name"),
+        'VJ Kats',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Website'),
+        'https://vjkats.ug',
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(body(api, '/vjs')['name'], 'VJ Kats');
+      final sent = body(api, '/vjs/vj-9', method: 'PATCH');
+      expect((sent['links'] as Map)['website'], 'https://vjkats.ug');
+      expect(sent.containsKey('name'), isFalse);
+    });
+
+    testWidgets('fit a narrow phone with large text', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final (api, _) = vjsApi();
+      await pumpApp(tester, api, signedIn: true, size: const Size(320, 2400));
+      await goTo(tester, 'Admin');
+      await tester.ensureVisible(find.widgetWithText(Tab, 'VJs'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, 'VJs'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      await tester.ensureVisible(find.text('VJ Junior'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('VJ Junior'));
+      await tester.pumpAndSettle();
+      expect(find.byType(VjScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

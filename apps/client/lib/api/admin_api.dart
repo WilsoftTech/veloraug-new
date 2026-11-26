@@ -247,6 +247,14 @@ class AdminVj {
     this.photoUrl,
     this.bio,
     this.editions = 0,
+    this.active = true,
+    this.featured = false,
+    this.sortOrder,
+    this.links = const {},
+    this.published = 0,
+    this.hidden = 0,
+    this.drafts = 0,
+    this.viewers = 0,
   });
 
   final String id;
@@ -257,8 +265,40 @@ class AdminVj {
   final List<String> matchNames;
   final String? photoUrl;
   final String? bio;
+
+  /// Every title credited to them.
   final int editions;
+
+  /// Inactive: left out of the app's VJ list; their titles stay.
+  final bool active;
+
+  /// Listed first in the app.
+  final bool featured;
+
+  /// Their place in the app's list, after featured VJs. Null for none.
+  final int? sortOrder;
+
+  /// Their own pages, by name: facebook, instagram, tiktok, youtube, x,
+  /// whatsapp, website.
+  final Map<String, String> links;
+  final int published;
+  final int hidden;
+  final int drafts;
+
+  /// Viewers of their titles in the last 30 days.
+  final int viewers;
 }
+
+/// The links a VJ can have, in the order they are shown.
+const List<String> vjLinkNames = [
+  'facebook',
+  'instagram',
+  'tiktok',
+  'youtube',
+  'x',
+  'whatsapp',
+  'website',
+];
 
 /// A series edition, for adding a dropped episode to it.
 class AdminSeries {
@@ -1036,14 +1076,40 @@ class AdminApi {
     List<String>? matchNames,
     String? bio,
     String? photoPath,
+    bool? active,
+    bool? featured,
+    int? sortOrder,
+    bool clearSortOrder = false,
+    Map<String, String>? links,
   }) async => _vj(
     await _send('PATCH', '/vjs/${_id(id)}', {
       'name': ?name,
       'match_names': ?matchNames,
       'bio': ?bio,
       'photo_path': ?photoPath,
+      'active': ?active,
+      'featured': ?featured,
+      if (sortOrder != null || clearSortOrder) 'sort_order': sortOrder,
+      'links': ?links,
     }),
   );
+
+  Future<AdminVj> vj(String id) async =>
+      _vj(await _send('GET', '/vjs/${_id(id)}'));
+
+  /// Moves every title of [id] to [intoId], and deletes [id]. How many
+  /// titles moved, and the VJ they went to.
+  Future<(int, AdminVj)> mergeVj(String id, String intoId) async {
+    final json = _need<Map<String, Object?>>(
+      await _send('POST', '/vjs/${_id(id)}/merge', {'into_id': intoId}),
+    );
+    return (_need<int>(json['moved']), _vj(json['into']));
+  }
+
+  /// Deletes a VJ with no titles.
+  Future<void> deleteVj(String id) async {
+    await _send('DELETE', '/vjs/${_id(id)}');
+  }
 
   Future<List<AdminLanguage>> languages() async => [
     for (final row in _rows(await _send('GET', '/languages')))
@@ -1431,6 +1497,19 @@ class AdminApi {
       photoUrl: safeImageUrl(json['photo_url'], gateway: mediaBaseUrl),
       bio: _maybe<String>(json['bio']),
       editions: _need<int>(json['editions'] ?? 0),
+      active: _need<bool>(json['active'] ?? true),
+      featured: _need<bool>(json['featured'] ?? false),
+      sortOrder: _maybe<int>(json['sort_order']),
+      links: {
+        for (final MapEntry(:key, :value) in _need<Map<String, Object?>>(
+          json['links'] ?? const <String, Object?>{},
+        ).entries)
+          if (value is String) key: value,
+      },
+      published: _need<int>(json['published'] ?? 0),
+      hidden: _need<int>(json['hidden'] ?? 0),
+      drafts: _need<int>(json['drafts'] ?? 0),
+      viewers: _need<int>(json['viewers'] ?? 0),
     );
   }
 

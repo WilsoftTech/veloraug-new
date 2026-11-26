@@ -352,6 +352,15 @@ class VjOut(BaseModel):
     photo_url: str | None = None
     bio: str | None
     editions: int
+    active: bool = True
+    featured: bool = False
+    sort_order: int | None = None
+    links: dict[str, str] = {}
+    published: int = 0
+    hidden: int = 0
+    drafts: int = 0
+    # Viewers of their titles in the last 30 days.
+    viewers: int = 0
 
 
 class VjIn(BaseModel):
@@ -377,6 +386,24 @@ class VjChange(BaseModel):
     bio: Annotated[str, StringConstraints(max_length=1000)] | None = None
     # The path an image upload answered with, or "" to remove the photo.
     photo_path: Annotated[str, StringConstraints(max_length=300)] | None = None
+    # Sent only to change them: an inactive VJ is left out of the app's VJ
+    # list; a featured one comes first; then by sort_order (null for none).
+    active: bool | None = None
+    featured: bool | None = None
+    sort_order: int | None = Field(default=None, ge=1, le=9999)
+    # Such as {"facebook": "https://…"}; an empty one is removed.
+    links: dict[str, Annotated[str, StringConstraints(max_length=300)]] | None = Field(
+        default=None, max_length=10
+    )
+
+
+class VjMerge(BaseModel):
+    into_id: UUID
+
+
+class VjMerged(BaseModel):
+    moved: int
+    into: "VjOut"
 
 
 class ImageUpload(BaseModel):
@@ -1209,8 +1236,64 @@ def change_vj(
             bio=body.bio,
             photo_path=body.photo_path,
         )
-        vj = next(v for v in work.list_vjs(conn) if v.id == vj_id)
+        work.update_vj_profile(
+            conn,
+            vj_id,
+            body.model_dump(
+                include=body.model_fields_set
+                & {"active", "featured", "sort_order", "links"}
+            ),
+        )
+        vj = work.get_vj(conn, vj_id)
+    if body.active is not None:
+        audit.event(
+            "vj_activated" if body.active else "vj_deactivated",
+            admin_id=user.user_id,
+            vj_id=vj_id,
+        )
+    logger.info(
+        "Admin %s changed %s of VJ %s",
+        user.user_id,
+        ", ".join(sorted(body.model_fields_set)) or "nothing",
+        vj_id,
+    )
     return _vj(vj, images)
+
+
+@router.get("/vjs/{vj_id}")
+def get_vj(vj_id: UUID, user: AdminUser, db: EditorDatabase, images: Images) -> VjOut:
+    with editing(db, user) as conn:
+        return _vj(work.get_vj(conn, vj_id), images)
+
+
+@router.post("/vjs/{vj_id}/merge")
+def merge_vj(
+    vj_id: UUID, body: VjMerge, user: AdminUser, db: EditorDatabase, images: Images
+) -> VjMerged:
+    """Moves every title of this VJ to another, keeps this one's name as
+    their other spelling, and deletes this one."""
+    with editing(db, user) as conn:
+        moved = work.merge_vjs(conn, vj_id, body.into_id)
+        into = work.get_vj(conn, body.into_id)
+    audit.event("vj_merged", admin_id=user.user_id, count=moved, vj_id=vj_id)
+    logger.info(
+        "Admin %s merged VJ %s into %s, moving %s titles",
+        user.user_id,
+        vj_id,
+        body.into_id,
+        moved,
+    )
+    return VjMerged(moved=moved, into=_vj(into, images))
+
+
+@router.delete("/vjs/{vj_id}")
+def delete_vj(vj_id: UUID, user: AdminUser, db: EditorDatabase) -> dict:
+    """Deletes a VJ with no titles."""
+    with editing(db, user) as conn:
+        work.delete_vj(conn, vj_id)
+    audit.event("vj_deleted", admin_id=user.user_id, vj_id=vj_id)
+    logger.info("Admin %s deleted VJ %s", user.user_id, vj_id)
+    return {"deleted": 1}
 
 
 @router.get("/languages")

@@ -312,6 +312,30 @@ void main() {
       expect(find.widgetWithText(MovieCard, 'Kabaka'), findsOneWidget);
     });
 
+    testWidgets("shows the VJ's own links, and only https ones", (
+      tester,
+    ) async {
+      final api = catalogue();
+      api.vjPages['vj-emmy'] = {
+        ...api.vjPages['vj-emmy']!,
+        'links': {
+          'facebook': 'https://facebook.com/vjemmy',
+          'website': 'https://vjemmy.ug',
+          'tiktok': 'http://tiktok.com/@vjemmy',
+        },
+      };
+      await pumpApp(tester, api);
+
+      final seeAll = find.bySemanticsLabel('See all of VJ Emmy');
+      await tester.ensureVisible(seeAll);
+      await tester.tap(seeAll);
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('VJ Emmy on Facebook'), findsOneWidget);
+      expect(find.bySemanticsLabel('VJ Emmy on Website'), findsOneWidget);
+      expect(find.text('TikTok'), findsNothing);
+    });
+
     testWidgets("the edition's label opens its VJ", (tester) async {
       await pumpApp(tester, catalogue());
       await openEdition(tester, 'Kabaka');

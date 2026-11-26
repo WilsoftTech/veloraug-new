@@ -5469,6 +5469,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Episode deleted'**
   String get episodeDeleted;
+
+  /// No description provided for @searchVjs.
+  ///
+  /// In en, this message translates to:
+  /// **'Search VJs and their spellings'**
+  String get searchVjs;
+
+  /// No description provided for @vjCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No VJs match} =1{1 VJ} other{{count} VJs}}'**
+  String vjCount(int count);
+
+  /// No description provided for @vjActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get vjActive;
+
+  /// No description provided for @vjInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive'**
+  String get vjInactive;
+
+  /// No description provided for @vjFeatured.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get vjFeatured;
+
+  /// No description provided for @vjPlace.
+  ///
+  /// In en, this message translates to:
+  /// **'Place {place}'**
+  String vjPlace(int place);
+
+  /// No description provided for @sortName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get sortName;
+
+  /// No description provided for @sortMostTitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Most titles'**
+  String get sortMostTitles;
+
+  /// No description provided for @sortAppOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'As in the app'**
+  String get sortAppOrder;
+
+  /// No description provided for @hiddenTitleCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hidden} other{{count} hidden}}'**
+  String hiddenTitleCount(int count);
+
+  /// No description provided for @draftCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 draft} other{{count} drafts}}'**
+  String draftCount(int count);
+
+  /// No description provided for @vjProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get vjProfile;
+
+  /// No description provided for @vjNoBioYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No bio yet. Edit to add one.'**
+  String get vjNoBioYet;
+
+  /// No description provided for @vjNoLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'No links yet.'**
+  String get vjNoLinks;
+
+  /// No description provided for @website.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get website;
+
+  /// No description provided for @makeInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Make inactive'**
+  String get makeInactive;
+
+  /// No description provided for @makeActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Make active'**
+  String get makeActive;
+
+  /// No description provided for @deactivateVjTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make {name} inactive?'**
+  String deactivateVjTitle(String name);
+
+  /// No description provided for @deactivateVjMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'They leave the app\'s VJ list, and their page can\'t be found. Their titles stay, still credited to them, and can still be watched. Make them active again at any time.'**
+  String get deactivateVjMessage;
+
+  /// No description provided for @vjActivated.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is active'**
+  String vjActivated(String name);
+
+  /// No description provided for @vjDeactivated.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is inactive'**
+  String vjDeactivated(String name);
+
+  /// No description provided for @mergeVj.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge into another VJ'**
+  String get mergeVj;
+
+  /// No description provided for @mergeVjTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge {name} into…'**
+  String mergeVjTitle(String name);
+
+  /// No description provided for @mergeVjChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the VJ who stays. This one\'s titles move to them.'**
+  String get mergeVjChoose;
+
+  /// No description provided for @mergeVjConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge {from} into {into}?'**
+  String mergeVjConfirmTitle(String from, String into);
+
+  /// No description provided for @mergeVjConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{{from} has no titles.} =1{{from}\'s 1 title moves to {into}.} other{All {count} of {from}\'s titles move to {into}.}} {from} is then deleted, and their name kept as one of {into}\'s other spellings. This can\'t be undone.'**
+  String mergeVjConfirmMessage(int count, String from, String into);
+
+  /// No description provided for @vjMerged.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 title moved to {name}} other{{count} titles moved to {name}}}'**
+  String vjMerged(int count, String name);
+
+  /// No description provided for @deleteVjTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String deleteVjTitle(String name);
+
+  /// No description provided for @deleteVjMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'They have no titles. This can\'t be undone.'**
+  String get deleteVjMessage;
+
+  /// No description provided for @vjDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted'**
+  String vjDeleted(String name);
+
+  /// No description provided for @vjTitles.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Titles} =1{1 title in the Library} other{{count} titles in the Library}}'**
+  String vjTitles(int count);
+
+  /// No description provided for @vjNoTitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing published, hidden or withdrawn yet.'**
+  String get vjNoTitles;
+
+  /// No description provided for @vjDraftsElsewhere.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{And 1 draft, in Drafts.} other{And {count} drafts, in Drafts.}}'**
+  String vjDraftsElsewhere(int count);
+
+  /// No description provided for @vjMoreInLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'And {count} more: filter the Library by this VJ.'**
+  String vjMoreInLibrary(int count);
+
+  /// No description provided for @vjInTheApp.
+  ///
+  /// In en, this message translates to:
+  /// **'In the app'**
+  String get vjInTheApp;
+
+  /// No description provided for @vjFeaturedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Listed first among VJs.'**
+  String get vjFeaturedHelp;
+
+  /// No description provided for @vjPlaceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Place in the list (optional)'**
+  String get vjPlaceLabel;
+
+  /// No description provided for @vjPlaceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'1 comes first, after featured VJs. Empty: by name, after those with a place.'**
+  String get vjPlaceHelp;
+
+  /// No description provided for @vjLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'Links'**
+  String get vjLinks;
+
+  /// No description provided for @linkMustBeHttps.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the whole address, starting https://'**
+  String get linkMustBeHttps;
+
+  /// No description provided for @vjFollowOn.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} on {site}'**
+  String vjFollowOn(String name, String site);
 }
 
 class _AppLocalizationsDelegate

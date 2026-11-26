@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/catalogue_api.dart';
 import '../l10n/l10n.dart';
@@ -152,6 +153,25 @@ class _VjBody extends StatelessWidget {
         ],
       ),
       children: [
+        if (page.links.isNotEmpty)
+          Wrap(
+            spacing: VeloraSpacing.sm,
+            runSpacing: VeloraSpacing.xs,
+            children: [
+              for (final MapEntry(key: site, value: url) in page.links.entries)
+                Semantics(
+                  label: l.vjFollowOn(page.vj.name, _siteName(l, site)),
+                  button: true,
+                  excludeSemantics: true,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: Text(_siteName(l, site)),
+                    onPressed: () =>
+                        launchUrl(url, mode: LaunchMode.externalApplication),
+                  ),
+                ),
+            ],
+          ),
         if (page.movies.isEmpty && page.series.isEmpty)
           EmptyState(
             icon: Icons.movie_outlined,
@@ -165,3 +185,13 @@ class _VjBody extends StatelessWidget {
     );
   }
 }
+
+String _siteName(AppLocalizations l, String site) => switch (site) {
+  'facebook' => 'Facebook',
+  'instagram' => 'Instagram',
+  'tiktok' => 'TikTok',
+  'youtube' => 'YouTube',
+  'x' => 'X',
+  'whatsapp' => 'WhatsApp',
+  _ => l.website,
+};
