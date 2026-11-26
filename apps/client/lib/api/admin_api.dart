@@ -41,6 +41,10 @@ class AdminItem {
     this.filename,
     this.creditHints,
     this.keys = const [],
+    this.progress,
+    this.etaSeconds,
+    this.queuePosition,
+    this.sizeBytes,
   });
 
   final String id;
@@ -57,6 +61,17 @@ class AdminItem {
   final String? filename;
   final String? creditHints;
   final List<UploadKeyInfo> keys;
+
+  /// How far the media worker has got converting or publishing, 0 to 100,
+  /// from its own reports. Null in any other state.
+  final int? progress;
+
+  /// Time left converting or publishing, at the rate so far.
+  final int? etaSeconds;
+
+  /// Waiting to be converted: its place in the queue, from 1.
+  final int? queuePosition;
+  final int? sizeBytes;
 }
 
 /// A TMDB title the admin can choose.
@@ -102,6 +117,7 @@ class AdminEdition {
     this.missing = const [],
     this.matches = const [],
     this.categories = const [],
+    this.incomplete = false,
   });
 
   final String id;
@@ -136,6 +152,9 @@ class AdminEdition {
 
   /// VeloraUG's own categories, such as Indian or Kids, in the order added.
   final List<String> categories;
+
+  /// No video of it has finished uploading yet.
+  final bool incomplete;
 
   bool get published => status == 'published';
 }
@@ -570,6 +589,23 @@ class AdminApi {
       }),
     );
     return _key(json);
+  }
+
+  /// Deletes a draft or hidden edition for good, with its videos.
+  Future<void> deleteEdition(String id) async {
+    await _send('DELETE', '/editions/${_id(id)}');
+  }
+
+  /// Deletes every draft. Published and hidden editions stay. The IDs of
+  /// the drafts the server deleted.
+  Future<List<String>> deleteAllDrafts() async {
+    final json = _need<Map<String, Object?>>(
+      await _send('POST', '/drafts/delete-all', {'confirm': 'DELETE'}),
+    );
+    return [
+      for (final id in _need<List<Object?>>(json['ids'] ?? const []))
+        _need<String>(id),
+    ];
   }
 
   Future<AdminEdition> edition(String id) async =>
@@ -1098,6 +1134,7 @@ class AdminApi {
         for (final name in _need<List<Object?>>(json['categories'] ?? const []))
           _need<String>(name),
       ],
+      incomplete: _need<bool>(json['incomplete'] ?? false),
     );
   }
 
@@ -1112,6 +1149,10 @@ class AdminApi {
     previewable: _need<bool>(json['previewable'] ?? false),
     filename: _maybe<String>(json['filename']),
     creditHints: _maybe<String>(json['credit_hints']),
+    progress: _maybe<int>(json['progress']),
+    etaSeconds: _maybe<int>(json['eta_seconds']),
+    queuePosition: _maybe<int>(json['queue_position']),
+    sizeBytes: _maybe<int>(json['size_bytes']),
     keys: [
       for (final key in _rows(json['keys'] ?? const []))
         UploadKeyInfo(

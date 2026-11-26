@@ -296,6 +296,13 @@ class ItemState:
     ready_original: uuid.UUID | None
     filename: str | None
     credit_hints: str | None
+    # How far the worker has got converting or publishing, 0 to 100, and
+    # the time left at that rate, from its own reports. None otherwise.
+    progress: int | None = None
+    eta_seconds: int | None = None
+    # Waiting to be converted: its place in the worker's queue, from 1.
+    queue_position: int | None = None
+    size_bytes: int | None = None
     keys: list[dict] = field(default_factory=list)
 
 
@@ -326,6 +333,12 @@ class EditionState:
     # Category names, in the order they were added.
     categories: list[str] = field(default_factory=list)
 
+    @property
+    def incomplete(self) -> bool:
+        """No video of it has finished uploading yet. Drafts lists these
+        apart, since there is nothing to check, convert or publish."""
+        return all(item.video in (None, "uploading") for item in self.items)
+
 
 _EDITION = """
     select e.id, e.kind, e.display_title, e.submitted_year, e.language,
@@ -345,10 +358,23 @@ def _items(conn: psycopg.Connection, edition_id: uuid.UUID) -> list[ItemState]:
                o.state, o.reason,
                (select r.id from public.media_originals r
                 where r.item_id = i.id and r.state = 'ready'),
-               o.filename, o.credit_hints
+               o.filename, o.credit_hints,
+               case when o.state in ('converting', 'publishing') then o.progress end,
+               -- The time so far in this stage, scaled to what is left.
+               case when o.state in ('converting', 'publishing')
+                         and o.progress between 1 and 99
+                    then ceil(extract(epoch from o.progress_at - o.updated_at)
+                              * (100 - o.progress) / o.progress)::int end,
+               case when o.state = 'received' then (
+                 select count(*) from public.media_originals q
+                 where q.state = 'received' and q.created_at <= o.created_at
+               )::int end,
+               o.size_bytes
         from public.items i
         left join lateral (
-          select state, reason, filename, credit_hints from public.media_originals
+          select state, reason, filename, credit_hints, progress, progress_at,
+                 updated_at, created_at, size_bytes
+          from public.media_originals
           where item_id = i.id order by created_at desc limit 1
         ) o on true
         where i.edition_id = %s
@@ -378,7 +404,9 @@ def _items(conn: psycopg.Connection, edition_id: uuid.UUID) -> list[ItemState]:
 
 
 def get_edition(conn: psycopg.Connection, edition_id: uuid.UUID) -> EditionState:
-    row = conn.execute(_EDITION + " where e.id = %s", (edition_id,)).fetchone()
+    row = conn.execute(
+        _EDITION + " where e.id = %s and e.deleted_at is null", (edition_id,)
+    ).fetchone()
     if row is None:
         raise NotFound("No such edition")
     state = EditionState(*row)
@@ -404,9 +432,10 @@ def list_work(conn: psycopg.Connection) -> list[EditionState]:
     ids = conn.execute(
         """
         select e.id from public.editions e
-        where e.status <> 'published'
-           or exists (select from public.items i where i.edition_id = e.id
-                      and i.approved_at is null)
+        where e.deleted_at is null
+          and (e.status <> 'published'
+               or exists (select from public.items i where i.edition_id = e.id
+                          and i.approved_at is null))
         order by e.created_at desc
         limit 200
         """
@@ -440,7 +469,7 @@ def list_series(conn: psycopg.Connection) -> list[SeriesRef]:
                  '{}')
         from public.editions e
         left join public.vjs v on v.id = e.vj_id
-        where e.kind = 'series' and not e.test
+        where e.kind = 'series' and not e.test and e.deleted_at is null
         order by e.created_at desc
         limit 1000
         """
@@ -451,6 +480,52 @@ def list_series(conn: psycopg.Connection) -> list[SeriesRef]:
     ]
 
 
+# --- Deleting ------------------------------------------------------------------
+
+
+def delete_edition(
+    conn: psycopg.Connection, edition_id: uuid.UUID, *, published_too: bool = False
+) -> None:
+    """Deletes an edition for good: see migration 0015. Its rows go once the
+    media worker has deleted its videos' files. A published one is refused
+    unless [published_too]: Drafts deletes drafts and hidden editions only."""
+    row = conn.execute(
+        "select status, test from public.editions "
+        "where id = %s and deleted_at is null for update",
+        (edition_id,),
+    ).fetchone()
+    if row is None:
+        raise NotFound("No such edition")
+    status, test = row
+    if test:
+        raise AdminError("Test films are deleted with the owner's script")
+    if status == "published" and not published_too:
+        raise AdminError("This is published. Hide it first, then delete it")
+    conn.execute("select public.delete_edition(%s)", (edition_id,))
+
+
+def delete_all_drafts(conn: psycopg.Connection) -> list[uuid.UUID]:
+    """Deletes every draft, never a published or hidden edition. The IDs."""
+    ids = [
+        row[0]
+        for row in conn.execute(
+            """
+            select id from public.editions
+            where status = 'draft' and not test and deleted_at is null
+            for update
+            """
+        ).fetchall()
+    ]
+    for edition_id in ids:
+        conn.execute("select public.delete_edition(%s)", (edition_id,))
+    return ids
+
+
+def purge_deleted(conn: psycopg.Connection) -> int:
+    """Deletes the rows of deleted editions whose files are all gone."""
+    return conn.execute("select public.purge_deleted_editions()").fetchone()[0]
+
+
 def due_for_lookup(conn: psycopg.Connection, limit: int = 5) -> list[uuid.UUID]:
     """Drafts whose video is ready and that TMDB hasn't been asked about."""
     return [
@@ -458,7 +533,8 @@ def due_for_lookup(conn: psycopg.Connection, limit: int = 5) -> list[uuid.UUID]:
         for row in conn.execute(
             """
             select e.id from public.editions e
-            where e.source_id is null and e.tmdb_lookup is null and exists (
+            where e.source_id is null and e.tmdb_lookup is null
+              and e.deleted_at is null and exists (
               select from public.items i join public.media_originals o
                 on o.item_id = i.id
               where i.edition_id = e.id and o.state = 'ready')

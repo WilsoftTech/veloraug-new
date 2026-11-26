@@ -169,30 +169,201 @@ class AdminSection extends StatelessWidget {
   }
 }
 
-/// Asks before something that can't be undone from here.
+/// Asks before something that can't be undone from here. A [danger]
+/// action shows in the danger colour. With [typeToConfirm], the action
+/// stays off until that word is typed, for deleting many things at once.
 Future<bool> confirm(
   BuildContext context, {
   required String title,
   required String message,
   required String action,
+  bool danger = false,
+  String? typeToConfirm,
 }) async {
-  final l = context.l10n;
   final answer = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: Text(message),
+    builder: (context) => _ConfirmDialog(
+      title: title,
+      message: message,
+      action: action,
+      danger: danger,
+      typeToConfirm: typeToConfirm,
+    ),
+  );
+  return answer ?? false;
+}
+
+class _ConfirmDialog extends StatefulWidget {
+  const _ConfirmDialog({
+    required this.title,
+    required this.message,
+    required this.action,
+    required this.danger,
+    this.typeToConfirm,
+  });
+
+  final String title;
+  final String message;
+  final String action;
+  final bool danger;
+  final String? typeToConfirm;
+
+  @override
+  State<_ConfirmDialog> createState() => _ConfirmDialogState();
+}
+
+class _ConfirmDialogState extends State<_ConfirmDialog> {
+  final _typed = TextEditingController();
+
+  @override
+  void dispose() {
+    _typed.dispose();
+    super.dispose();
+  }
+
+  bool get _ready =>
+      widget.typeToConfirm == null ||
+      _typed.text.trim() == widget.typeToConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final word = widget.typeToConfirm;
+    return AlertDialog(
+      icon: widget.danger ? const Icon(Icons.warning_amber_rounded) : null,
+      title: Text(widget.title),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: VeloraLayout.readingWidth),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: VeloraSpacing.sm,
+          children: [
+            Text(widget.message),
+            if (word != null)
+              TextField(
+                controller: _typed,
+                autofocus: true,
+                decoration: InputDecoration(labelText: l.typeToConfirm(word)),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) {
+                  if (_ready) Navigator.of(context).pop(true);
+                },
+              ),
+          ],
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(l.cancel),
         ),
         VeloraButton(
-          label: action,
-          onPressed: () => Navigator.of(context).pop(true),
+          label: widget.action,
+          variant: widget.danger
+              ? VeloraButtonVariant.danger
+              : VeloraButtonVariant.primary,
+          onPressed: _ready ? () => Navigator.of(context).pop(true) : null,
         ),
       ],
-    ),
-  );
-  return answer ?? false;
+    );
+  }
+}
+
+/// "3 min left". Hours and minutes past an hour.
+String formatEta(AppLocalizations l, Duration left) {
+  if (left.inHours > 0) {
+    return l.uploadHoursLeft(left.inHours, left.inMinutes.remainder(60));
+  }
+  if (left.inMinutes > 0) return l.uploadMinutesLeft(left.inMinutes + 1);
+  return l.uploadSecondsLeft(left.inSeconds);
+}
+
+/// Where one video is between uploaded and ready: the stage, a bar, and
+/// the percentage and time left that the media worker reported. A stage
+/// with no figure to show, such as checking, has a moving bar instead.
+class VideoStageProgress extends StatelessWidget {
+  const VideoStageProgress({
+    super.key,
+    required this.label,
+    required this.item,
+  });
+
+  /// "Movie" or "S1 E2".
+  final String label;
+  final AdminItem item;
+
+  /// States with a stage to show. Others, such as ready, show none.
+  static bool shows(String? state) => const {
+    'received',
+    'checking',
+    'converting',
+    'publishing',
+  }.contains(state);
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final percent = item.progress;
+    final eta = item.etaSeconds;
+    final stage = switch (item.video) {
+      'received' => l.stageQueued,
+      'checking' => l.stageChecking,
+      'converting' => l.stageConverting,
+      _ => l.stageSending,
+    };
+    final detail = [
+      if (item.video == 'received' && item.queuePosition != null)
+        l.stageQueuePosition(item.queuePosition!),
+      if (percent != null) l.uploadPercent(percent),
+      if (eta != null) formatEta(l, Duration(seconds: eta)),
+      if (item.video == 'checking') l.stageCheckingHelp,
+    ].join(' · ');
+    return Semantics(
+      label: l.stageProgressLabel(label, stage),
+      value: percent == null ? null : l.uploadPercent(percent),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: VeloraSpacing.xxs,
+        children: [
+          Text(
+            '$label · $stage',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(VeloraRadii.sm),
+            child: LinearProgressIndicator(
+              // Waiting in the queue: an empty bar. No figure: a moving one.
+              value: item.video == 'received'
+                  ? 0
+                  : percent == null
+                  ? null
+                  : percent / 100,
+              minHeight: 6,
+            ),
+          ),
+          if (detail.isNotEmpty)
+            Text(detail, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+/// Checks a whole number between [min] and [max]. Empty is fine if
+/// [optional].
+String? checkNumber(
+  AppLocalizations l,
+  String? value, {
+  required int min,
+  required int max,
+  bool optional = false,
+}) {
+  final text = (value ?? '').trim();
+  if (text.isEmpty) return optional ? null : l.required;
+  final number = int.tryParse(text);
+  if (number == null || number < min || number > max) {
+    return l.numberBetween(min, max);
+  }
+  return null;
 }

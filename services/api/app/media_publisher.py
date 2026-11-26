@@ -23,6 +23,7 @@ import logging
 import re
 import shutil
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -278,7 +279,13 @@ class Publisher:
             ).fetchone()
         return item_id
 
-    def publish(self, original_id: uuid.UUID) -> None:
+    def publish(
+        self,
+        original_id: uuid.UUID,
+        on_progress: Callable[[int], None] | None = None,
+    ) -> None:
+        """Sends the converted files to R2, checks them, and makes the
+        original ready. on_progress hears the share of bytes sent, 0 to 99."""
         item_id = self._item(original_id)
         out = self.output_dir / str(original_id)
         source = self.upload_dir / str(original_id)
@@ -288,10 +295,13 @@ class Publisher:
         prefix = f"movies/{item_id}/{original_id}"
 
         sent: dict[str, int] = {}
+        total = sum(p.stat().st_size for p in out.rglob("*") if p.is_file()) or 1
 
         def send(path: Path, key: str, content_type: str, **options) -> None:
             self.store.upload(path, key, content_type, **options)
             sent[key] = path.stat().st_size
+            if on_progress is not None:
+                on_progress(min(99, sum(sent.values()) * 100 // total))
 
         for quality in qualities:
             folder = out / quality.name
@@ -381,6 +391,13 @@ class Publisher:
         item_id = self._item(original_id)
         deleted = self.store.delete_prefix(f"movies/{item_id}/{original_id}/")
         deleted += self.store.delete_prefix(f"originals/{original_id}")
+        # This computer's copies go before it is marked removed: if one can't
+        # be deleted, it stays 'removing' and the whole removal is tried
+        # again, rather than its row being purged with the file left behind.
+        shutil.rmtree(self.output_dir / str(original_id), ignore_errors=True)
+        source = self.upload_dir / str(original_id)
+        source.unlink(missing_ok=True)
+        source.with_name(source.name + ".info").unlink(missing_ok=True)
         with self.database.anonymous() as conn:
             conn.execute(
                 "delete from public.media_renditions where original_id = %s",
@@ -393,9 +410,5 @@ class Publisher:
                 """,
                 (original_id,),
             )
-        shutil.rmtree(self.output_dir / str(original_id), ignore_errors=True)
-        source = self.upload_dir / str(original_id)
-        source.unlink(missing_ok=True)
-        source.with_name(source.name + ".info").unlink(missing_ok=True)
         logger.info("original %s removed: %s objects deleted", original_id, deleted)
         return deleted

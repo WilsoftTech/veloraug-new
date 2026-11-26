@@ -444,3 +444,43 @@ def test_check_r2_explains_bad_settings_without_a_traceback(monkeypatch, capsys)
     out = capsys.readouterr().out
     assert "without /a/b on the end" in out
     assert "Zq9-not-shown" not in out
+
+
+@needs_database
+def test_publishing_reports_the_share_of_bytes_sent(
+    owner_url, media_database, folders, movie, quiet_queue
+):
+    uploads, output = folders
+    original_id = waiting_original(owner_url, movie)
+    converted(output, uploads, original_id)
+    heard = []
+
+    Publisher(media_database, FakeBucket(), uploads, output).publish(
+        original_id, on_progress=heard.append
+    )
+
+    # One report per file sent, rising, and 100 only once it is ready.
+    assert len(heard) == 2 * 6 + 1
+    assert heard == sorted(heard)
+    assert 0 < heard[0] and heard[-1] <= 99
+    assert state_of(owner_url, original_id) == ("ready", None)
+
+
+@needs_database
+def test_a_file_that_cant_be_deleted_keeps_its_original_removing(
+    owner_url, media_database, folders, movie, quiet_queue
+):
+    uploads, output = folders
+    original_id = waiting_original(owner_url, movie, state="removing")
+    # A folder where the upload's file should be: unlinking it fails.
+    (uploads / str(original_id)).mkdir()
+    publisher = Publisher(media_database, FakeBucket(), uploads, output)
+
+    with pytest.raises(OSError):
+        publisher.remove(original_id)
+
+    # Still queued for removal, so the worker tries the whole of it again.
+    assert state_of(owner_url, original_id)[0] == "removing"
+    (uploads / str(original_id)).rmdir()
+    publisher.remove(original_id)
+    assert state_of(owner_url, original_id)[0] == "removed"

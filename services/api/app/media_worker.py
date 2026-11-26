@@ -8,10 +8,15 @@ a keyframe every 2 seconds in every quality, so a player can switch between
 them cleanly. See "Conversion" in docs/step-07a-uploads-plan.md.
 
 States: received -> checking -> converting -> publishing -> ready, or
-refused or failed. With R2 set up, it publishes each converted original, see
+refused or failed. While converting and publishing, it writes how far it has
+got, from FFmpeg's own progress and the bytes sent to R2, as a whole
+percentage the admin's Drafts tab shows.
+
+With R2 set up, it publishes each converted original, see
 app/media_publisher.py, and removes originals marked 'removing'. Without R2, a
 converted original waits in 'publishing', with its HLS files in the output
-folder, until R2 is set up.
+folder, until R2 is set up. It also deletes the rows of editions an admin
+deleted, once their files are gone.
 
 Run with:
 
@@ -23,6 +28,7 @@ import logging
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 import uuid
 from collections.abc import Callable
@@ -82,6 +88,10 @@ ATTEMPTS = 3
 STALE_UPLOAD_SECONDS = 120
 # After a failed publish or removal, wait this long times the failures so far.
 RETRY_SECONDS = 60
+# Progress is written at most this often, or sooner after this big a step,
+# so a long film costs a few hundred small updates, not thousands.
+PROGRESS_SECONDS = 5
+PROGRESS_STEP = 5
 
 
 class Refused(Exception):
@@ -286,6 +296,10 @@ def ffmpeg_command(source: Path, rungs: list[Rung], has_audio: bool) -> list[str
         "-y",
         "-v",
         "error",
+        # key=value lines on stdout, such as out_time_us=, for progress.
+        "-progress",
+        "pipe:1",
+        "-nostats",
         "-i",
         str(source),
         "-filter_complex",
@@ -411,6 +425,43 @@ def length_matches(got: float | None, want: float) -> bool:
     return got is not None and abs(got - want) <= max(2.0, want * 0.005)
 
 
+_OUT_TIME = re.compile(r"^out_time_(?:us|ms)=(\d+)$")
+
+
+def progress_percent(line: str, duration_seconds: float) -> int | None:
+    """The percentage an FFmpeg -progress line shows, or None. Its out_time
+    is in microseconds, whether it is called _us or, in old builds, _ms.
+    Never 100: that is for when the files are checked."""
+    match = _OUT_TIME.match(line.strip())
+    if not match or duration_seconds <= 0:
+        return None
+    done = int(match.group(1)) / 1_000_000 / duration_seconds
+    return max(0, min(99, int(done * 100)))
+
+
+def stream_process(
+    command: list[str], cwd: Path, on_line: Callable[[str], None]
+) -> subprocess.CompletedProcess:
+    """Runs a command, handing each line it writes to stdout to on_line as
+    it comes. stderr goes to a file, so a chatty one can't block the pipe."""
+    with tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as err:
+        with subprocess.Popen(
+            command,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=err,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        ) as process:
+            assert process.stdout is not None
+            for line in process.stdout:
+                on_line(line.rstrip("\n"))
+            code = process.wait()
+        err.seek(0)
+        return subprocess.CompletedProcess(command, code, "", err.read())
+
+
 def last_line(text: str, source: Path) -> str:
     """FFmpeg's last error line, without the server's paths."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -429,6 +480,7 @@ class Worker:
         run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
         clock: Callable[[], float] = time.monotonic,
         publisher: Publisher | None = None,
+        stream: Callable[..., subprocess.CompletedProcess] | None = None,
     ) -> None:
         self.database = database
         self.upload_dir = upload_dir
@@ -436,6 +488,13 @@ class Worker:
         self.run = run
         self.clock = clock
         self.publisher = publisher
+        # FFmpeg's conversion, read line by line for its progress. A `run`
+        # given in tests answers it too, with its stdout read afterwards.
+        if stream is None:
+            stream = stream_process if run is subprocess.run else self._run_then_read
+        self.stream = stream
+        # The last progress written: original ID -> (percent, when).
+        self._progress: dict[uuid.UUID, tuple[int, float]] = {}
         # Failed publishes and removals: original ID -> (failures, next try).
         self.retries: dict[uuid.UUID, tuple[int, float]] = {}
 
@@ -503,14 +562,57 @@ class Worker:
         return row[0] if row else None
 
     def _set(self, original_id: uuid.UUID, state: str, **fields) -> None:
+        """Moves an original to a new state. Its progress starts again at 0
+        in a stage that reports it, and is cleared in any other."""
+        fields["progress"] = 0 if state in ("converting", "publishing") else None
+        self._progress.pop(original_id, None)
         columns = ", ".join(f"{name} = %({name})s" for name in fields)
         with self.database.anonymous() as conn:
             conn.execute(
                 "update public.media_originals set state = %(state)s, "
-                f"updated_at = now(){', ' + columns if columns else ''} "
+                f"updated_at = now(), progress_at = now(), {columns} "
                 "where id = %(id)s",
                 {"id": original_id, "state": state, **fields},
             )
+
+    def report(self, original_id: uuid.UUID, percent: int) -> None:
+        """Writes how far converting or publishing has got, now and then.
+        A failure to write it never stops the work."""
+        now = self.clock()
+        # The first call sets the baseline, so small steps are still written
+        # every few seconds before the first big one.
+        last, at = self._progress.setdefault(original_id, (0, now))
+        if percent <= last or (
+            percent - last < PROGRESS_STEP and now - at < PROGRESS_SECONDS
+        ):
+            return
+        self._progress[original_id] = (percent, now)
+        try:
+            with self.database.anonymous() as conn:
+                conn.execute(
+                    """
+                    update public.media_originals
+                    set progress = %s, progress_at = now()
+                    where id = %s and state in ('converting', 'publishing')
+                    """,
+                    (percent, original_id),
+                )
+        except Exception as error:  # The database, briefly away.
+            logger.warning("progress of %s not saved: %s", original_id, error)
+
+    def _run_then_read(
+        self, command: list[str], cwd: Path, on_line: Callable[[str], None]
+    ) -> subprocess.CompletedProcess:
+        result = self.run(command, cwd=cwd, capture_output=True, text=True)
+        for line in (result.stdout or "").splitlines():
+            on_line(line)
+        return result
+
+    def purge_deleted(self) -> int:
+        """Deletes the rows of editions an admin deleted, once their files
+        are gone. See migration 0015."""
+        with self.database.anonymous() as conn:
+            return conn.execute("select public.purge_deleted_editions()").fetchone()[0]
 
     # --- One original -------------------------------------------------------
 
@@ -538,17 +640,26 @@ class Worker:
             raise Refused("The file isn't a video VeloraUG can read.")
         return parse_probe(data)
 
-    def convert(self, source: Path, out: Path, rungs: list[Rung], audio: bool) -> None:
+    def convert(
+        self,
+        source: Path,
+        out: Path,
+        rungs: list[Rung],
+        audio: bool,
+        on_progress: Callable[[int], None] | None = None,
+        duration_seconds: float = 0,
+    ) -> None:
         error = "no message"
+
+        def read(line: str) -> None:
+            percent = progress_percent(line, duration_seconds)
+            if percent is not None and on_progress is not None:
+                on_progress(percent)
+
         for attempt in range(1, ATTEMPTS + 1):
             shutil.rmtree(out, ignore_errors=True)
             out.mkdir(parents=True)
-            result = self.run(
-                ffmpeg_command(source, rungs, audio),
-                cwd=out,
-                capture_output=True,
-                text=True,
-            )
+            result = self.stream(ffmpeg_command(source, rungs, audio), out, read)
             missing = [
                 r.name for r in rungs if not (out / r.name / "index.m3u8").exists()
             ]
@@ -643,6 +754,8 @@ class Worker:
                 self.output_dir / str(original_id),
                 rungs,
                 bool(probe.audio_codec),
+                on_progress=lambda percent: self.report(original_id, percent),
+                duration_seconds=float(probe.duration_seconds),
             )
         except ConversionFailed as failure:
             self._set(original_id, "failed", reason=str(failure))
@@ -708,11 +821,18 @@ class Worker:
         return True
 
     def try_publish(self, original_id: uuid.UUID) -> bool:
-        return self._attempt(original_id, self.publisher.publish, "publishing")
+        def publish(original: uuid.UUID) -> None:
+            self.publisher.publish(
+                original, on_progress=lambda percent: self.report(original, percent)
+            )
+
+        return self._attempt(original_id, publish, "publishing")
 
     def run_once(self) -> bool:
         """Does one piece of work. False when there was nothing to do."""
         self.sweep_finished_uploads()
+        # Before claiming, so a deleted draft's upload is never converted.
+        self.purge_deleted()
         original_id = self.claim()
         if original_id is not None:
             self.process(original_id)
@@ -725,7 +845,8 @@ class Worker:
             return True
         original_id = self._due("removing")
         if original_id is not None:
-            self._attempt(original_id, self.publisher.remove, "removing")
+            if self._attempt(original_id, self.publisher.remove, "removing"):
+                self.purge_deleted()
             return True
         return False
 

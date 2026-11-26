@@ -1,4 +1,4 @@
-"""Structured audit events for billing, devices and playback sessions.
+"""Structured audit events for billing, devices, playback sessions and deletes.
 
 One JSON line per event on the `veloraug.audit` logger. Events carry
 VeloraUG's own IDs, plan IDs, amounts and times only: never an email, a
@@ -24,6 +24,7 @@ ALLOWED = frozenset(
         "device_id",
         "session_id",
         "item_id",
+        "edition_id",
         "pass_starts_at",
         "reason",
         "count",

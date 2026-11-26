@@ -14,8 +14,8 @@ import '../widgets/velora_button.dart';
 import '../widgets/velora_text_field.dart';
 import 'admin_common.dart';
 import 'category_input.dart';
-import 'drafts_view.dart' show checkNumber;
 import 'image_picker.dart';
+import 'uploads/uploads_view.dart' show UploadsScope;
 
 /// One edition, as an admin works on it: its videos and upload keys, a
 /// preview, TMDB's details, the poster, the VJ credit, and Publish.
@@ -880,10 +880,43 @@ class _DraftScreenState extends State<DraftScreen> {
                 variant: VeloraButtonVariant.secondary,
                 onPressed: () => _hide(edition),
               ),
+            if (!edition.published && !edition.test)
+              VeloraButton(
+                label: l.deletePermanently,
+                icon: Icons.delete_forever_outlined,
+                variant: VeloraButtonVariant.danger,
+                onPressed: () => _delete(edition),
+              ),
           ],
         ),
       ],
     );
+  }
+
+  Future<void> _delete(AdminEdition edition) async {
+    final l = context.l10n;
+    if (!await confirm(
+      context,
+      title: l.deleteDraftTitle(edition.displayTitle),
+      message: l.deleteDraftMessage,
+      action: l.deletePermanently,
+      danger: true,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _busy = true);
+    final queue = UploadsScope.of(context);
+    final done = await runAdmin(
+      context,
+      (api) => api.deleteEdition(edition.id).then((_) => true),
+      done: l.draftDeleted(edition.displayTitle),
+    );
+    // Its uploads stop only once the server has deleted it.
+    if (done == true) await queue?.removeForEdition(edition.id);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (done == true) Navigator.of(context).pop();
   }
 
   Future<void> _publish(AdminEdition edition) async {

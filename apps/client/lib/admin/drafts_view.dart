@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api/admin_api.dart';
@@ -9,12 +11,22 @@ import '../widgets/loading_placeholder.dart';
 import '../widgets/screen_body.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/velora_button.dart';
-import '../widgets/velora_text_field.dart';
 import 'admin_common.dart';
 import 'draft_screen.dart';
+import 'new_draft_screen.dart';
+import 'uploads/upload_queue.dart';
+import 'uploads/uploads_view.dart' show UploadsScope;
 
-/// Drafts, hidden editions and series with episodes waiting, each with what
-/// it still needs.
+/// While a video is being checked, converted or sent, Drafts asks again
+/// this often, so its bar moves.
+const Duration draftsRefreshEvery = Duration(seconds: 5);
+
+/// The word typed to delete every draft. The API asks for the same word.
+const String deleteAllWord = 'DELETE';
+
+/// Drafts whose video has finished uploading, hidden editions, and series
+/// with episodes waiting, each with what it still needs and how far its
+/// videos have got. Drafts still uploading are listed apart, below.
 class DraftsView extends StatefulWidget {
   const DraftsView({super.key});
 
@@ -27,36 +39,88 @@ class _DraftsViewState extends State<DraftsView> {
   AdminException? _failure;
   bool _loading = true;
   bool _started = false;
+  Timer? _refresh;
+
+  /// Each load's number. Only the newest load's answer is shown, so a slow
+  /// older one can't bring back a draft deleted since.
+  int _generation = 0;
+
+  /// This browser's uploads, and those already seen finished.
+  UploadQueue? _queue;
+  final Set<String> _finished = {};
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final queue = UploadsScope.of(context);
+    if (!identical(queue, _queue)) {
+      _queue?.removeListener(_uploadsChanged);
+      _queue = queue;
+      _finished
+        ..clear()
+        ..addAll(_finishedIds(queue));
+      queue?.addListener(_uploadsChanged);
+    }
     if (!_started) {
       _started = true;
       _load();
     }
   }
 
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    _queue?.removeListener(_uploadsChanged);
+    super.dispose();
+  }
+
+  static Set<String> _finishedIds(UploadQueue? queue) => {
+    for (final t in queue?.tasks ?? const <UploadTask>[])
+      if (t.phase == UploadPhase.finished) t.id,
+  };
+
+  /// An upload from this browser just finished: its draft moves up.
+  void _uploadsChanged() {
+    final now = _finishedIds(_queue);
+    final fresh = now.difference(_finished).isNotEmpty;
+    _finished
+      ..clear()
+      ..addAll(now);
+    if (fresh && mounted) _load();
+  }
+
   Future<void> _load() async {
     final api = AdminScope.of(context);
     if (api == null) return;
+    _refresh?.cancel();
+    final generation = ++_generation;
     setState(() => _loading = true);
     try {
       final drafts = await api.drafts();
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _drafts = drafts;
         _failure = null;
         _loading = false;
       });
+      if (drafts.any(_working)) {
+        _refresh = Timer(draftsRefreshEvery, () {
+          if (mounted) _load();
+        });
+      }
     } on AdminException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _failure = error;
         _loading = false;
       });
     }
   }
+
+  /// A video of it is uploading, or being checked, converted or sent.
+  static bool _working(AdminEdition draft) => draft.items.any(
+    (item) => item.video == 'uploading' || VideoStageProgress.shows(item.video),
+  );
 
   Future<void> _open(String editionId) async {
     await Navigator.of(context).push(
@@ -68,21 +132,75 @@ class _DraftsViewState extends State<DraftsView> {
   }
 
   Future<void> _newDraft() async {
-    final made = await showDialog<KeyMade>(
-      context: context,
-      builder: (_) => const NewDraftDialog(),
-    );
-    if (made == null || !mounted) return;
-    await showUploadKey(context, made);
-    final editionId = made.editionId;
-    if (editionId != null && mounted) await _open(editionId);
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const NewDraftScreen()));
+    if (mounted) _load();
   }
+
+  Future<void> _delete(AdminEdition draft) async {
+    final l = context.l10n;
+    final sure = await confirm(
+      context,
+      title: l.deleteDraftTitle(draft.displayTitle),
+      message: l.deleteDraftMessage,
+      action: l.deletePermanently,
+      danger: true,
+    );
+    if (!sure || !mounted) return;
+    final queue = UploadsScope.of(context);
+    final done = await runAdmin(
+      context,
+      (api) => api.deleteEdition(draft.id).then((_) => true),
+      done: l.draftDeleted(draft.displayTitle),
+    );
+    // Only once the server has deleted it: its uploads stop, and their
+    // parts are deleted. A refused delete leaves them running.
+    if (done == true) await queue?.removeForEdition(draft.id);
+    if (done == true && mounted) await _load();
+  }
+
+  Future<void> _deleteAll(List<AdminEdition> drafts) async {
+    final l = context.l10n;
+    final count = drafts.where((d) => d.status == 'draft').length;
+    final sure = await confirm(
+      context,
+      title: l.deleteAllDraftsTitle(count),
+      message: l.deleteAllDraftsMessage,
+      action: l.deleteAllDrafts,
+      danger: true,
+      typeToConfirm: deleteAllWord,
+    );
+    if (!sure || !mounted) return;
+    final queue = UploadsScope.of(context);
+    final deleted = await runAdmin(context, (api) => api.deleteAllDrafts());
+    if (deleted == null) return;
+    // Only the uploads of drafts the server deleted: one hidden meanwhile
+    // keeps its uploads.
+    if (queue != null) {
+      await Future.wait([for (final id in deleted) queue.removeForEdition(id)]);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l.draftsDeleted(deleted.length))));
+    await _load();
+  }
+
+  void _goToUploads() => DefaultTabController.maybeOf(context)?.animateTo(1);
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final drafts = _drafts;
     final failure = _failure;
+    final ready = [
+      for (final d in drafts ?? const <AdminEdition>[])
+        if (!d.incomplete) d,
+    ];
+    final incomplete = [
+      for (final d in drafts ?? const <AdminEdition>[])
+        if (d.incomplete) d,
+    ];
+    final deletable = (drafts ?? const []).any((d) => d.status == 'draft');
     return ScreenBody(
       heading: l.adminDrafts,
       intro: l.adminDraftsIntro,
@@ -103,6 +221,13 @@ class _DraftsViewState extends State<DraftsView> {
             isLoading: _loading,
             onPressed: _load,
           ),
+          if (deletable)
+            VeloraButton(
+              label: l.deleteAllDrafts,
+              icon: Icons.delete_sweep_outlined,
+              variant: VeloraButtonVariant.danger,
+              onPressed: () => _deleteAll(drafts!),
+            ),
         ],
       ),
       children: [
@@ -119,254 +244,330 @@ class _DraftsViewState extends State<DraftsView> {
               child: const VeloraSpinner(size: 32),
             ),
           )
-        else if (drafts.isEmpty)
-          EmptyState(
-            icon: Icons.inbox_outlined,
-            title: l.noDraftsTitle,
-            message: l.noDraftsMessage,
-          )
-        else
-          for (final draft in drafts)
-            _DraftTile(
-              key: ValueKey(draft.id),
-              draft: draft,
-              onTap: () => _open(draft.id),
+        else ...[
+          if (ready.isEmpty)
+            EmptyState(
+              icon: Icons.inbox_outlined,
+              title: l.noDraftsTitle,
+              message: incomplete.isEmpty
+                  ? l.noDraftsMessage
+                  : l.noDraftsReadyMessage,
+            )
+          else
+            for (final draft in ready)
+              _DraftTile(
+                key: ValueKey(draft.id),
+                draft: draft,
+                onTap: () => _open(draft.id),
+                onDelete: draft.published ? null : () => _delete(draft),
+              ),
+          if (incomplete.isNotEmpty)
+            _IncompleteSection(
+              drafts: incomplete,
+              onOpen: _open,
+              onDelete: _delete,
+              onGoToUploads: _goToUploads,
             ),
+        ],
       ],
     );
   }
 }
 
 class _DraftTile extends StatelessWidget {
-  const _DraftTile({super.key, required this.draft, required this.onTap});
+  const _DraftTile({
+    super.key,
+    required this.draft,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   final AdminEdition draft;
   final VoidCallback onTap;
+
+  /// Null for a published edition: it is hidden first, then deleted.
+  final VoidCallback? onDelete;
+
+  /// At most this many videos' bars, then "and N more".
+  static const int _shownStages = 3;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final (status, tone) = editionStatus(l, draft);
     final waiting = draft.items.where((item) => !item.approved).length;
+    final stages = [
+      for (final item in draft.items)
+        if (VideoStageProgress.shows(item.video)) item,
+    ];
+    final uploading = draft.items.where((i) => i.video == 'uploading').length;
+    final failed = draft.items.where(
+      (i) => i.video == 'failed' || i.video == 'refused',
+    );
     return Card.outlined(
-      child: ListTile(
+      child: InkWell(
         onTap: onTap,
-        title: Text(draft.displayTitle),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: VeloraSpacing.xxs,
-          children: [
-            Text(
-              [
-                draft.kind == EditionKind.series ? l.seriesBadge : l.movie,
-                draft.vjName ?? l.noVjYet,
-                if (draft.test) l.testFilm,
-              ].join(' · '),
-            ),
-            if (draft.missing.isNotEmpty)
-              Text(
-                l.stillNeeds(
-                  draft.missing.map((m) => missingLabel(l, m)).join(', '),
+        borderRadius: BorderRadius.circular(VeloraRadii.md),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            VeloraSpacing.md,
+            VeloraSpacing.sm,
+            VeloraSpacing.xs,
+            VeloraSpacing.sm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: VeloraSpacing.xs,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: VeloraSpacing.xxs,
+                      children: [
+                        Text(
+                          draft.displayTitle,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(_kindLine(l, draft)),
+                        if (draft.missing.isNotEmpty)
+                          Text(
+                            l.stillNeeds(
+                              draft.missing
+                                  .map((m) => missingLabel(l, m))
+                                  .join(', '),
+                            ),
+                          )
+                        else if (draft.published && waiting > 0)
+                          Text(l.episodesWaiting(waiting))
+                        else if (!draft.published)
+                          Text(l.readyToPublish),
+                      ],
+                    ),
+                  ),
+                  StatusBadge(label: status, tone: tone),
+                  _DraftMenu(onOpen: onTap, onDelete: onDelete),
+                ],
+              ),
+              for (final item in stages.take(_shownStages))
+                Padding(
+                  padding: const EdgeInsets.only(right: VeloraSpacing.sm),
+                  child: VideoStageProgress(
+                    key: ValueKey(item.id),
+                    label: itemName(l, item),
+                    item: item,
+                  ),
                 ),
-              )
-            else if (draft.published && waiting > 0)
-              Text(l.episodesWaiting(waiting))
-            else if (!draft.published)
-              Text(l.readyToPublish),
-          ],
+              if (stages.length > _shownStages)
+                Text(l.andMoreVideos(stages.length - _shownStages)),
+              if (uploading > 0) Text(l.episodesStillUploading(uploading)),
+              for (final item in failed)
+                Text(
+                  [
+                    '${itemName(l, item)}: ${videoState(l, item.video).$1}',
+                    ?item.videoReason,
+                  ].join(' · '),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+            ],
+          ),
         ),
-        trailing: StatusBadge(label: status, tone: tone),
       ),
     );
   }
 }
 
-/// Starts a draft: title, movie or series, language, year, and for a series
-/// the first episode's numbers. Pops with the new key.
-class NewDraftDialog extends StatefulWidget {
-  const NewDraftDialog({super.key});
+String _kindLine(AppLocalizations l, AdminEdition draft) => [
+  draft.kind == EditionKind.series ? l.seriesBadge : l.movie,
+  draft.vjName ?? l.noVjYet,
+  if (draft.test) l.testFilm,
+].join(' · ');
 
-  @override
-  State<NewDraftDialog> createState() => _NewDraftDialogState();
-}
+class _DraftMenu extends StatelessWidget {
+  const _DraftMenu({required this.onOpen, required this.onDelete});
 
-class _NewDraftDialogState extends State<NewDraftDialog> {
-  final _form = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _year = TextEditingController();
-  final _season = TextEditingController(text: '1');
-  final _episode = TextEditingController(text: '1');
-  final _episodeTitle = TextEditingController();
-  EditionKind _kind = EditionKind.movie;
-  String _language = 'lg';
-  List<AdminLanguage> _languages = const [
-    AdminLanguage(code: 'lg', name: 'Luganda'),
-  ];
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final languages = await runAdmin(context, (api) => api.languages());
-      if (languages != null && languages.isNotEmpty && mounted) {
-        setState(() => _languages = languages);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    for (final c in [_title, _year, _season, _episode, _episodeTitle]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!(_form.currentState?.validate() ?? false)) return;
-    setState(() => _saving = true);
-    final series = _kind == EditionKind.series;
-    final episodeTitle = _episodeTitle.text.trim();
-    final made = await runAdmin(
-      context,
-      (api) => api.createDraft(
-        kind: _kind,
-        title: _title.text.trim(),
-        year: int.tryParse(_year.text.trim()),
-        language: _language,
-        season: series ? int.parse(_season.text.trim()) : null,
-        episode: series ? int.parse(_episode.text.trim()) : null,
-        episodeTitle: series && episodeTitle.isNotEmpty ? episodeTitle : null,
-      ),
-    );
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (made != null) Navigator.of(context).pop(made);
-  }
+  final VoidCallback onOpen;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final series = _kind == EditionKind.series;
-    return AlertDialog(
-      title: Text(l.newDraft),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: VeloraLayout.readingWidth),
-        child: Form(
-          key: _form,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: VeloraSpacing.sm,
-              children: [
-                Text(l.newDraftIntro),
-                SegmentedButton<EditionKind>(
-                  segments: [
-                    ButtonSegment(
-                      value: EditionKind.movie,
-                      label: Text(l.movie),
-                      icon: const Icon(Icons.movie_outlined),
-                    ),
-                    ButtonSegment(
-                      value: EditionKind.series,
-                      label: Text(l.seriesBadge),
-                      icon: const Icon(Icons.video_library_outlined),
-                    ),
-                  ],
-                  selected: {_kind},
-                  onSelectionChanged: (kinds) =>
-                      setState(() => _kind = kinds.first),
-                ),
-                VeloraTextField(
-                  label: l.titleAsSubmitted,
-                  helperText: l.titleAsSubmittedHelp,
-                  controller: _title,
-                  validator: (value) =>
-                      (value ?? '').trim().isEmpty ? l.required : null,
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: _language,
-                  decoration: InputDecoration(labelText: l.language),
-                  items: [
-                    for (final language in _languages)
-                      DropdownMenuItem(
-                        value: language.code,
-                        child: Text(language.name),
-                      ),
-                  ],
-                  onChanged: (code) =>
-                      setState(() => _language = code ?? _language),
-                ),
-                VeloraTextField(
-                  label: l.yearOptional,
-                  controller: _year,
-                  keyboardType: TextInputType.number,
-                  validator: (value) => _number(l, value, 1900, 2100, true),
-                ),
-                if (series) ...[
-                  VeloraTextField(
-                    label: l.season,
-                    controller: _season,
-                    keyboardType: TextInputType.number,
-                    validator: (value) => _number(l, value, 0, 999, false),
-                  ),
-                  VeloraTextField(
-                    label: l.episode,
-                    controller: _episode,
-                    keyboardType: TextInputType.number,
-                    validator: (value) => _number(l, value, 1, 9999, false),
-                  ),
-                  VeloraTextField(
-                    label: l.episodeTitleOptional,
-                    controller: _episodeTitle,
-                  ),
-                ],
-              ],
-            ),
+    final danger = Theme.of(context).colorScheme.error;
+    return PopupMenuButton<VoidCallback>(
+      tooltip: l.moreActions,
+      onSelected: (action) => action(),
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: onOpen,
+          child: ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: Text(l.openDraft),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: Text(l.cancel),
-        ),
-        VeloraButton(
-          label: l.startDraft,
-          isLoading: _saving,
-          onPressed: _submit,
-        ),
+        if (onDelete case final delete?)
+          PopupMenuItem(
+            value: delete,
+            child: ListTile(
+              leading: Icon(Icons.delete_forever_outlined, color: danger),
+              title: Text(l.deletePermanently, style: TextStyle(color: danger)),
+            ),
+          ),
       ],
     );
   }
 }
 
-/// Checks a whole number between [min] and [max]. Empty is fine if
-/// [optional].
-String? _number(
-  AppLocalizations l,
-  String? value,
-  int min,
-  int max,
-  bool optional,
-) {
-  final text = (value ?? '').trim();
-  if (text.isEmpty) return optional ? null : l.required;
-  final number = int.tryParse(text);
-  if (number == null || number < min || number > max) {
-    return l.numberBetween(min, max);
+/// Drafts with no finished upload. Their progress, when this browser is
+/// uploading them, comes from the upload queue.
+class _IncompleteSection extends StatelessWidget {
+  const _IncompleteSection({
+    required this.drafts,
+    required this.onOpen,
+    required this.onDelete,
+    required this.onGoToUploads,
+  });
+
+  final List<AdminEdition> drafts;
+  final ValueChanged<String> onOpen;
+  final ValueChanged<AdminEdition> onDelete;
+  final VoidCallback onGoToUploads;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final queue = UploadsScope.of(context);
+    Widget list(List<UploadTask> tasks) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: VeloraSpacing.xs,
+      children: [
+        for (final draft in drafts)
+          _IncompleteTile(
+            key: ValueKey(draft.id),
+            draft: draft,
+            tasks: [
+              for (final t in tasks)
+                if (t.editionId == draft.id) t,
+            ],
+            onOpen: () => onOpen(draft.id),
+            onDelete: draft.published ? null : () => onDelete(draft),
+          ),
+      ],
+    );
+    return Card.outlined(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: Text(l.incompleteUploadsTitle(drafts.length)),
+            subtitle: Text(l.incompleteUploadsIntro),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              VeloraSpacing.sm,
+              0,
+              VeloraSpacing.sm,
+              VeloraSpacing.sm,
+            ),
+            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (queue == null)
+                list(const [])
+              else
+                ListenableBuilder(
+                  listenable: queue,
+                  builder: (_, _) => list(queue.tasks),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: VeloraButton(
+                  label: l.goToUploads,
+                  icon: Icons.cloud_upload_outlined,
+                  variant: VeloraButtonVariant.tertiary,
+                  onPressed: onGoToUploads,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
-  return null;
 }
 
-/// For other forms: the same check.
-String? checkNumber(
-  AppLocalizations l,
-  String? value, {
-  required int min,
-  required int max,
-  bool optional = false,
-}) => _number(l, value, min, max, optional);
+class _IncompleteTile extends StatelessWidget {
+  const _IncompleteTile({
+    super.key,
+    required this.draft,
+    required this.tasks,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final AdminEdition draft;
+
+  /// This browser's uploads for it.
+  final List<UploadTask> tasks;
+  final VoidCallback onOpen;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final task = tasks.firstOrNull;
+    final uploadingElsewhere = draft.items.any((i) => i.video == 'uploading');
+    return Card.filled(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          VeloraSpacing.sm,
+          VeloraSpacing.xs,
+          VeloraSpacing.xs,
+          VeloraSpacing.sm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: VeloraSpacing.xxs,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        draft.displayTitle,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(_kindLine(l, draft)),
+                    ],
+                  ),
+                ),
+                _DraftMenu(onOpen: onOpen, onDelete: onDelete),
+              ],
+            ),
+            if (task != null) ...[
+              Semantics(
+                label: l.uploadProgressLabel(task.fileName),
+                value: l.uploadPercent(task.percent),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(VeloraRadii.sm),
+                  child: LinearProgressIndicator(
+                    value: task.fraction,
+                    minHeight: 6,
+                  ),
+                ),
+              ),
+              Text(l.incompleteUploadingHere(task.percent)),
+            ] else
+              Text(
+                uploadingElsewhere
+                    ? l.incompleteUploadingElsewhere
+                    : l.incompleteWaitingForVideo,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

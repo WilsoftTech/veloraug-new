@@ -243,6 +243,21 @@ class _UploadsViewState extends State<UploadsView>
     if (sure) await _queue?.remove(task.id);
   }
 
+  Future<void> _removeAll(UploadQueue queue) async {
+    final l = context.l10n;
+    final count = queue.tasks
+        .where((t) => t.phase != UploadPhase.removing)
+        .length;
+    final sure = await confirm(
+      context,
+      title: l.removeAllUploadsTitle(count),
+      message: l.removeAllUploadsMessage,
+      action: l.removeAll,
+      danger: true,
+    );
+    if (sure) await queue.removeAll();
+  }
+
   Future<void> _openDraft(String editionId) => Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (_) => DraftScreen(editionId: editionId)),
   );
@@ -349,6 +364,7 @@ class _UploadsViewState extends State<UploadsView>
                         ),
                     ],
                   ),
+                  _BulkBar(queue: queue, onRemoveAll: () => _removeAll(queue)),
                   for (final task in shown)
                     _TaskCard(
                       key: ValueKey(task.id),
@@ -765,6 +781,67 @@ class _ReviewCard extends StatelessWidget {
                 error,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pause all, Resume all and Remove all, with how many are running.
+class _BulkBar extends StatelessWidget {
+  const _BulkBar({required this.queue, required this.onRemoveAll});
+
+  final UploadQueue queue;
+  final VoidCallback onRemoveAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final tasks = queue.tasks;
+    final running = tasks.where((t) => t.active).length;
+    final finished = tasks.where((t) => t.phase == UploadPhase.finished).length;
+    final total = tasks.fold<int>(0, (sum, t) => sum + t.size);
+    final sent = tasks.fold<int>(0, (sum, t) => sum + t.sent);
+    return Card.filled(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(VeloraSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: VeloraSpacing.xs,
+          children: [
+            Text(
+              [
+                l.uploadsSummary(running, finished, tasks.length),
+                if (total > 0)
+                  l.uploadBytesOf(formatBytes(sent), formatBytes(total)),
+              ].join(' · '),
+            ),
+            Wrap(
+              spacing: VeloraSpacing.xs,
+              runSpacing: VeloraSpacing.xs,
+              children: [
+                VeloraButton(
+                  label: l.pauseAll,
+                  icon: Icons.pause,
+                  variant: VeloraButtonVariant.secondary,
+                  onPressed: queue.canPauseAll ? queue.pauseAll : null,
+                ),
+                VeloraButton(
+                  label: l.resumeAll,
+                  icon: Icons.play_arrow,
+                  variant: VeloraButtonVariant.secondary,
+                  onPressed: queue.canResumeAll ? queue.resumeAll : null,
+                ),
+                VeloraButton(
+                  label: l.removeAll,
+                  icon: Icons.delete_sweep_outlined,
+                  variant: VeloraButtonVariant.danger,
+                  onPressed: queue.canRemoveAll ? onRemoveAll : null,
+                ),
+              ],
+            ),
           ],
         ),
       ),
