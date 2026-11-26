@@ -187,6 +187,11 @@ class FakeApi {
 
   /// Because you watched, by edition ID: (watched title, cards).
   final because = <String, (String, List<Map<String, Object?>>)>{};
+
+  /// GET /api/v1/status: maintenance and support contacts. Null: not
+  /// found, as from a server before Step 13H.
+  Map<String, Object?>? status;
+
   List<Map<String, Object?>> languages = [
     {'code': 'lg', 'name': 'Luganda', 'editions': 1},
   ];
@@ -534,6 +539,10 @@ class FakeApi {
     if (path.startsWith('/api/v1/vjs/')) {
       final page = vjPages[request.url.pathSegments.last];
       return page == null ? json({}, 404) : json(page);
+    }
+    if (path == '/api/v1/status') {
+      final found = status;
+      return found == null ? json({'detail': 'Not Found'}, 404) : json(found);
     }
     if (path == '/api/v1/languages') return json(languages);
     if (path == '/api/v1/genres') return json(genres);

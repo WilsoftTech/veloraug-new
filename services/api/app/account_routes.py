@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app import account, discovery, ratelimit, viewer
+from app import account, app_settings, discovery, ratelimit, viewer
 from app.auth import VerifiedUser, current_user
 from app.viewer_routes import AppDatabase, EditionCard, Images, _card
 
@@ -244,12 +244,18 @@ class MarkReadIn(BaseModel):
     all: bool = False
 
 
+def _reminder(conn) -> timedelta:
+    """How long before a pass ends viewers are told, as admins set it."""
+    days = app_settings.safe_read(conn)["pass_reminder_days"]
+    return timedelta(days=days)
+
+
 @router.get("/notifications")
 def my_notifications(user: Viewer, db: AppDatabase) -> NotificationsOut:
     """The viewer's notifications from the last 90 days, newest first, built
     from their own payments, passes and devices."""
     with db.as_user(user.user_id) as conn:
-        found = account.notifications(conn, user.user_id, _now())
+        found = account.notifications(conn, user.user_id, _now(), _reminder(conn))
     return NotificationsOut(
         notifications=[
             NotificationOut(
@@ -271,7 +277,12 @@ def mark_read(body: MarkReadIn, user: Viewer, db: AppDatabase) -> Response:
     """Marks notifications read: those named, or all listed now."""
     with db.as_user(user.user_id) as conn:
         if body.all:
-            ids = [n.id for n in account.notifications(conn, user.user_id, _now())]
+            ids = [
+                n.id
+                for n in account.notifications(
+                    conn, user.user_id, _now(), _reminder(conn)
+                )
+            ]
         else:
             ids = list(dict.fromkeys(body.ids))
         account.mark_read(conn, user.user_id, ids)

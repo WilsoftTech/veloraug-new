@@ -21,7 +21,7 @@ UploadStore createUploadStore() => MemoryUploadStore();
 
 NetworkStatus createNetworkStatus() => const AlwaysOnline();
 
-void warnBeforeLeaving(bool busy) {}
+void warnBeforeLeaving(bool busy, {String reason = 'uploads'}) {}
 
 /// Stops a file dropped anywhere on the page from replacing the app.
 void guardAgainstFileDrops() {}

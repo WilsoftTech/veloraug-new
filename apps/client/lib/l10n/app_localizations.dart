@@ -6141,6 +6141,372 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Free days given: {from} to {to}'**
   String freeDaysGiven(String from, String to);
+
+  /// No description provided for @adminSettingsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'How VeloraUG runs. Changes to the first parts are saved together, with Save at the bottom.'**
+  String get adminSettingsIntro;
+
+  /// No description provided for @settingsSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Support contacts'**
+  String get settingsSupport;
+
+  /// No description provided for @settingsMaintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get settingsMaintenance;
+
+  /// No description provided for @settingsPayments.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments'**
+  String get settingsPayments;
+
+  /// No description provided for @settingsViewers.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewers'**
+  String get settingsViewers;
+
+  /// No description provided for @settingsContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Content defaults'**
+  String get settingsContent;
+
+  /// No description provided for @settingsPlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans and pricing'**
+  String get settingsPlans;
+
+  /// No description provided for @settingsAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAbout;
+
+  /// No description provided for @settingsUnsaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Not saved'**
+  String get settingsUnsaved;
+
+  /// No description provided for @settingsUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo changes'**
+  String get settingsUndo;
+
+  /// No description provided for @settingsUseDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Use defaults'**
+  String get settingsUseDefaults;
+
+  /// No description provided for @settingsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settingsSave;
+
+  /// No description provided for @settingsDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get settingsDiscard;
+
+  /// No description provided for @settingsUnsavedParts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Changes in 1 part aren\'t saved} other{Changes in {count} parts aren\'t saved}}'**
+  String settingsUnsavedParts(int count);
+
+  /// No description provided for @settingsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 setting saved} other{{count} settings saved}}'**
+  String settingsSaved(int count);
+
+  /// No description provided for @settingsFixFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Some settings need fixing first: see the red notes.'**
+  String get settingsFixFirst;
+
+  /// No description provided for @settingsSupportIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown to viewers under Settings, Help and support. Leave one empty to leave it out.'**
+  String get settingsSupportIntro;
+
+  /// No description provided for @settingSupportEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Support email'**
+  String get settingSupportEmail;
+
+  /// No description provided for @settingSupportPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Support phone'**
+  String get settingSupportPhone;
+
+  /// No description provided for @settingSupportWhatsapp.
+  ///
+  /// In en, this message translates to:
+  /// **'Support WhatsApp'**
+  String get settingSupportWhatsapp;
+
+  /// No description provided for @settingPhoneInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the whole number, starting +256'**
+  String get settingPhoneInvalid;
+
+  /// No description provided for @settingMaintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance mode'**
+  String get settingMaintenance;
+
+  /// No description provided for @settingMaintenanceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewers see a notice at the top of the app, and can\'t buy passes. Watching and downloads carry on.'**
+  String get settingMaintenanceHelp;
+
+  /// No description provided for @settingMaintenanceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message for viewers'**
+  String get settingMaintenanceMessage;
+
+  /// No description provided for @settingMaintenanceMessageHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Such as: We\'re upgrading VeloraUG. Back by 6pm. Empty: a general notice.'**
+  String get settingMaintenanceMessageHelp;
+
+  /// No description provided for @settingMaintenancePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'What viewers will see'**
+  String get settingMaintenancePreview;
+
+  /// No description provided for @maintenanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'VeloraUG is being worked on'**
+  String get maintenanceTitle;
+
+  /// No description provided for @maintenanceDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Some things may not work for a while, and passes can\'t be bought until it\'s done.'**
+  String get maintenanceDefault;
+
+  /// No description provided for @settingProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment provider'**
+  String get settingProvider;
+
+  /// No description provided for @settingPesapalMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal, {mode}'**
+  String settingPesapalMode(String mode);
+
+  /// No description provided for @settingLive.
+  ///
+  /// In en, this message translates to:
+  /// **'live'**
+  String get settingLive;
+
+  /// No description provided for @settingSandbox.
+  ///
+  /// In en, this message translates to:
+  /// **'sandbox, for testing'**
+  String get settingSandbox;
+
+  /// No description provided for @settingNotSetUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set up'**
+  String get settingNotSetUp;
+
+  /// No description provided for @settingProviderHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal\'s keys and mode are set on the server, where they stay secret.'**
+  String get settingProviderHelp;
+
+  /// No description provided for @settingTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Give up on unpaid payments after, in minutes'**
+  String get settingTimeout;
+
+  /// No description provided for @settingTimeoutHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'5 to 1,440. Empty: the server\'s {minutes}. Pesapal is asked first, and a payment paid later is still honoured.'**
+  String settingTimeoutHelp(int minutes);
+
+  /// No description provided for @settingReminderDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Remind viewers before their pass ends, in days'**
+  String get settingReminderDays;
+
+  /// No description provided for @settingReminderDaysHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'1 to 14. Viewers get a notification that many days before.'**
+  String get settingReminderDaysHelp;
+
+  /// No description provided for @settingDefaultLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Language of new drafts'**
+  String get settingDefaultLanguage;
+
+  /// No description provided for @settingDefaultLanguageHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Chosen at first in New draft and for uploads. Add languages below.'**
+  String get settingDefaultLanguageHelp;
+
+  /// No description provided for @settingVideoLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Largest video'**
+  String get settingVideoLimit;
+
+  /// No description provided for @settingVideoLimitValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} GB a file'**
+  String settingVideoLimitValue(int size);
+
+  /// No description provided for @settingImageLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Largest poster or photo'**
+  String get settingImageLimit;
+
+  /// No description provided for @settingImageLimitValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} MB'**
+  String settingImageLimitValue(int size);
+
+  /// No description provided for @settingQualities.
+  ///
+  /// In en, this message translates to:
+  /// **'Qualities made'**
+  String get settingQualities;
+
+  /// No description provided for @settingServerFixedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'These are set by the upload server and the media worker. Each video gets the qualities its original can fill.'**
+  String get settingServerFixedHelp;
+
+  /// No description provided for @settingPlansHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans, prices and which is featured are set under Subscriptions, beside their payments.'**
+  String get settingPlansHelp;
+
+  /// No description provided for @openSubscriptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Subscriptions'**
+  String get openSubscriptions;
+
+  /// No description provided for @adminRolesNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Every admin can do everything. Roles with fewer rights aren\'t set up yet.'**
+  String get adminRolesNote;
+
+  /// No description provided for @aboutEnvironment.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get aboutEnvironment;
+
+  /// No description provided for @aboutApiVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'API version'**
+  String get aboutApiVersion;
+
+  /// No description provided for @aboutSchemaVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Database migration'**
+  String get aboutSchemaVersion;
+
+  /// No description provided for @aboutUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get aboutUnknown;
+
+  /// No description provided for @aboutTmdb2.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB details'**
+  String get aboutTmdb2;
+
+  /// No description provided for @aboutPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get aboutPlayback;
+
+  /// No description provided for @aboutOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get aboutOn;
+
+  /// No description provided for @aboutOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set up'**
+  String get aboutOff;
+
+  /// No description provided for @supportGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Help and support'**
+  String get supportGroup;
+
+  /// No description provided for @supportWhatsapp.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat on WhatsApp'**
+  String get supportWhatsapp;
+
+  /// No description provided for @supportCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call us'**
+  String get supportCall;
+
+  /// No description provided for @supportEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email us'**
+  String get supportEmail;
 }
 
 class _AppLocalizationsDelegate

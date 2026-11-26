@@ -265,15 +265,20 @@ limit %(limit)s
 
 
 def notifications(
-    conn: psycopg.Connection, user_id: UUID, now: datetime
+    conn: psycopg.Connection,
+    user_id: UUID,
+    now: datetime,
+    ending_soon: timedelta = ENDING_SOON,
 ) -> list[Notification]:
+    """The viewer's notifications. A pass is "ending" from `ending_soon`
+    before its end, as admins set in Settings."""
     rows = conn.execute(
         _NOTIFICATIONS,
         {
             "user": user_id,
             "now": now,
             "since": now - NOTIFICATIONS_FOR,
-            "soon": ENDING_SOON,
+            "soon": ending_soon,
             "limit": MAX_NOTIFICATIONS,
         },
     ).fetchall()

@@ -3900,4 +3900,224 @@ class AppLocalizationsEn extends AppLocalizations {
   String freeDaysGiven(String from, String to) {
     return 'Free days given: $from to $to';
   }
+
+  @override
+  String get adminSettingsIntro =>
+      'How VeloraUG runs. Changes to the first parts are saved together, with Save at the bottom.';
+
+  @override
+  String get settingsSupport => 'Support contacts';
+
+  @override
+  String get settingsMaintenance => 'Maintenance';
+
+  @override
+  String get settingsPayments => 'Payments';
+
+  @override
+  String get settingsViewers => 'Viewers';
+
+  @override
+  String get settingsContent => 'Content defaults';
+
+  @override
+  String get settingsPlans => 'Plans and pricing';
+
+  @override
+  String get settingsAbout => 'About';
+
+  @override
+  String get settingsUnsaved => 'Not saved';
+
+  @override
+  String get settingsUndo => 'Undo changes';
+
+  @override
+  String get settingsUseDefaults => 'Use defaults';
+
+  @override
+  String get settingsSave => 'Save';
+
+  @override
+  String get settingsDiscard => 'Discard';
+
+  @override
+  String settingsUnsavedParts(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Changes in $count parts aren\'t saved',
+      one: 'Changes in 1 part aren\'t saved',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settingsSaved(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count settings saved',
+      one: '1 setting saved',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsFixFirst =>
+      'Some settings need fixing first: see the red notes.';
+
+  @override
+  String get settingsSupportIntro =>
+      'Shown to viewers under Settings, Help and support. Leave one empty to leave it out.';
+
+  @override
+  String get settingSupportEmail => 'Support email';
+
+  @override
+  String get settingSupportPhone => 'Support phone';
+
+  @override
+  String get settingSupportWhatsapp => 'Support WhatsApp';
+
+  @override
+  String get settingPhoneInvalid => 'Give the whole number, starting +256';
+
+  @override
+  String get settingMaintenance => 'Maintenance mode';
+
+  @override
+  String get settingMaintenanceHelp =>
+      'Viewers see a notice at the top of the app, and can\'t buy passes. Watching and downloads carry on.';
+
+  @override
+  String get settingMaintenanceMessage => 'Message for viewers';
+
+  @override
+  String get settingMaintenanceMessageHelp =>
+      'Such as: We\'re upgrading VeloraUG. Back by 6pm. Empty: a general notice.';
+
+  @override
+  String get settingMaintenancePreview => 'What viewers will see';
+
+  @override
+  String get maintenanceTitle => 'VeloraUG is being worked on';
+
+  @override
+  String get maintenanceDefault =>
+      'Some things may not work for a while, and passes can\'t be bought until it\'s done.';
+
+  @override
+  String get settingProvider => 'Payment provider';
+
+  @override
+  String settingPesapalMode(String mode) {
+    return 'Pesapal, $mode';
+  }
+
+  @override
+  String get settingLive => 'live';
+
+  @override
+  String get settingSandbox => 'sandbox, for testing';
+
+  @override
+  String get settingNotSetUp => 'Not set up';
+
+  @override
+  String get settingProviderHelp =>
+      'Pesapal\'s keys and mode are set on the server, where they stay secret.';
+
+  @override
+  String get settingTimeout => 'Give up on unpaid payments after, in minutes';
+
+  @override
+  String settingTimeoutHelp(int minutes) {
+    return '5 to 1,440. Empty: the server\'s $minutes. Pesapal is asked first, and a payment paid later is still honoured.';
+  }
+
+  @override
+  String get settingReminderDays =>
+      'Remind viewers before their pass ends, in days';
+
+  @override
+  String get settingReminderDaysHelp =>
+      '1 to 14. Viewers get a notification that many days before.';
+
+  @override
+  String get settingDefaultLanguage => 'Language of new drafts';
+
+  @override
+  String get settingDefaultLanguageHelp =>
+      'Chosen at first in New draft and for uploads. Add languages below.';
+
+  @override
+  String get settingVideoLimit => 'Largest video';
+
+  @override
+  String settingVideoLimitValue(int size) {
+    return '$size GB a file';
+  }
+
+  @override
+  String get settingImageLimit => 'Largest poster or photo';
+
+  @override
+  String settingImageLimitValue(int size) {
+    return '$size MB';
+  }
+
+  @override
+  String get settingQualities => 'Qualities made';
+
+  @override
+  String get settingServerFixedHelp =>
+      'These are set by the upload server and the media worker. Each video gets the qualities its original can fill.';
+
+  @override
+  String get settingPlansHelp =>
+      'Plans, prices and which is featured are set under Subscriptions, beside their payments.';
+
+  @override
+  String get openSubscriptions => 'Open Subscriptions';
+
+  @override
+  String get adminRolesNote =>
+      'Every admin can do everything. Roles with fewer rights aren\'t set up yet.';
+
+  @override
+  String get aboutEnvironment => 'Server';
+
+  @override
+  String get aboutApiVersion => 'API version';
+
+  @override
+  String get aboutSchemaVersion => 'Database migration';
+
+  @override
+  String get aboutUnknown => 'Unknown';
+
+  @override
+  String get aboutTmdb2 => 'TMDB details';
+
+  @override
+  String get aboutPlayback => 'Playback';
+
+  @override
+  String get aboutOn => 'On';
+
+  @override
+  String get aboutOff => 'Not set up';
+
+  @override
+  String get supportGroup => 'Help and support';
+
+  @override
+  String get supportWhatsapp => 'Chat on WhatsApp';
+
+  @override
+  String get supportCall => 'Call us';
+
+  @override
+  String get supportEmail => 'Email us';
 }

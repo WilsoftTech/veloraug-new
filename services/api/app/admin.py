@@ -28,7 +28,7 @@ from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, Field, StringConstraints
 
 from app import admin_catalogue as work
-from app import audit, editions
+from app import app_settings, audit, editions
 from app.admin_catalogue import AdminError, NotFound
 from app.auth import VerifiedUser, current_user
 from app.db import Database
@@ -134,7 +134,8 @@ class NewDraft(BaseModel):
     # Not needed when adding an episode to an existing series edition.
     title: Title | None = None
     year: int | None = Field(default=None, ge=1900, le=2100)
-    language: str = editions.DEFAULT_LANGUAGE
+    # None: the default admins set in Settings.
+    language: str | None = None
     series_edition_id: UUID | None = None
     season: int | None = Field(default=None, ge=0, le=999)
     episode: int | None = Field(default=None, ge=1, le=9999)
@@ -643,6 +644,11 @@ def list_series(user: AdminUser, db: EditorDatabase) -> list[SeriesOut]:
         return [SeriesOut(**asdict(s)) for s in work.list_series(conn)]
 
 
+def work_language(conn) -> str:
+    """The language new drafts are in unless one is chosen, from Settings."""
+    return app_settings.safe_read(conn)["default_language"]
+
+
 @router.post("/drafts", status_code=status.HTTP_201_CREATED)
 def create_draft(body: NewDraft, user: AdminUser, db: EditorDatabase) -> DraftMade:
     """Starts a draft, or adds an episode to a series edition, and makes its
@@ -653,7 +659,7 @@ def create_draft(body: NewDraft, user: AdminUser, db: EditorDatabase) -> DraftMa
             kind=body.kind,
             title=body.title,
             year=body.year,
-            language=body.language,
+            language=body.language or work_language(conn),
             series_edition=body.series_edition_id,
             season=body.season,
             episode=body.episode,

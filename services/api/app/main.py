@@ -19,6 +19,7 @@ from app.pesapal import PesapalClient
 from app.playback import Granter
 from app.ratelimit import RateLimiter
 from app.routes import router
+from app.settings_routes import router as settings_router
 from app.tmdb import TmdbClient
 from app.viewer_routes import router as viewer_router
 
@@ -161,4 +162,5 @@ def create_app(
     app.include_router(device_router)
     app.include_router(billing_router)
     app.include_router(account_router)
+    app.include_router(settings_router)
     return app

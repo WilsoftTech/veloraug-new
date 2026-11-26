@@ -258,12 +258,20 @@ final JSFunction _beforeUnload = ((web.BeforeUnloadEvent event) {
   event.preventDefault();
   event.returnValue = '';
 }).toJS;
-bool _warning = false;
+final Set<String> _warnings = {};
 
-void warnBeforeLeaving(bool busy) {
-  if (busy == _warning) return;
-  _warning = busy;
+/// Asks before the page is closed while any [reason] wants it: uploads
+/// running, or Settings not saved.
+void warnBeforeLeaving(bool busy, {String reason = 'uploads'}) {
+  final before = _warnings.isNotEmpty;
   if (busy) {
+    _warnings.add(reason);
+  } else {
+    _warnings.remove(reason);
+  }
+  final now = _warnings.isNotEmpty;
+  if (now == before) return;
+  if (now) {
     web.window.addEventListener('beforeunload', _beforeUnload);
   } else {
     web.window.removeEventListener('beforeunload', _beforeUnload);

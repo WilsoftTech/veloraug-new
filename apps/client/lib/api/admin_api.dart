@@ -731,6 +731,49 @@ class BulkOutcome {
   final Map<String, String> skipped;
 }
 
+/// What the server is set up with: shown in Settings, changed only on the
+/// server.
+class ServerInfo {
+  const ServerInfo({
+    required this.environment,
+    required this.apiVersion,
+    this.schemaVersion,
+    this.pesapalConfigured = false,
+    this.pesapalEnvironment = 'sandbox',
+    this.tmdbConfigured = false,
+    this.playbackConfigured = false,
+    this.serverTimeoutMinutes = 60,
+    this.videoLimitGb = 50,
+    this.imageLimitMb = 2,
+    this.qualities = const [],
+  });
+
+  final String environment;
+  final String apiVersion;
+  final String? schemaVersion;
+  final bool pesapalConfigured;
+  final String pesapalEnvironment;
+  final bool tmdbConfigured;
+  final bool playbackConfigured;
+  final int serverTimeoutMinutes;
+  final int videoLimitGb;
+  final int imageLimitMb;
+  final List<String> qualities;
+}
+
+/// Settings admins change: [values] as stored, or their defaults.
+class AdminSettings {
+  const AdminSettings({
+    required this.values,
+    required this.defaults,
+    required this.server,
+  });
+
+  final Map<String, Object?> values;
+  final Map<String, Object?> defaults;
+  final ServerInfo server;
+}
+
 enum AdminFailure {
   /// The app has no session, so it sent nothing.
   signedOut,
@@ -764,7 +807,12 @@ enum AdminFailure {
 }
 
 class AdminException implements Exception {
-  const AdminException(this.failure, {this.detail, this.missing = const []});
+  const AdminException(
+    this.failure, {
+    this.detail,
+    this.missing = const [],
+    this.fieldErrors = const {},
+  });
 
   final AdminFailure failure;
 
@@ -773,6 +821,9 @@ class AdminException implements Exception {
 
   /// For a refused publish: what is still needed.
   final List<String> missing;
+
+  /// For refused settings: each wrong one's key, and why.
+  final Map<String, String> fieldErrors;
 
   @override
   String toString() => 'AdminException(${failure.name})';
@@ -1017,6 +1068,40 @@ class AdminApi {
   /// Deletes one episode of a series for good, with its videos.
   Future<void> deleteEpisode(String itemId) async {
     await _send('DELETE', '/items/${_id(itemId)}');
+  }
+
+  Future<AdminSettings> settings() async =>
+      _settings(await _send('GET', '/settings'));
+
+  /// Saves [changes]; a null value returns that setting to its default.
+  /// A refusal names each wrong one in [AdminException.fieldErrors].
+  Future<AdminSettings> saveSettings(Map<String, Object?> changes) async =>
+      _settings(await _send('PATCH', '/settings', changes));
+
+  AdminSettings _settings(Object? value) {
+    final json = _need<Map<String, Object?>>(value);
+    final server = _need<Map<String, Object?>>(json['server']);
+    return AdminSettings(
+      values: _need<Map<String, Object?>>(json['values']),
+      defaults: _need<Map<String, Object?>>(json['defaults']),
+      server: ServerInfo(
+        environment: _need<String>(server['environment']),
+        apiVersion: _need<String>(server['api_version']),
+        schemaVersion: _maybe<String>(server['schema_version']),
+        pesapalConfigured: server['pesapal_configured'] == true,
+        pesapalEnvironment: _maybe<String>(server['pesapal_environment']) ?? '',
+        tmdbConfigured: server['tmdb_configured'] == true,
+        playbackConfigured: server['playback_configured'] == true,
+        serverTimeoutMinutes:
+            _maybe<int>(server['payment_timeout_minutes_server']) ?? 60,
+        videoLimitGb: _maybe<int>(server['video_limit_gb']) ?? 50,
+        imageLimitMb: _maybe<int>(server['image_limit_mb']) ?? 2,
+        qualities: [
+          for (final q in _need<List<Object?>>(server['qualities'] ?? const []))
+            _need<String>(q),
+        ],
+      ),
+    );
   }
 
   Future<AdminEdition> edition(String id) async =>
@@ -1727,12 +1812,20 @@ class AdminApi {
     final detail = json is Map<String, Object?> ? json['detail'] : null;
     String? text;
     var missing = const <String>[];
+    var fields = const <String, String>{};
     if (detail is String) {
       text = detail;
     } else if (detail is Map<String, Object?>) {
       text = detail['message'] is String ? detail['message'] as String : null;
       final listed = detail['missing'];
       if (listed is List) missing = [...listed.whereType<String>()];
+      final errors = detail['errors'];
+      if (errors is Map<String, Object?>) {
+        fields = {
+          for (final MapEntry(:key, :value) in errors.entries)
+            if (value is String) key: value,
+        };
+      }
     } else if (detail is List && status == 422) {
       text = null;
     }
@@ -1745,7 +1838,12 @@ class AdminApi {
       503 => AdminFailure.busy,
       _ => AdminFailure.unexpected,
     };
-    return AdminException(failure, detail: text, missing: missing);
+    return AdminException(
+      failure,
+      detail: text,
+      missing: missing,
+      fieldErrors: fields,
+    );
   }
 
   AdminEdition _edition(Object? value) {
