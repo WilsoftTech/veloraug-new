@@ -2630,5 +2630,180 @@
     }
   },
   "deleteEpisodeMessage": "This can't be undone. The episode and its video are deleted from VeloraUG and the server. The rest of the series stays.",
-  "episodeDeleted": "Episode deleted"
+  "episodeDeleted": "Episode deleted",
+  "searchVjs": "Search VJs and their spellings",
+  "vjCount": "{count, plural, =0{No VJs match} =1{1 VJ} other{{count} VJs}}",
+  "@vjCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vjActive": "Active",
+  "vjInactive": "Inactive",
+  "vjFeatured": "Featured",
+  "vjPlace": "Place {place}",
+  "@vjPlace": {
+    "placeholders": {
+      "place": {
+        "type": "int"
+      }
+    }
+  },
+  "sortName": "Name",
+  "sortMostTitles": "Most titles",
+  "sortAppOrder": "As in the app",
+  "hiddenTitleCount": "{count, plural, =1{1 hidden} other{{count} hidden}}",
+  "@hiddenTitleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "draftCount": "{count, plural, =1{1 draft} other{{count} drafts}}",
+  "@draftCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vjProfile": "Profile",
+  "vjNoBioYet": "No bio yet. Edit to add one.",
+  "vjNoLinks": "No links yet.",
+  "website": "Website",
+  "makeInactive": "Make inactive",
+  "makeActive": "Make active",
+  "deactivateVjTitle": "Make {name} inactive?",
+  "@deactivateVjTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deactivateVjMessage": "They leave the app's VJ list, and their page can't be found. Their titles stay, still credited to them, and can still be watched. Make them active again at any time.",
+  "vjActivated": "{name} is active",
+  "@vjActivated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vjDeactivated": "{name} is inactive",
+  "@vjDeactivated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeVj": "Merge into another VJ",
+  "mergeVjTitle": "Merge {name} into…",
+  "@mergeVjTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeVjChoose": "Choose the VJ who stays. This one's titles move to them.",
+  "mergeVjConfirmTitle": "Merge {from} into {into}?",
+  "@mergeVjConfirmTitle": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "into": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeVjConfirmMessage": "{count, plural, =0{{from} has no titles.} =1{{from}'s 1 title moves to {into}.} other{All {count} of {from}'s titles move to {into}.}} {from} is then deleted, and their name kept as one of {into}'s other spellings. This can't be undone.",
+  "@mergeVjConfirmMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "from": {
+        "type": "String"
+      },
+      "into": {
+        "type": "String"
+      }
+    }
+  },
+  "vjMerged": "{count, plural, =1{1 title moved to {name}} other{{count} titles moved to {name}}}",
+  "@vjMerged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteVjTitle": "Delete {name}?",
+  "@deleteVjTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteVjMessage": "They have no titles. This can't be undone.",
+  "vjDeleted": "{name} deleted",
+  "@vjDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vjTitles": "{count, plural, =0{Titles} =1{1 title in the Library} other{{count} titles in the Library}}",
+  "@vjTitles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vjNoTitles": "Nothing published, hidden or withdrawn yet.",
+  "vjDraftsElsewhere": "{count, plural, =1{And 1 draft, in Drafts.} other{And {count} drafts, in Drafts.}}",
+  "@vjDraftsElsewhere": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vjMoreInLibrary": "And {count} more: filter the Library by this VJ.",
+  "@vjMoreInLibrary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vjInTheApp": "In the app",
+  "vjFeaturedHelp": "Listed first among VJs.",
+  "vjPlaceLabel": "Place in the list (optional)",
+  "vjPlaceHelp": "1 comes first, after featured VJs. Empty: by name, after those with a place.",
+  "vjLinks": "Links",
+  "linkMustBeHttps": "Give the whole address, starting https://",
+  "vjFollowOn": "{name} on {site}",
+  "@vjFollowOn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "site": {
+        "type": "String"
+      }
+    }
+  }
 }

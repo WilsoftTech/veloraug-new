@@ -293,16 +293,21 @@ class VjSummary:
     photo_path: str | None
     bio: str | None
     editions: int
+    featured: bool = False
+    links: dict | None = None
 
 
 def list_vjs(conn: psycopg.Connection) -> list[VjSummary]:
-    """VJs with at least one published edition, by name."""
+    """Active VJs with at least one published edition: featured first, then
+    in the admins' order, then by name."""
     rows = conn.execute(
         """
         select v.id, v.name, v.slug, v.photo_path, v.bio,
-               (select count(*) from public.editions e where e.vj_id = v.id)
+               (select count(*) from public.editions e where e.vj_id = v.id),
+               v.featured, v.links
         from public.vjs v
-        order by lower(v.name)
+        where v.active
+        order by v.featured desc, v.sort_order nulls last, lower(v.name)
         """
     ).fetchall()
     return [VjSummary(*row) for row in rows]
@@ -312,8 +317,9 @@ def get_vj(conn: psycopg.Connection, slug: str) -> VjSummary | None:
     row = conn.execute(
         """
         select v.id, v.name, v.slug, v.photo_path, v.bio,
-               (select count(*) from public.editions e where e.vj_id = v.id)
-        from public.vjs v where v.slug = %s
+               (select count(*) from public.editions e where e.vj_id = v.id),
+               v.featured, v.links
+        from public.vjs v where v.slug = %s and v.active
         """,
         (slug,),
     ).fetchone()

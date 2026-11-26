@@ -98,10 +98,14 @@ class VjCard(BaseModel):
     slug: str
     photo_url: str | None
     editions: int
+    # Listed first, as admins chose.
+    featured: bool = False
 
 
 class VjPage(VjCard):
     bio: str | None
+    # The VJ's own pages, such as {"facebook": "https://…"}.
+    links: dict[str, str] = {}
     movies: list[EditionCard]
     series: list[EditionCard]
 
@@ -213,6 +217,7 @@ def _vj(vj: viewer.VjSummary, images: ImageUrls) -> VjCard:
         slug=vj.slug,
         photo_url=images.photo(vj.photo_path),
         editions=vj.editions,
+        featured=vj.featured,
     )
 
 
@@ -390,6 +395,7 @@ def get_vj(
     return VjPage(
         **_vj(vj, images).model_dump(),
         bio=vj.bio,
+        links=vj.links or {},
         movies=[_card(row, images) for row in movies],
         series=[_card(row, images) for row in series],
     )

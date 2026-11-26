@@ -25,6 +25,7 @@ ALLOWED = frozenset(
         "session_id",
         "item_id",
         "edition_id",
+        "vj_id",
         "pass_starts_at",
         "reason",
         "count",

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 import psycopg
+import psycopg.types.json
 
 from app import editions
 from app.editions import EditionError
@@ -136,18 +137,106 @@ class Vj:
     match_names: list[str]
     photo_path: str | None
     bio: str | None
+    # Every edition credited to them, deleted ones left out.
     editions: int
+    active: bool = True
+    featured: bool = False
+    sort_order: int | None = None
+    links: dict = field(default_factory=dict)
+    published: int = 0
+    hidden: int = 0
+    drafts: int = 0
+    # Viewers of their titles in the last VIEWER_DAYS days.
+    viewers: int = 0
 
 
-def list_vjs(conn: psycopg.Connection) -> list[Vj]:
+def list_vjs(conn: psycopg.Connection, vj_id: uuid.UUID | None = None) -> list[Vj]:
+    """Every VJ, or the one asked for, with their titles counted."""
     rows = conn.execute(
         """
         select v.id, v.name, v.slug, v.match_names, v.photo_path, v.bio,
-               (select count(*) from public.editions e where e.vj_id = v.id)
-        from public.vjs v order by lower(v.name)
-        """
+               count(e.id)::int,
+               v.active, v.featured, v.sort_order, v.links,
+               count(e.id) filter (where e.status = 'published')::int,
+               count(e.id) filter (where e.status = 'hidden')::int,
+               count(e.id) filter (where e.status = 'draft')::int,
+               coalesce(sum(w.viewers), 0)::int
+        from public.vjs v
+        left join public.editions e on e.vj_id = v.id and e.deleted_at is null
+        left join public.edition_viewers(%(days)s) w on w.edition_id = e.id
+        where %(id)s::uuid is null or v.id = %(id)s::uuid
+        group by v.id
+        order by lower(v.name)
+        """,
+        {"days": 30, "id": vj_id},
     ).fetchall()
     return [Vj(*row) for row in rows]
+
+
+def get_vj(conn: psycopg.Connection, vj_id: uuid.UUID) -> Vj:
+    found = list_vjs(conn, vj_id)
+    if not found:
+        raise NotFound("No such VJ")
+    return found[0]
+
+
+# The links a VJ can have, and the addresses each must start with.
+VJ_LINKS = {
+    "facebook": (
+        "https://www.facebook.com/",
+        "https://facebook.com/",
+        "https://fb.com/",
+    ),
+    "instagram": ("https://www.instagram.com/", "https://instagram.com/"),
+    "tiktok": ("https://www.tiktok.com/", "https://tiktok.com/"),
+    "youtube": (
+        "https://www.youtube.com/",
+        "https://youtube.com/",
+        "https://youtu.be/",
+    ),
+    "x": ("https://x.com/", "https://twitter.com/", "https://www.x.com/"),
+    "whatsapp": (
+        "https://wa.me/",
+        "https://whatsapp.com/",
+        "https://www.whatsapp.com/",
+    ),
+    "website": ("https://",),
+}
+
+
+def clean_links(links: dict) -> dict[str, str]:
+    """Checks a VJ's links: known names, https addresses on that site, each
+    up to 300 characters. An empty one is dropped."""
+    cleaned: dict[str, str] = {}
+    for name, value in links.items():
+        if name not in VJ_LINKS:
+            raise AdminError(f"Unknown link {name!r}")
+        value = (value or "").strip()
+        if not value:
+            continue
+        if len(value) > 300 or " " in value:
+            raise AdminError(f"The {name} link is too long, or has a space")
+        if not value.lower().startswith(VJ_LINKS[name]):
+            raise AdminError(f"The {name} link should start with {VJ_LINKS[name][0]}")
+        cleaned[name] = value
+    return cleaned
+
+
+def _spelling_of(
+    conn: psycopg.Connection, name: str, other_than: uuid.UUID | None = None
+) -> str | None:
+    """The VJ whose other spellings include this name, if any."""
+    row = conn.execute(
+        """
+        select v.name from public.vjs v
+        where (%s::uuid is null or v.id <> %s::uuid)
+          and exists (select from unnest(v.match_names) m
+                      where lower(m) = lower(%s))
+        limit 1
+        """,
+        (other_than, other_than, name),
+    ).fetchone()
+    return row[0] if row else None
 
 
 def slug_for(name: str) -> str:
@@ -188,6 +277,11 @@ def add_vj(
     bio: str | None = None,
 ) -> uuid.UUID:
     fields = _vj_fields(name, match_names or [], bio)
+    if other := _spelling_of(conn, fields["name"]):
+        raise AdminError(
+            f"Files already spell {other} as “{fields['name']}”. Change {other} "
+            "instead, or add this VJ with another name"
+        )
     base = slug_for(fields["name"])
     for attempt in range(20):
         slug = base if attempt == 0 else f"{base[:76]}-{attempt + 1}"
@@ -219,6 +313,10 @@ def update_vj(
     """Changes what is given. photo_path is a path an image upload for this
     VJ answered with, or "" to remove the photo."""
     fields = _vj_fields(name, match_names, bio)
+    if "name" in fields and (other := _spelling_of(conn, fields["name"], vj_id)):
+        raise AdminError(
+            f"Files already spell {other} as “{fields['name']}”. Merge the two instead"
+        )
     if photo_path is not None:
         if photo_path and not re.fullmatch(
             rf"vjs/{vj_id}/[A-Za-z0-9_-]{{16,43}}\.(jpg|png|webp)", photo_path
@@ -239,6 +337,126 @@ def update_vj(
         raise AdminError("There is already a VJ with that name") from None
     if not changed:
         raise NotFound("No such VJ")
+
+
+def update_vj_profile(
+    conn: psycopg.Connection, vj_id: uuid.UUID, changes: dict
+) -> None:
+    """Changes what is given of active, featured, sort_order and links.
+    A sort_order of None takes the VJ out of the order."""
+    fields: dict = {}
+    for flag in ("active", "featured"):
+        if flag in changes:
+            if not isinstance(changes[flag], bool):
+                raise AdminError(f"{flag} is true or false")
+            fields[flag] = changes[flag]
+    if "sort_order" in changes:
+        order = changes["sort_order"]
+        if order is not None and not 1 <= order <= 9999:
+            raise AdminError("The place in the list is 1 to 9999")
+        fields["sort_order"] = order
+    if "links" in changes:
+        fields["links"] = psycopg.types.json.Jsonb(clean_links(changes["links"] or {}))
+    if not fields:
+        return
+    columns = ", ".join(f"{column} = %({column})s" for column in fields)
+    changed = conn.execute(
+        f"update public.vjs set {columns}, updated_at = now() where id = %(id)s",
+        {**fields, "id": vj_id},
+    ).rowcount
+    if not changed:
+        raise NotFound("No such VJ")
+
+
+class MergeConflict(AdminError):
+    """Both VJs have an edition of the same film. The message names them."""
+
+
+def merge_vjs(conn: psycopg.Connection, from_id: uuid.UUID, into_id: uuid.UUID) -> int:
+    """Moves every title of one VJ to another, keeps the first's name and
+    spellings as the second's other spellings, then deletes the first. The
+    second keeps their own photo and bio, or takes the first's if they have
+    none. How many titles moved."""
+    if from_id == into_id:
+        raise AdminError("Choose another VJ to merge into")
+    rows = {
+        row[0]: row
+        for row in conn.execute(
+            """
+            select id, name, match_names, photo_path, bio from public.vjs
+            where id = any(%s) for update
+            """,
+            ([from_id, into_id],),
+        ).fetchall()
+    }
+    if from_id not in rows or into_id not in rows:
+        raise NotFound("No such VJ")
+    _, from_name, from_spellings, from_photo, from_bio = rows[from_id]
+    _, into_name, into_spellings, into_photo, into_bio = rows[into_id]
+    clashes = [
+        title
+        for (title,) in conn.execute(
+            """
+            select a.display_title from public.editions a
+            join public.editions b on b.source_id = a.source_id
+              and b.vj_id = %s and b.id <> a.id
+            where a.vj_id = %s and a.source_id is not null
+            order by a.display_title
+            """,
+            (into_id, from_id),
+        ).fetchall()
+    ]
+    if clashes:
+        raise MergeConflict(
+            f"Both have an edition of {', '.join(clashes[:5])}. Delete or "
+            "re-credit one of each first"
+        )
+    moved = conn.execute(
+        "update public.editions set vj_id = %s, updated_at = now() where vj_id = %s",
+        (into_id, from_id),
+    ).rowcount
+    spellings: list[str] = []
+    for name in [*into_spellings, from_name, *from_spellings]:
+        if name.lower() != into_name.lower() and name.lower() not in (
+            s.lower() for s in spellings
+        ):
+            spellings.append(name)
+    conn.execute(
+        """
+        update public.vjs set match_names = %s,
+          photo_path = coalesce(photo_path, %s), bio = coalesce(bio, %s),
+          updated_at = now()
+        where id = %s
+        """,
+        (spellings[:20], from_photo, from_bio, into_id),
+    )
+    # The merged VJ's name becomes the other's spelling: free it first.
+    conn.execute("delete from public.vjs where id = %s", (from_id,))
+    return moved
+
+
+def delete_vj(conn: psycopg.Connection, vj_id: uuid.UUID) -> None:
+    """Deletes a VJ with no titles. One with titles is merged instead."""
+    if not conn.execute(
+        "select 1 from public.vjs where id = %s for update", (vj_id,)
+    ).fetchone():
+        raise NotFound("No such VJ")
+    titles, deleting = conn.execute(
+        "select count(*) filter (where deleted_at is null), "
+        "count(*) filter (where deleted_at is not null) "
+        "from public.editions where vj_id = %s",
+        (vj_id,),
+    ).fetchone()
+    if titles:
+        raise AdminError(
+            "This VJ has titles. Merge them into another VJ, or make this one inactive"
+        )
+    if deleting:
+        raise AdminError(
+            "This VJ's deleted titles are still being removed. Try again in "
+            "a few minutes"
+        )
+    conn.execute("delete from public.vjs where id = %s", (vj_id,))
 
 
 def known_vjs(conn: psycopg.Connection) -> list[KnownVj]:

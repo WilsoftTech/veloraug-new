@@ -624,7 +624,6 @@ def test_the_editor_can_draft_describe_publish_and_manage_admins(editor_url):
         "select key_hash from public.upload_keys",
         "delete from public.editions",
         "delete from public.sources",
-        "delete from public.vjs",
         "delete from public.upload_keys",
         "update public.media_originals set state = 'ready'",
         "update public.upload_keys set used_at = now()",
@@ -637,6 +636,33 @@ def test_the_editor_can_do_nothing_else(editor_url, statement):
         pytest.raises(psycopg.errors.InsufficientPrivilege),
     ):
         conn.execute(statement)
+
+
+@needs_database
+def test_the_editor_deletes_only_vjs_without_titles(editor_url):
+    """For merging duplicates and removing unused VJs (Step 13H). A VJ with
+    titles stays: the titles' link to them refuses it."""
+    with psycopg.connect(editor_url) as conn:
+        unused = conn.execute(
+            "insert into public.vjs (name, slug) values ('VJ Unused', 'vj-unused') "
+            "returning id"
+        ).fetchone()[0]
+        used = conn.execute(
+            "insert into public.vjs (name, slug) values ('VJ Used', 'vj-used') "
+            "returning id"
+        ).fetchone()[0]
+        draft = create_draft(conn, kind="movie", title="Fast X")
+        conn.execute(
+            "update public.editions set vj_id = %s where id = %s",
+            (used, draft.edition_id),
+        )
+        assert (
+            conn.execute("delete from public.vjs where id = %s", (unused,)).rowcount
+            == 1
+        )
+        with pytest.raises(psycopg.errors.ForeignKeyViolation):
+            conn.execute("delete from public.vjs where id = %s", (used,))
+        conn.rollback()
 
 
 # --- Admins ------------------------------------------------------------------

@@ -43,6 +43,7 @@ from urllib.parse import urlsplit
 import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 API_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(API_DIR))
@@ -261,7 +262,9 @@ def insert(conn, table: str, row: dict[str, Any], *, shared: bool = False) -> No
     )
     if shared:
         statement += sql.SQL(" on conflict do nothing")
-    conn.execute(statement, [row[c] for c in columns])
+    # A JSON object, such as a VJ's links, goes back as JSON.
+    values = [Jsonb(row[c]) if isinstance(row[c], dict) else row[c] for c in columns]
+    conn.execute(statement, values)
     if shared:
         key = "code" if table == "languages" else "id"
         there = conn.execute(
