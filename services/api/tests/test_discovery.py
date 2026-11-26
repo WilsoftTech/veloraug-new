@@ -278,7 +278,9 @@ def test_the_api_role_still_cant_read_others_history(app_url, owner, movies):
     assert seen == (0,)
 
 
-def test_only_the_api_role_may_count_viewers(owner_url):
+def test_only_the_api_and_admins_may_count_viewers(owner_url):
+    """Admins see each title's count in the Library (Step 13H). It gives
+    counts only, never who watched."""
     with psycopg.connect(owner_url) as conn:
         allowed = conn.execute(
             """
@@ -290,8 +292,8 @@ def test_only_the_api_role_may_count_viewers(owner_url):
         ).fetchall()
 
     assert ("veloraug_app",) in allowed
+    assert ("veloraug_editor",) in allowed
     assert ("veloraug_media",) not in allowed
-    assert ("veloraug_editor",) not in allowed
 
 
 # --- Because you watched -----------------------------------------------------

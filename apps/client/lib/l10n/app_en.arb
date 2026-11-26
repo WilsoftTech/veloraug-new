@@ -2419,5 +2419,216 @@
         "type": "String"
       }
     }
-  }
+  },
+  "adminLibrary": "Library",
+  "adminLibraryIntro": "Every title viewers can see, or once could. Open one to change its details, or hide, withdraw or delete it.",
+  "libraryAll": "All",
+  "librarySearch": "Search titles and VJs",
+  "libraryCount": "{count, plural, =0{No titles} =1{1 title} other{{count} titles}}",
+  "@libraryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryEmptyTitle": "Nothing here yet",
+  "libraryEmptyMessage": "Titles appear here once they are published.",
+  "libraryNoMatches": "No titles match. Try other words or filters.",
+  "loadMore": "Show more ({count} left)",
+  "@loadMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPlural": "Series",
+  "sortBy": "Sort by",
+  "sortNewest": "Newest",
+  "sortOldest": "Oldest",
+  "sortTitle": "Title, A to Z",
+  "sortViewers": "Most viewers",
+  "sortUpdated": "Recently changed",
+  "statusWithdrawn": "Withdrawn",
+  "publishedOn": "Published {date}",
+  "@publishedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "viewersLately": "{count, plural, =1{1 viewer in {days} days} other{{count} viewers in {days} days}}",
+  "@viewersLately": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "episodeCount": "{count, plural, =1{1 episode} other{{count} episodes}}",
+  "@episodeCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hiddenEpisodeCount": "{count, plural, =1{1 hidden} other{{count} hidden}}",
+  "@hiddenEpisodeCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectTitle": "Select {title}",
+  "@selectTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "selectAllShown": "Select every title shown",
+  "selectedCount": "{count, plural, =1{1 selected} other{{count} selected}}",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "clearSelection": "Clear selection",
+  "editTitle": "Edit",
+  "changeVj": "Change VJ",
+  "showAgain": "Show again",
+  "shownAgain": "“{title}” is showing again",
+  "@shownAgain": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "withdraw": "Withdraw",
+  "withdrawTitle": "Withdraw “{title}”?",
+  "@withdrawTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "withdrawManyTitle": "{count, plural, =1{Withdraw 1 title?} other{Withdraw {count} titles?}}",
+  "@withdrawManyTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "withdrawMessage": "Viewers stop seeing it at once: it leaves every list, search and Continue watching. Nothing is deleted. It goes back to Drafts, and Show again brings it back. Copies viewers already downloaded are theirs, and can't be taken back.",
+  "withdrawnNow": "“{title}” withdrawn to Drafts",
+  "@withdrawnNow": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "hideManyTitle": "{count, plural, =1{Hide 1 title?} other{Hide {count} titles?}}",
+  "@hideManyTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "creditManyTitle": "{count, plural, =1{Credit 1 title to…} other{Credit {count} titles to…}}",
+  "@creditManyTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "creditManyMessage": "A wrong credit, published, harms a VJ. Check each title first.",
+  "bulkChanged": "{count, plural, =0{Nothing changed.} =1{1 title changed.} other{{count} titles changed.}}",
+  "@bulkChanged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bulkSkipped": "Skipped:\n{list}",
+  "@bulkSkipped": {
+    "placeholders": {
+      "list": {
+        "type": "String"
+      }
+    }
+  },
+  "deletePublishedMessage": "This can't be undone. It disappears for viewers at once, and its details and every video are deleted from VeloraUG and the server. Copies viewers already downloaded are theirs, and can't be taken back. To take it down for now instead, hide or withdraw it.",
+  "hiddenExplained": "Hidden: viewers can't see it. Show again puts it back as it was.",
+  "withdrawnExplained": "Withdrawn: back to a draft, once published. Show again publishes it again, in its old place among the newest.",
+  "viewerDetails": "What viewers see",
+  "viewerDetailsIntro": "This title's own details, shown over TMDB's or the typed-in ones. Leave one empty to show those instead. Other VJs' editions of the same film keep theirs.",
+  "descriptionForViewers": "Description",
+  "descriptionHelp": "Empty: the description shown greyed out is used.",
+  "descriptionHelpNoSource": "Up to 5,000 characters.",
+  "trailerAddress": "Trailer, a YouTube address",
+  "trailerHelp": "Empty: TMDB's trailer is used.",
+  "trailerHelpNoSource": "Empty: no trailer is shown.",
+  "backdrop": "Backdrop",
+  "backdropOwn": "This title's own backdrop.",
+  "backdropFromSource": "TMDB's backdrop. Upload one to use your own.",
+  "backdropNone": "No backdrop. Upload one: 16 by 9, up to 2 MB.",
+  "uploadBackdrop": "Upload a backdrop",
+  "useSourceBackdrop": "Use TMDB's instead",
+  "backdropSaved": "Backdrop saved",
+  "backdropRemoved": "Back to TMDB's backdrop",
+  "saveDetails": "Save details",
+  "detailsSaved": "Details saved",
+  "episodeActions": "Actions for {episode}",
+  "@episodeActions": {
+    "placeholders": {
+      "episode": {
+        "type": "String"
+      }
+    }
+  },
+  "editEpisode": "Edit episode",
+  "editEpisodeHelp": "A number another episode has swaps the two, to put them in order.",
+  "episodeSaved": "Episode saved",
+  "hideEpisode": "Hide episode",
+  "showEpisode": "Show episode",
+  "episodeHidden": "Episode hidden",
+  "episodeShown": "Episode showing again",
+  "withdrawEpisode": "Withdraw episode",
+  "withdrawEpisodeTitle": "Withdraw {episode}?",
+  "@withdrawEpisodeTitle": {
+    "placeholders": {
+      "episode": {
+        "type": "String"
+      }
+    }
+  },
+  "withdrawEpisodeMessage": "Viewers stop seeing it, and it waits for approval in Drafts again. Nothing is deleted.",
+  "episodeWithdrawn": "Episode withdrawn to Drafts",
+  "deleteEpisodeTitle": "Delete {episode}?",
+  "@deleteEpisodeTitle": {
+    "placeholders": {
+      "episode": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteEpisodeMessage": "This can't be undone. The episode and its video are deleted from VeloraUG and the server. The rest of the series stays.",
+  "episodeDeleted": "Episode deleted"
 }

@@ -173,6 +173,12 @@ class _DraftScreenState extends State<DraftScreen> {
       children: [
         _videos(l, edition),
         _details(l, edition),
+        if (edition.detailsFrom != null)
+          _ViewerDetails(
+            key: ValueKey('viewer-${edition.id}'),
+            edition: edition,
+            onSaved: (saved) => setState(() => _edition = saved),
+          ),
         _categories(l, edition),
         _poster(l, edition),
         _creditSection(l, edition),
@@ -281,6 +287,8 @@ class _DraftScreenState extends State<DraftScreen> {
                         ? StatusTone.success
                         : StatusTone.warning,
                   ),
+                if (item.hidden)
+                  StatusBadge(label: l.statusHidden, tone: StatusTone.warning),
               ],
             ),
             if (reason != null) Text(reason),
@@ -312,6 +320,28 @@ class _DraftScreenState extends State<DraftScreen> {
                   variant: VeloraButtonVariant.secondary,
                   onPressed: () => _newKey(item),
                 ),
+                if (edition.kind == EditionKind.series)
+                  _EpisodeMenu(
+                    item: item,
+                    canDelete: edition.items.length > 1,
+                    onEdit: () => _editEpisode(item),
+                    onHide: item.approved && !item.hidden
+                        ? () => _episodeAct(
+                            (api) => api.hideEpisode(item.id),
+                            l.episodeHidden,
+                          )
+                        : null,
+                    onShow: item.hidden
+                        ? () => _episodeAct(
+                            (api) => api.showEpisode(item.id),
+                            l.episodeShown,
+                          )
+                        : null,
+                    onWithdraw: item.approved
+                        ? () => _withdrawEpisode(item)
+                        : null,
+                    onDelete: () => _deleteEpisode(item),
+                  ),
               ],
             ),
             for (final key in liveKeys)
@@ -407,6 +437,57 @@ class _DraftScreenState extends State<DraftScreen> {
     if (made == null || !mounted) return;
     await showUploadKey(context, made);
     await _load();
+  }
+
+  Future<void> _episodeAct(
+    Future<void> Function(AdminApi api) action,
+    String done,
+  ) => _act(action, done: done);
+
+  Future<void> _editEpisode(AdminItem item) async {
+    final changed = await showDialog<({int season, int episode, String title})>(
+      context: context,
+      builder: (_) => _EditEpisodeDialog(item: item),
+    );
+    if (changed == null || !mounted) return;
+    await _act(
+      (api) => api.changeEpisode(
+        item.id,
+        season: changed.season,
+        episode: changed.episode,
+        title: changed.title,
+      ),
+      done: context.l10n.episodeSaved,
+    );
+  }
+
+  Future<void> _withdrawEpisode(AdminItem item) async {
+    final l = context.l10n;
+    if (!await confirm(
+      context,
+      title: l.withdrawEpisodeTitle(itemName(l, item)),
+      message: l.withdrawEpisodeMessage,
+      action: l.withdraw,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await _act((api) => api.withdrawEpisode(item.id), done: l.episodeWithdrawn);
+  }
+
+  Future<void> _deleteEpisode(AdminItem item) async {
+    final l = context.l10n;
+    if (!await confirm(
+      context,
+      title: l.deleteEpisodeTitle(itemName(l, item)),
+      message: l.deleteEpisodeMessage,
+      action: l.deletePermanently,
+      danger: true,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await _act((api) => api.deleteEpisode(item.id), done: l.episodeDeleted);
   }
 
   // --- Details from TMDB, or typed in --------------------------------------
@@ -859,7 +940,11 @@ class _DraftScreenState extends State<DraftScreen> {
           Text(l.cantPublishYet),
           for (final missing in edition.missing)
             Text('• ${missingLabel(l, missing)}'),
-        ] else if (!edition.published)
+        ] else if (edition.hidden)
+          Text(l.hiddenExplained)
+        else if (edition.withdrawn)
+          Text(l.withdrawnExplained)
+        else if (!edition.published)
           Text(l.readyToPublish)
         else
           Text(l.publishedExplained),
@@ -869,7 +954,9 @@ class _DraftScreenState extends State<DraftScreen> {
           children: [
             if (!edition.published)
               VeloraButton(
-                label: l.publish,
+                label: edition.hidden || edition.withdrawn
+                    ? l.showAgain
+                    : l.publish,
                 icon: Icons.public,
                 onPressed: () => _publish(edition),
               ),
@@ -880,7 +967,14 @@ class _DraftScreenState extends State<DraftScreen> {
                 variant: VeloraButtonVariant.secondary,
                 onPressed: () => _hide(edition),
               ),
-            if (!edition.published && !edition.test)
+            if (edition.published || edition.hidden)
+              VeloraButton(
+                label: l.withdraw,
+                icon: Icons.undo,
+                variant: VeloraButtonVariant.secondary,
+                onPressed: () => _withdraw(edition),
+              ),
+            if (!edition.test)
               VeloraButton(
                 label: l.deletePermanently,
                 icon: Icons.delete_forever_outlined,
@@ -893,14 +987,33 @@ class _DraftScreenState extends State<DraftScreen> {
     );
   }
 
-  Future<void> _delete(AdminEdition edition) async {
+  Future<void> _withdraw(AdminEdition edition) async {
     final l = context.l10n;
     if (!await confirm(
       context,
+      title: l.withdrawTitle(edition.displayTitle),
+      message: l.withdrawMessage,
+      action: l.withdraw,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await _change(
+      (api) => api.withdraw(edition.id),
+      done: l.withdrawnNow(edition.displayTitle),
+    );
+  }
+
+  Future<void> _delete(AdminEdition edition) async {
+    final l = context.l10n;
+    final published = edition.published;
+    if (!await confirm(
+      context,
       title: l.deleteDraftTitle(edition.displayTitle),
-      message: l.deleteDraftMessage,
+      message: published ? l.deletePublishedMessage : l.deleteDraftMessage,
       action: l.deletePermanently,
       danger: true,
+      typeToConfirm: published ? 'DELETE' : null,
     )) {
       return;
     }
@@ -909,7 +1022,8 @@ class _DraftScreenState extends State<DraftScreen> {
     final queue = UploadsScope.of(context);
     final done = await runAdmin(
       context,
-      (api) => api.deleteEdition(edition.id).then((_) => true),
+      (api) =>
+          api.deleteEdition(edition.id, published: published).then((_) => true),
       done: l.draftDeleted(edition.displayTitle),
     );
     // Its uploads stop only once the server has deleted it.
@@ -1156,6 +1270,392 @@ class _ManualDetailsDialogState extends State<_ManualDetailsDialog> {
           child: Text(l.cancel),
         ),
         VeloraButton(label: l.save, onPressed: _submit),
+      ],
+    );
+  }
+}
+
+/// An episode's own actions: edit, hide or show, withdraw, delete.
+class _EpisodeMenu extends StatelessWidget {
+  const _EpisodeMenu({
+    required this.item,
+    required this.canDelete,
+    required this.onEdit,
+    required this.onDelete,
+    this.onHide,
+    this.onShow,
+    this.onWithdraw,
+  });
+
+  final AdminItem item;
+  final bool canDelete;
+  final VoidCallback onEdit;
+  final VoidCallback? onHide;
+  final VoidCallback? onShow;
+  final VoidCallback? onWithdraw;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final danger = Theme.of(context).colorScheme.error;
+    PopupMenuItem<VoidCallback> entry(
+      IconData icon,
+      String label,
+      VoidCallback action, {
+      Color? color,
+    }) => PopupMenuItem(
+      value: action,
+      child: ListTile(
+        leading: Icon(icon, color: color),
+        title: Text(
+          label,
+          style: color == null ? null : TextStyle(color: color),
+        ),
+      ),
+    );
+    return PopupMenuButton<VoidCallback>(
+      tooltip: l.episodeActions(itemName(l, item)),
+      onSelected: (action) => action(),
+      itemBuilder: (_) => [
+        entry(Icons.edit_outlined, l.editEpisode, onEdit),
+        if (onHide case final hide?)
+          entry(Icons.visibility_off_outlined, l.hideEpisode, hide),
+        if (onShow case final show?)
+          entry(Icons.visibility_outlined, l.showEpisode, show),
+        if (onWithdraw case final withdraw?)
+          entry(Icons.undo, l.withdrawEpisode, withdraw),
+        if (canDelete)
+          entry(
+            Icons.delete_forever_outlined,
+            l.deletePermanently,
+            onDelete,
+            color: danger,
+          ),
+      ],
+    );
+  }
+}
+
+/// An episode's numbers and title. Pops with them.
+class _EditEpisodeDialog extends StatefulWidget {
+  const _EditEpisodeDialog({required this.item});
+
+  final AdminItem item;
+
+  @override
+  State<_EditEpisodeDialog> createState() => _EditEpisodeDialogState();
+}
+
+class _EditEpisodeDialogState extends State<_EditEpisodeDialog> {
+  final _form = GlobalKey<FormState>();
+  late final _season = TextEditingController(
+    text: '${widget.item.season ?? 1}',
+  );
+  late final _episode = TextEditingController(
+    text: '${widget.item.episode ?? 1}',
+  );
+  late final _title = TextEditingController(
+    text: widget.item.episodeTitle ?? '',
+  );
+
+  @override
+  void dispose() {
+    _season.dispose();
+    _episode.dispose();
+    _title.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_form.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop((
+      season: int.parse(_season.text.trim()),
+      episode: int.parse(_episode.text.trim()),
+      title: _title.text.trim(),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return AlertDialog(
+      title: Text(l.editEpisode),
+      content: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: VeloraSpacing.sm,
+          children: [
+            Text(l.editEpisodeHelp),
+            VeloraTextField(
+              label: l.season,
+              controller: _season,
+              keyboardType: TextInputType.number,
+              validator: (v) => checkNumber(l, v, min: 0, max: 999),
+            ),
+            VeloraTextField(
+              label: l.episode,
+              controller: _episode,
+              keyboardType: TextInputType.number,
+              validator: (v) => checkNumber(l, v, min: 1, max: 9999),
+            ),
+            VeloraTextField(label: l.episodeTitleOptional, controller: _title),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.cancel),
+        ),
+        VeloraButton(label: l.save, onPressed: _submit),
+      ],
+    );
+  }
+}
+
+/// What viewers see of the edition, over its source's: year, language,
+/// description, trailer and backdrop. Saved together; only what changed is
+/// sent. Empty description, trailer or backdrop: the source's show.
+class _ViewerDetails extends StatefulWidget {
+  const _ViewerDetails({
+    super.key,
+    required this.edition,
+    required this.onSaved,
+  });
+
+  final AdminEdition edition;
+  final ValueChanged<AdminEdition> onSaved;
+
+  @override
+  State<_ViewerDetails> createState() => _ViewerDetailsState();
+}
+
+class _ViewerDetailsState extends State<_ViewerDetails> {
+  final _form = GlobalKey<FormState>();
+  late final _year = TextEditingController(
+    text: widget.edition.submittedYear?.toString() ?? '',
+  );
+  late final _overview = TextEditingController(
+    text: widget.edition.overview ?? '',
+  );
+  late final _trailer = TextEditingController(
+    text: widget.edition.trailerKey == null
+        ? ''
+        : 'https://youtu.be/${widget.edition.trailerKey}',
+  );
+  late String _language = widget.edition.language;
+  List<AdminLanguage> _languages = const [];
+  bool _saving = false;
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    AdminScope.of(context)?.languages().then((languages) {
+      if (mounted) setState(() => _languages = languages);
+    }, onError: (Object _) {});
+  }
+
+  @override
+  void dispose() {
+    _year.dispose();
+    _overview.dispose();
+    _trailer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!(_form.currentState?.validate() ?? false)) return;
+    final l = context.l10n;
+    final e = widget.edition;
+    final year = int.tryParse(_year.text.trim());
+    final overview = _overview.text.trim();
+    final trailer = _trailer.text.trim();
+    final oldTrailer = e.trailerKey == null
+        ? ''
+        : 'https://youtu.be/${e.trailerKey}';
+    setState(() => _saving = true);
+    final saved = await runAdmin(
+      context,
+      (api) => api.updateDetails(
+        e.id,
+        year: year != e.submittedYear ? year : null,
+        clearYear: year == null && e.submittedYear != null,
+        language: _language != e.language ? _language : null,
+        overview: overview != (e.overview ?? '') ? overview : null,
+        trailer: trailer != oldTrailer ? trailer : null,
+      ),
+      done: l.detailsSaved,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (saved != null) widget.onSaved(saved);
+  }
+
+  Future<void> _uploadBackdrop() async {
+    final l = context.l10n;
+    final image = await pickImage();
+    if (image == null || !mounted) return;
+    if (image.bytes.length > maxImageBytes) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.imageTooBig)));
+      return;
+    }
+    final id = widget.edition.id;
+    setState(() => _saving = true);
+    final saved = await runAdmin(context, (api) async {
+      final path = await api.uploadImage(
+        poster: true,
+        ownerId: id,
+        bytes: image.bytes,
+        contentType: image.contentType,
+      );
+      return api.updateDetails(id, backdropPath: path);
+    }, done: l.backdropSaved);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (saved != null) widget.onSaved(saved);
+  }
+
+  Future<void> _removeBackdrop() async {
+    final l = context.l10n;
+    final id = widget.edition.id;
+    final saved = await runAdmin(
+      context,
+      (api) => api.updateDetails(id, backdropPath: ''),
+      done: l.backdropRemoved,
+    );
+    if (saved != null && mounted) widget.onSaved(saved);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final e = widget.edition;
+    final backdrop = e.backdropUrl ?? e.sourceBackdropUrl;
+    final languages = _languages.isEmpty
+        ? [AdminLanguage(code: e.language, name: e.language)]
+        : _languages;
+    return AdminSection(
+      title: l.viewerDetails,
+      children: [
+        Text(l.viewerDetailsIntro),
+        Form(
+          key: _form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: VeloraSpacing.sm,
+            children: [
+              Wrap(
+                spacing: VeloraSpacing.sm,
+                runSpacing: VeloraSpacing.sm,
+                children: [
+                  SizedBox(
+                    width: 160,
+                    child: VeloraTextField(
+                      label: l.yearOptional,
+                      controller: _year,
+                      keyboardType: TextInputType.number,
+                      validator: (v) => checkNumber(
+                        l,
+                        v,
+                        min: 1900,
+                        max: 2100,
+                        optional: true,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _language,
+                      isExpanded: true,
+                      decoration: InputDecoration(labelText: l.language),
+                      items: [
+                        for (final language in languages)
+                          DropdownMenuItem(
+                            value: language.code,
+                            child: Text(language.name),
+                          ),
+                      ],
+                      onChanged: (code) =>
+                          setState(() => _language = code ?? _language),
+                    ),
+                  ),
+                ],
+              ),
+              VeloraTextField(
+                label: l.descriptionForViewers,
+                helperText: e.sourceOverview == null
+                    ? l.descriptionHelpNoSource
+                    : l.descriptionHelp,
+                hintText: e.sourceOverview,
+                controller: _overview,
+                maxLines: 5,
+              ),
+              VeloraTextField(
+                label: l.trailerAddress,
+                helperText: e.sourceTrailerKey == null
+                    ? l.trailerHelpNoSource
+                    : l.trailerHelp,
+                hintText: 'https://youtu.be/…',
+                controller: _trailer,
+                keyboardType: TextInputType.url,
+              ),
+            ],
+          ),
+        ),
+        Text(l.backdrop, style: Theme.of(context).textTheme.titleSmall),
+        if (backdrop != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(VeloraRadii.md),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.network(
+                backdrop,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        Text(
+          e.backdropUrl != null
+              ? l.backdropOwn
+              : backdrop != null
+              ? l.backdropFromSource
+              : l.backdropNone,
+        ),
+        Wrap(
+          spacing: VeloraSpacing.sm,
+          runSpacing: VeloraSpacing.xs,
+          children: [
+            VeloraButton(
+              label: l.uploadBackdrop,
+              icon: Icons.wallpaper,
+              variant: VeloraButtonVariant.secondary,
+              onPressed: _saving ? null : _uploadBackdrop,
+            ),
+            if (e.backdropUrl != null)
+              VeloraButton(
+                label: l.useSourceBackdrop,
+                variant: VeloraButtonVariant.tertiary,
+                onPressed: _saving ? null : _removeBackdrop,
+              ),
+          ],
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: VeloraButton(
+            label: l.saveDetails,
+            icon: Icons.check,
+            isLoading: _saving,
+            onPressed: _save,
+          ),
+        ),
       ],
     );
   }

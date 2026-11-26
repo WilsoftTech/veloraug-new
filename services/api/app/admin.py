@@ -15,7 +15,15 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
 from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -179,6 +187,8 @@ class Item(BaseModel):
     # Waiting to be converted: its place in the queue, from 1.
     queue_position: int | None = None
     size_bytes: int | None = None
+    # Hidden from viewers on its own.
+    hidden: bool = False
 
 
 class Edition(BaseModel):
@@ -206,6 +216,15 @@ class Edition(BaseModel):
     categories: list[str] = []
     # No video has finished uploading yet.
     incomplete: bool = False
+    # The edition's own description, backdrop and trailer, which viewers see
+    # over the source's, and the source's, for comparing.
+    overview: str | None = None
+    backdrop_path: str | None = None
+    backdrop_url: str | None = None
+    trailer_key: str | None = None
+    source_backdrop_url: str | None = None
+    source_trailer_key: str | None = None
+    published_at: datetime | None = None
 
 
 class EditionList(BaseModel):
@@ -223,8 +242,19 @@ class SeriesOut(BaseModel):
     episodes: list[tuple[int | None, int | None]]
 
 
-class TitleChange(BaseModel):
-    display_title: Title
+class EditionChange(BaseModel):
+    """What to change of an edition's own details. Only the fields sent are
+    changed. An empty description, trailer or backdrop clears it, so the
+    source's shows again."""
+
+    display_title: Title | None = None
+    submitted_year: int | None = Field(default=None, ge=1900, le=2100)
+    language: str | None = Field(default=None, min_length=2, max_length=3)
+    overview: str | None = Field(default=None, max_length=5000)
+    # A YouTube address or key.
+    trailer: str | None = Field(default=None, max_length=300)
+    # An image uploaded for this edition, under posters/.
+    backdrop_path: str | None = Field(default=None, max_length=300)
 
 
 class Search(BaseModel):
@@ -425,12 +455,20 @@ def _edition(state: work.EditionState, images: ImageUrls) -> Edition:
                 eta_seconds=item.eta_seconds,
                 queue_position=item.queue_position,
                 size_bytes=item.size_bytes,
+                hidden=item.hidden,
             )
             for item in state.items
         ],
         missing=state.missing,
         categories=state.categories,
         incomplete=state.incomplete,
+        overview=state.overview,
+        backdrop_path=state.backdrop_path,
+        backdrop_url=images.backdrop(state.backdrop_path),
+        trailer_key=state.trailer_key,
+        source_backdrop_url=images.backdrop(state.source_backdrop),
+        source_trailer_key=state.source_trailer,
+        published_at=state.published_at,
         matches=[
             Match(
                 tmdb_id=m.tmdb_id,
@@ -622,14 +660,23 @@ def get_edition(
 @router.patch("/editions/{edition_id}")
 def change_edition(
     edition_id: UUID,
-    body: TitleChange,
+    body: EditionChange,
     user: AdminUser,
     db: EditorDatabase,
     images: Images,
 ) -> Edition:
-    """Changes the title viewers see."""
+    """Changes what is sent of the edition's own details."""
+    changes = body.model_dump(include=body.model_fields_set)
+    if changes.get("display_title", "") is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "A title can't be empty")
     with editing(db, user) as conn:
-        work.set_title(conn, edition_id, body.display_title)
+        work.update_details(conn, edition_id, changes)
+    logger.info(
+        "Admin %s changed %s of edition %s",
+        user.user_id,
+        ", ".join(sorted(changes)) or "nothing",
+        edition_id,
+    )
     return _current(db, user, edition_id, images)
 
 
@@ -854,12 +901,18 @@ class Deleted(BaseModel):
 
 
 @router.delete("/editions/{edition_id}")
-def delete_edition(edition_id: UUID, user: AdminUser, db: EditorDatabase) -> Deleted:
-    """Deletes a draft or hidden edition for good: its videos, keys and
-    details. It goes from every list at once. Its files are deleted by the
-    media worker, and its rows after them."""
+def delete_edition(
+    edition_id: UUID,
+    user: AdminUser,
+    db: EditorDatabase,
+    published: bool = False,
+) -> Deleted:
+    """Deletes an edition for good: its videos, keys and details. It goes
+    from every list at once. Its files are deleted by the media worker, and
+    its rows after them. A published one only with ?published=true, as the
+    Library asks after its own confirmation."""
     with editing(db, user) as conn:
-        work.delete_edition(conn, edition_id)
+        work.delete_edition(conn, edition_id, published_too=published)
     audit.event("edition_deleted", admin_id=user.user_id, edition_id=edition_id)
     logger.info("Admin %s deleted edition %s", user.user_id, edition_id)
     return Deleted(deleted=1, ids=[edition_id])
@@ -873,6 +926,189 @@ def delete_all_drafts(body: DeleteAll, user: AdminUser, db: EditorDatabase) -> D
     audit.event("drafts_deleted", admin_id=user.user_id, count=len(ids))
     logger.info("Admin %s deleted %s drafts", user.user_id, len(ids))
     return Deleted(deleted=len(ids), ids=ids)
+
+
+# --- The Library ---------------------------------------------------------------
+
+
+class LibraryTitleOut(BaseModel):
+    id: UUID
+    kind: str
+    display_title: str
+    poster_url: str | None
+    vj_id: UUID | None
+    vj_name: str | None
+    # published, hidden or withdrawn.
+    state: str
+    published_at: datetime | None
+    updated_at: datetime
+    episodes: int
+    hidden_episodes: int
+    waiting: int
+    # Viewers who played part of it in the last 30 days.
+    viewers: int
+    categories: list[str]
+    year: int | None
+
+
+class LibraryPage(BaseModel):
+    titles: list[LibraryTitleOut]
+    total: int
+    viewer_days: int
+
+
+@router.get("/library")
+def library(
+    user: AdminUser,
+    db: EditorDatabase,
+    images: Images,
+    q: Annotated[str | None, Query(max_length=120)] = None,
+    vj: UUID | None = None,
+    kind: Literal["movie", "series"] | None = None,
+    category: Annotated[str | None, Query(max_length=40)] = None,
+    state: Literal["published", "hidden", "withdrawn"] | None = None,
+    sort: Literal["newest", "oldest", "title", "viewers", "updated"] = "newest",
+    offset: Annotated[int, Query(ge=0, le=100_000)] = 0,
+) -> LibraryPage:
+    """Titles viewers can see, or once could: published, hidden and
+    withdrawn. Searched, filtered and sorted, 50 at a time."""
+    with editing(db, user) as conn:
+        titles, total = work.list_library(
+            conn,
+            query=q,
+            vj_id=vj,
+            kind=kind,
+            category=category,
+            state=state,
+            sort=sort,
+            offset=offset,
+        )
+    return LibraryPage(
+        titles=[
+            LibraryTitleOut(
+                **{
+                    name: value
+                    for name, value in asdict(t).items()
+                    if name != "poster_path"
+                },
+                poster_url=images.poster(t.poster_path),
+            )
+            for t in titles
+        ],
+        total=total,
+        viewer_days=work.VIEWER_DAYS,
+    )
+
+
+@router.post("/editions/{edition_id}/withdraw")
+def withdraw(
+    edition_id: UUID, user: AdminUser, db: EditorDatabase, images: Images
+) -> Edition:
+    """Takes a published or hidden title back to a draft."""
+    with editing(db, user) as conn:
+        work.withdraw(conn, edition_id)
+    audit.event("edition_withdrawn", admin_id=user.user_id, edition_id=edition_id)
+    logger.info("Admin %s withdrew edition %s", user.user_id, edition_id)
+    return _current(db, user, edition_id, images)
+
+
+class BulkChange(BaseModel):
+    ids: list[UUID] = Field(min_length=1, max_length=work.BULK_MOST)
+    action: Literal["hide", "show", "withdraw", "credit"]
+    vj_id: UUID | None = None
+
+
+class BulkResult(BaseModel):
+    id: UUID
+    ok: bool
+    reason: str | None = None
+
+
+class BulkDone(BaseModel):
+    changed: int
+    results: list[BulkResult]
+
+
+@router.post("/library/bulk")
+def bulk(body: BulkChange, user: AdminUser, db: EditorDatabase) -> BulkDone:
+    """Hides, shows, withdraws or credits many titles at once. Each is
+    changed on its own: one that can't be is skipped, with its reason."""
+    with editing(db, user) as conn:
+        results = work.bulk_change(conn, body.ids, body.action, body.vj_id)
+    changed = sum(reason is None for reason in results.values())
+    audit.event(f"library_bulk_{body.action}", admin_id=user.user_id, count=changed)
+    logger.info(
+        "Admin %s: %s on %s of %s titles",
+        user.user_id,
+        body.action,
+        changed,
+        len(results),
+    )
+    return BulkDone(
+        changed=changed,
+        results=[
+            BulkResult(id=edition_id, ok=reason is None, reason=reason)
+            for edition_id, reason in results.items()
+        ],
+    )
+
+
+# --- Single episodes -------------------------------------------------------------
+
+
+class EpisodeChange(BaseModel):
+    """Only the fields sent are changed."""
+
+    season: int | None = Field(default=None, ge=0, le=999)
+    episode: int | None = Field(default=None, ge=1, le=9999)
+    episode_title: str | None = Field(default=None, max_length=200)
+
+
+@router.patch("/items/{item_id}")
+def change_episode(
+    item_id: UUID, body: EpisodeChange, user: AdminUser, db: EditorDatabase
+) -> dict:
+    """Renames or renumbers an episode. A number another episode has swaps
+    the two."""
+    with editing(db, user) as conn:
+        work.update_item(conn, item_id, body.model_dump(include=body.model_fields_set))
+    logger.info("Admin %s changed episode %s", user.user_id, item_id)
+    return {"item_id": item_id}
+
+
+@router.post("/items/{item_id}/hide")
+def hide_episode(item_id: UUID, user: AdminUser, db: EditorDatabase) -> dict:
+    with editing(db, user) as conn:
+        work.set_item_hidden(conn, item_id, True)
+    logger.info("Admin %s hid episode %s", user.user_id, item_id)
+    return {"item_id": item_id}
+
+
+@router.post("/items/{item_id}/show")
+def show_episode(item_id: UUID, user: AdminUser, db: EditorDatabase) -> dict:
+    with editing(db, user) as conn:
+        work.set_item_hidden(conn, item_id, False)
+    logger.info("Admin %s showed episode %s", user.user_id, item_id)
+    return {"item_id": item_id}
+
+
+@router.post("/items/{item_id}/withdraw")
+def withdraw_episode(item_id: UUID, user: AdminUser, db: EditorDatabase) -> dict:
+    """Back to waiting for approval, in Drafts."""
+    with editing(db, user) as conn:
+        work.withdraw_item(conn, item_id)
+    logger.info("Admin %s withdrew episode %s", user.user_id, item_id)
+    return {"item_id": item_id}
+
+
+@router.delete("/items/{item_id}")
+def delete_episode(item_id: UUID, user: AdminUser, db: EditorDatabase) -> dict:
+    """Deletes one episode of a series for good, with its videos."""
+    with editing(db, user) as conn:
+        work.delete_item(conn, item_id)
+    audit.event("episode_deleted", admin_id=user.user_id, item_id=item_id)
+    logger.info("Admin %s deleted episode %s", user.user_id, item_id)
+    return {"item_id": item_id}
 
 
 # --- Items and keys ----------------------------------------------------------

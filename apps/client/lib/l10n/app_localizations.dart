@@ -5019,6 +5019,456 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Draft created, but some parts weren\'t saved. Add them in the draft:\n{problems}'**
   String newDraftMadeWithProblems(String problems);
+
+  /// No description provided for @adminLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get adminLibrary;
+
+  /// No description provided for @adminLibraryIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Every title viewers can see, or once could. Open one to change its details, or hide, withdraw or delete it.'**
+  String get adminLibraryIntro;
+
+  /// No description provided for @libraryAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get libraryAll;
+
+  /// No description provided for @librarySearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search titles and VJs'**
+  String get librarySearch;
+
+  /// No description provided for @libraryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No titles} =1{1 title} other{{count} titles}}'**
+  String libraryCount(int count);
+
+  /// No description provided for @libraryEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet'**
+  String get libraryEmptyTitle;
+
+  /// No description provided for @libraryEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Titles appear here once they are published.'**
+  String get libraryEmptyMessage;
+
+  /// No description provided for @libraryNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No titles match. Try other words or filters.'**
+  String get libraryNoMatches;
+
+  /// No description provided for @loadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more ({count} left)'**
+  String loadMore(int count);
+
+  /// No description provided for @seriesPlural.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get seriesPlural;
+
+  /// No description provided for @sortBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort by'**
+  String get sortBy;
+
+  /// No description provided for @sortNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get sortNewest;
+
+  /// No description provided for @sortOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest'**
+  String get sortOldest;
+
+  /// No description provided for @sortTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title, A to Z'**
+  String get sortTitle;
+
+  /// No description provided for @sortViewers.
+  ///
+  /// In en, this message translates to:
+  /// **'Most viewers'**
+  String get sortViewers;
+
+  /// No description provided for @sortUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently changed'**
+  String get sortUpdated;
+
+  /// No description provided for @statusWithdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawn'**
+  String get statusWithdrawn;
+
+  /// No description provided for @publishedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Published {date}'**
+  String publishedOn(String date);
+
+  /// No description provided for @viewersLately.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 viewer in {days} days} other{{count} viewers in {days} days}}'**
+  String viewersLately(int count, int days);
+
+  /// No description provided for @episodeCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 episode} other{{count} episodes}}'**
+  String episodeCount(int count);
+
+  /// No description provided for @hiddenEpisodeCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hidden} other{{count} hidden}}'**
+  String hiddenEpisodeCount(int count);
+
+  /// No description provided for @selectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select {title}'**
+  String selectTitle(String title);
+
+  /// No description provided for @selectAllShown.
+  ///
+  /// In en, this message translates to:
+  /// **'Select every title shown'**
+  String get selectAllShown;
+
+  /// No description provided for @selectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 selected} other{{count} selected}}'**
+  String selectedCount(int count);
+
+  /// No description provided for @clearSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear selection'**
+  String get clearSelection;
+
+  /// No description provided for @editTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get editTitle;
+
+  /// No description provided for @changeVj.
+  ///
+  /// In en, this message translates to:
+  /// **'Change VJ'**
+  String get changeVj;
+
+  /// No description provided for @showAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Show again'**
+  String get showAgain;
+
+  /// No description provided for @shownAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'“{title}” is showing again'**
+  String shownAgain(String title);
+
+  /// No description provided for @withdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw'**
+  String get withdraw;
+
+  /// No description provided for @withdrawTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw “{title}”?'**
+  String withdrawTitle(String title);
+
+  /// No description provided for @withdrawManyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Withdraw 1 title?} other{Withdraw {count} titles?}}'**
+  String withdrawManyTitle(int count);
+
+  /// No description provided for @withdrawMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewers stop seeing it at once: it leaves every list, search and Continue watching. Nothing is deleted. It goes back to Drafts, and Show again brings it back. Copies viewers already downloaded are theirs, and can\'t be taken back.'**
+  String get withdrawMessage;
+
+  /// No description provided for @withdrawnNow.
+  ///
+  /// In en, this message translates to:
+  /// **'“{title}” withdrawn to Drafts'**
+  String withdrawnNow(String title);
+
+  /// No description provided for @hideManyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Hide 1 title?} other{Hide {count} titles?}}'**
+  String hideManyTitle(int count);
+
+  /// No description provided for @creditManyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Credit 1 title to…} other{Credit {count} titles to…}}'**
+  String creditManyTitle(int count);
+
+  /// No description provided for @creditManyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'A wrong credit, published, harms a VJ. Check each title first.'**
+  String get creditManyMessage;
+
+  /// No description provided for @bulkChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Nothing changed.} =1{1 title changed.} other{{count} titles changed.}}'**
+  String bulkChanged(int count);
+
+  /// No description provided for @bulkSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped:\n{list}'**
+  String bulkSkipped(String list);
+
+  /// No description provided for @deletePublishedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone. It disappears for viewers at once, and its details and every video are deleted from VeloraUG and the server. Copies viewers already downloaded are theirs, and can\'t be taken back. To take it down for now instead, hide or withdraw it.'**
+  String get deletePublishedMessage;
+
+  /// No description provided for @hiddenExplained.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden: viewers can\'t see it. Show again puts it back as it was.'**
+  String get hiddenExplained;
+
+  /// No description provided for @withdrawnExplained.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawn: back to a draft, once published. Show again publishes it again, in its old place among the newest.'**
+  String get withdrawnExplained;
+
+  /// No description provided for @viewerDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'What viewers see'**
+  String get viewerDetails;
+
+  /// No description provided for @viewerDetailsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This title\'s own details, shown over TMDB\'s or the typed-in ones. Leave one empty to show those instead. Other VJs\' editions of the same film keep theirs.'**
+  String get viewerDetailsIntro;
+
+  /// No description provided for @descriptionForViewers.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get descriptionForViewers;
+
+  /// No description provided for @descriptionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty: the description shown greyed out is used.'**
+  String get descriptionHelp;
+
+  /// No description provided for @descriptionHelpNoSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 5,000 characters.'**
+  String get descriptionHelpNoSource;
+
+  /// No description provided for @trailerAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Trailer, a YouTube address'**
+  String get trailerAddress;
+
+  /// No description provided for @trailerHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty: TMDB\'s trailer is used.'**
+  String get trailerHelp;
+
+  /// No description provided for @trailerHelpNoSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty: no trailer is shown.'**
+  String get trailerHelpNoSource;
+
+  /// No description provided for @backdrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Backdrop'**
+  String get backdrop;
+
+  /// No description provided for @backdropOwn.
+  ///
+  /// In en, this message translates to:
+  /// **'This title\'s own backdrop.'**
+  String get backdropOwn;
+
+  /// No description provided for @backdropFromSource.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB\'s backdrop. Upload one to use your own.'**
+  String get backdropFromSource;
+
+  /// No description provided for @backdropNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No backdrop. Upload one: 16 by 9, up to 2 MB.'**
+  String get backdropNone;
+
+  /// No description provided for @uploadBackdrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a backdrop'**
+  String get uploadBackdrop;
+
+  /// No description provided for @useSourceBackdrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Use TMDB\'s instead'**
+  String get useSourceBackdrop;
+
+  /// No description provided for @backdropSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Backdrop saved'**
+  String get backdropSaved;
+
+  /// No description provided for @backdropRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to TMDB\'s backdrop'**
+  String get backdropRemoved;
+
+  /// No description provided for @saveDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Save details'**
+  String get saveDetails;
+
+  /// No description provided for @detailsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Details saved'**
+  String get detailsSaved;
+
+  /// No description provided for @episodeActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions for {episode}'**
+  String episodeActions(String episode);
+
+  /// No description provided for @editEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit episode'**
+  String get editEpisode;
+
+  /// No description provided for @editEpisodeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'A number another episode has swaps the two, to put them in order.'**
+  String get editEpisodeHelp;
+
+  /// No description provided for @episodeSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode saved'**
+  String get episodeSaved;
+
+  /// No description provided for @hideEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide episode'**
+  String get hideEpisode;
+
+  /// No description provided for @showEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Show episode'**
+  String get showEpisode;
+
+  /// No description provided for @episodeHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode hidden'**
+  String get episodeHidden;
+
+  /// No description provided for @episodeShown.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode showing again'**
+  String get episodeShown;
+
+  /// No description provided for @withdrawEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw episode'**
+  String get withdrawEpisode;
+
+  /// No description provided for @withdrawEpisodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw {episode}?'**
+  String withdrawEpisodeTitle(String episode);
+
+  /// No description provided for @withdrawEpisodeMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewers stop seeing it, and it waits for approval in Drafts again. Nothing is deleted.'**
+  String get withdrawEpisodeMessage;
+
+  /// No description provided for @episodeWithdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode withdrawn to Drafts'**
+  String get episodeWithdrawn;
+
+  /// No description provided for @deleteEpisodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {episode}?'**
+  String deleteEpisodeTitle(String episode);
+
+  /// No description provided for @deleteEpisodeMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone. The episode and its video are deleted from VeloraUG and the server. The rest of the series stays.'**
+  String get deleteEpisodeMessage;
+
+  /// No description provided for @episodeDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode deleted'**
+  String get episodeDeleted;
 }
 
 class _AppLocalizationsDelegate
