@@ -652,14 +652,25 @@ class UploadQueue extends ChangeNotifier {
   }
 
   /// Removes the uploads for an edition, as it is deleted.
+  /// Removes the uploads for an edition, as it is deleted: its own, and
+  /// episodes of the same new series still waiting to learn its ID, which
+  /// would otherwise make the series again.
   Future<void> removeForEdition(String editionId) async {
-    _tasks.removeWhere(
-      (t) => t.phase == UploadPhase.finished && t.editionId == editionId,
-    );
+    bool ofIt(UploadTask t) =>
+        t.editionId == editionId || t.seriesEditionId == editionId;
+    final groups = {
+      for (final t in _tasks)
+        if (ofIt(t) && t.plan.group.isNotEmpty) t.plan.group,
+    };
+    bool doomed(UploadTask t) =>
+        ofIt(t) ||
+        (t.editionId == null &&
+            t.seriesEditionId == null &&
+            groups.contains(t.plan.group));
+    _tasks.removeWhere((t) => t.phase == UploadPhase.finished && doomed(t));
     await Future.wait([
       for (final task in List.of(_tasks))
-        if (task.editionId == editionId || task.seriesEditionId == editionId)
-          remove(task.id),
+        if (doomed(task)) remove(task.id),
     ]);
     _changed();
   }

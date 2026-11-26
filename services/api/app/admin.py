@@ -849,6 +849,8 @@ class DeleteAll(BaseModel):
 
 class Deleted(BaseModel):
     deleted: int
+    # The editions deleted, so the app stops only their uploads.
+    ids: list[UUID] = []
 
 
 @router.delete("/editions/{edition_id}")
@@ -860,7 +862,7 @@ def delete_edition(edition_id: UUID, user: AdminUser, db: EditorDatabase) -> Del
         work.delete_edition(conn, edition_id)
     audit.event("edition_deleted", admin_id=user.user_id, edition_id=edition_id)
     logger.info("Admin %s deleted edition %s", user.user_id, edition_id)
-    return Deleted(deleted=1)
+    return Deleted(deleted=1, ids=[edition_id])
 
 
 @router.post("/drafts/delete-all")
@@ -870,7 +872,7 @@ def delete_all_drafts(body: DeleteAll, user: AdminUser, db: EditorDatabase) -> D
         ids = work.delete_all_drafts(conn)
     audit.event("drafts_deleted", admin_id=user.user_id, count=len(ids))
     logger.info("Admin %s deleted %s drafts", user.user_id, len(ids))
-    return Deleted(deleted=len(ids))
+    return Deleted(deleted=len(ids), ids=ids)
 
 
 # --- Items and keys ----------------------------------------------------------

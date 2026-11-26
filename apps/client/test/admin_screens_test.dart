@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,10 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:veloraug/admin/draft_screen.dart';
 import 'package:veloraug/admin/drafts_view.dart' show draftsRefreshEvery;
 import 'package:veloraug/admin/new_draft_screen.dart';
+import 'package:veloraug/admin/uploads/file_names.dart' show maxVideoBytes;
+import 'package:veloraug/admin/uploads/tus.dart';
+import 'package:veloraug/admin/uploads/upload_queue.dart';
 import 'package:veloraug/widgets/velora_button.dart';
 import 'package:veloraug/screens/player_screen.dart';
 
 import 'support.dart';
+import 'uploads/upload_fakes.dart';
 
 Map<String, Object?> item({
   String id = 'i1',
@@ -335,6 +340,83 @@ void main() {
       expect(find.text('The movie: Failed'), findsOneWidget);
     });
 
+    testWidgets('asks again while a video uploads elsewhere, and moves it up '
+        'once uploaded', (tester) async {
+      final api = adminApi();
+      var asked = 0;
+      api.admin['GET /drafts'] = (_) {
+        asked++;
+        return json({
+          'editions': [
+            asked < 2
+                ? edition(
+                    'd1',
+                    items: [item(video: 'uploading', previewable: false)],
+                    incomplete: true,
+                  )
+                : edition('d1', items: [item(video: 'received', queue: 1)]),
+          ],
+        });
+      };
+      await openAdmin(tester, api);
+      expect(find.text('1 draft still uploading'), findsOneWidget);
+
+      await tester.pump(draftsRefreshEvery);
+      await tester.pump();
+      await tester.pump();
+
+      expect(asked, 2);
+      expect(find.text('1 draft still uploading'), findsNothing);
+      expect(find.text('The movie · Waiting to convert'), findsOneWidget);
+    });
+
+    testWidgets('an older answer never replaces a newer one', (tester) async {
+      final api = adminApi();
+      final slow = Completer<void>();
+      var asked = 0;
+      api.admin['GET /drafts'] = (_) async {
+        asked++;
+        if (asked == 2) {
+          // The refresh pressed first answers last, still listing it.
+          await slow.future;
+          return json({
+            'editions': [edition('d1')],
+          });
+        }
+        return json({
+          'editions': asked == 1 ? [edition('d1')] : <Object?>[],
+        });
+      };
+      api.admin['DELETE /editions/d1'] = (_) => json({
+        'deleted': 1,
+        'ids': ['d1'],
+      });
+      await openAdmin(tester, api);
+
+      // The refresh's spinner never settles while its answer waits.
+      Future<void> frames() async {
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+      }
+
+      await tester.tap(find.text('Refresh'));
+      await tester.pump();
+      // Deleted while that refresh waits: the delete asks again.
+      await tester.tap(find.byTooltip('More actions'));
+      await frames();
+      await tester.tap(find.text('Delete permanently'));
+      await frames();
+      await tester.tap(find.text('Delete permanently').last);
+      await frames();
+      expect(asked, 3);
+      expect(find.text('Fast X'), findsNothing);
+
+      slow.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Fast X'), findsNothing);
+    });
+
     testWidgets('asks again while a video is converting, and stops after', (
       tester,
     ) async {
@@ -455,7 +537,10 @@ void main() {
           edition('d3', title: 'Hidden one', status: 'hidden'),
         ],
       );
-      api.admin['POST /drafts/delete-all'] = (_) => json({'deleted': 2});
+      api.admin['POST /drafts/delete-all'] = (_) => json({
+        'deleted': 2,
+        'ids': ['d1', 'd2'],
+      });
       await openAdmin(tester, api);
 
       await tester.tap(find.text('Delete all drafts'));
@@ -709,6 +794,69 @@ void main() {
       });
       // The series has its VJ already.
       expect(api.adminCalls.where((c) => c.endsWith('/credit')), isEmpty);
+    });
+
+    testWidgets('a series chosen, then Movie, makes a movie', (tester) async {
+      final api = newDraftApi();
+      await openNewDraft(tester, api);
+
+      await tester.tap(find.text('Series'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('A new series'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kabaka · VJ Junior').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Movie'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextFormField, 'Title'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Title'),
+        'Fast X',
+      );
+      await chooseVj(tester);
+      await create(tester);
+
+      expect(body(api, '/drafts'), {
+        'kind': 'movie',
+        'title': 'Fast X',
+        'language': 'lg',
+      });
+    });
+
+    testWidgets('a video over the limit is refused when chosen', (
+      tester,
+    ) async {
+      final api = newDraftApi();
+      await pumpApp(
+        tester,
+        api,
+        signedIn: true,
+        uploads: (auth) {
+          final queue = UploadQueue(
+            api: api.adminApi(auth),
+            tus: TusClient(FakeTusServer()),
+            endpoint: Uri.parse(uploadEndpoint),
+            store: MemoryUploadStore(),
+          );
+          addTearDown(queue.dispose);
+          return queue;
+        },
+        pickVideos: () async => [video('Huge.mp4', size: maxVideoBytes + 1)],
+      );
+      await goTo(tester, 'Admin');
+      await tester.tap(find.text('New draft'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Choose the file'));
+      await tester.tap(find.text('Choose the file'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text("The file is larger than 50 GB, VeloraUG's limit."),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Huge.mp4'), findsNothing);
     });
 
     testWidgets('fits a narrow phone with large text', (tester) async {

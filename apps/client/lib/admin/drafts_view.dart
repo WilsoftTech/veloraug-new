@@ -41,9 +41,26 @@ class _DraftsViewState extends State<DraftsView> {
   bool _started = false;
   Timer? _refresh;
 
+  /// Each load's number. Only the newest load's answer is shown, so a slow
+  /// older one can't bring back a draft deleted since.
+  int _generation = 0;
+
+  /// This browser's uploads, and those already seen finished.
+  UploadQueue? _queue;
+  final Set<String> _finished = {};
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final queue = UploadsScope.of(context);
+    if (!identical(queue, _queue)) {
+      _queue?.removeListener(_uploadsChanged);
+      _queue = queue;
+      _finished
+        ..clear()
+        ..addAll(_finishedIds(queue));
+      queue?.addListener(_uploadsChanged);
+    }
     if (!_started) {
       _started = true;
       _load();
@@ -53,17 +70,34 @@ class _DraftsViewState extends State<DraftsView> {
   @override
   void dispose() {
     _refresh?.cancel();
+    _queue?.removeListener(_uploadsChanged);
     super.dispose();
+  }
+
+  static Set<String> _finishedIds(UploadQueue? queue) => {
+    for (final t in queue?.tasks ?? const <UploadTask>[])
+      if (t.phase == UploadPhase.finished) t.id,
+  };
+
+  /// An upload from this browser just finished: its draft moves up.
+  void _uploadsChanged() {
+    final now = _finishedIds(_queue);
+    final fresh = now.difference(_finished).isNotEmpty;
+    _finished
+      ..clear()
+      ..addAll(now);
+    if (fresh && mounted) _load();
   }
 
   Future<void> _load() async {
     final api = AdminScope.of(context);
     if (api == null) return;
     _refresh?.cancel();
+    final generation = ++_generation;
     setState(() => _loading = true);
     try {
       final drafts = await api.drafts();
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _drafts = drafts;
         _failure = null;
@@ -75,7 +109,7 @@ class _DraftsViewState extends State<DraftsView> {
         });
       }
     } on AdminException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _failure = error;
         _loading = false;
@@ -83,9 +117,10 @@ class _DraftsViewState extends State<DraftsView> {
     }
   }
 
-  /// A video of it is being checked, converted or sent.
-  static bool _working(AdminEdition draft) =>
-      draft.items.any((item) => VideoStageProgress.shows(item.video));
+  /// A video of it is uploading, or being checked, converted or sent.
+  static bool _working(AdminEdition draft) => draft.items.any(
+    (item) => item.video == 'uploading' || VideoStageProgress.shows(item.video),
+  );
 
   Future<void> _open(String editionId) async {
     await Navigator.of(context).push(
@@ -112,26 +147,24 @@ class _DraftsViewState extends State<DraftsView> {
       danger: true,
     );
     if (!sure || !mounted) return;
-    // Stops this browser's uploads for it first, deleting their parts.
-    await UploadsScope.of(context)?.removeForEdition(draft.id);
-    if (!mounted) return;
+    final queue = UploadsScope.of(context);
     final done = await runAdmin(
       context,
       (api) => api.deleteEdition(draft.id).then((_) => true),
       done: l.draftDeleted(draft.displayTitle),
     );
+    // Only once the server has deleted it: its uploads stop, and their
+    // parts are deleted. A refused delete leaves them running.
+    if (done == true) await queue?.removeForEdition(draft.id);
     if (done == true && mounted) await _load();
   }
 
   Future<void> _deleteAll(List<AdminEdition> drafts) async {
     final l = context.l10n;
-    final doomed = [
-      for (final d in drafts)
-        if (d.status == 'draft') d,
-    ];
+    final count = drafts.where((d) => d.status == 'draft').length;
     final sure = await confirm(
       context,
-      title: l.deleteAllDraftsTitle(doomed.length),
+      title: l.deleteAllDraftsTitle(count),
       message: l.deleteAllDraftsMessage,
       action: l.deleteAllDrafts,
       danger: true,
@@ -139,14 +172,16 @@ class _DraftsViewState extends State<DraftsView> {
     );
     if (!sure || !mounted) return;
     final queue = UploadsScope.of(context);
+    final deleted = await runAdmin(context, (api) => api.deleteAllDrafts());
+    if (deleted == null) return;
+    // Only the uploads of drafts the server deleted: one hidden meanwhile
+    // keeps its uploads.
     if (queue != null) {
-      await Future.wait([for (final d in doomed) queue.removeForEdition(d.id)]);
+      await Future.wait([for (final id in deleted) queue.removeForEdition(id)]);
     }
     if (!mounted) return;
-    final count = await runAdmin(context, (api) => api.deleteAllDrafts());
-    if (count == null || !mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l.draftsDeleted(count))));
+        .showSnackBar(SnackBar(content: Text(l.draftsDeleted(deleted.length))));
     await _load();
   }
 

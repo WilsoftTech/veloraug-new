@@ -539,6 +539,30 @@ void main() {
       expect(q.canResumeAll, isFalse);
     });
 
+    testWidgets('a deleted new series takes its waiting episodes too', (
+      tester,
+    ) async {
+      server.hold = Completer();
+      final q = await queue(parallel: 1);
+      await q.add([
+        (video('k1.mp4'), episode('Kabaka', 1, 1)),
+        (video('k2.mp4'), episode('Kabaka', 1, 2)),
+        (video('k3.mp4'), episode('Kabaka', 1, 3)),
+        (video('other.mp4'), movie('Other')),
+      ]);
+      await settle(tester);
+      final series = q.tasks.first.editionId!;
+      // The others haven't started, so don't know the series' ID yet.
+      expect(q.tasks.skip(1).map((t) => t.editionId), everyElement(isNull));
+
+      await q.removeForEdition(series);
+      await settle(tester);
+
+      expect(q.tasks.map((t) => t.fileName), ['other.mp4']);
+      // Nothing made the series again; the movie made its own draft.
+      expect(admin.drafts.where((d) => d['kind'] == 'series'), hasLength(1));
+    });
+
     testWidgets('a deleted edition takes only its own uploads with it', (
       tester,
     ) async {

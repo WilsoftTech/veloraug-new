@@ -906,13 +906,14 @@ class _DraftScreenState extends State<DraftScreen> {
     }
     if (!mounted) return;
     setState(() => _busy = true);
-    await UploadsScope.of(context)?.removeForEdition(edition.id);
-    if (!mounted) return;
+    final queue = UploadsScope.of(context);
     final done = await runAdmin(
       context,
       (api) => api.deleteEdition(edition.id).then((_) => true),
       done: l.draftDeleted(edition.displayTitle),
     );
+    // Its uploads stop only once the server has deleted it.
+    if (done == true) await queue?.removeForEdition(edition.id);
     if (!mounted) return;
     setState(() => _busy = false);
     if (done == true) Navigator.of(context).pop();

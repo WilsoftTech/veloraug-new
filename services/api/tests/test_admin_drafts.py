@@ -166,7 +166,7 @@ def test_a_draft_is_deleted_for_good_once_its_files_are_gone(api, admin, owner, 
         )
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"deleted": 1}
+    assert response.json() == {"deleted": 1, "ids": [made["edition_id"]]}
     assert '"event":"edition_deleted"' in caplog.text
     assert made["edition_id"] in caplog.text
     # Gone from every list at once, though the worker hasn't run yet.
@@ -345,7 +345,10 @@ def test_every_draft_is_deleted_only_with_the_word(api, admin, owner, caplog):
         )
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"deleted": 2}
+    assert response.json()["deleted"] == 2
+    assert sorted(response.json()["ids"]) == sorted(
+        [first["edition_id"], second["edition_id"]]
+    )
     assert '"count":2' in caplog.text
     left = drafts(api, admin)
     assert first["edition_id"] not in left

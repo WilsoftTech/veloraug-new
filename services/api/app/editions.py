@@ -180,10 +180,13 @@ def publish(conn: psycopg.Connection, key: str | uuid.UUID) -> uuid.UUID:
     """Publishes an edition, or refuses with what is missing. Approves its
     items that have a ready video, so a series shows its ready episodes."""
     edition_id = _parse_id(key, "an edition ID")
-    if conn.execute(
-        "select 1 from public.editions where id = %s and deleted_at is not null",
+    # Locked as deleting locks it, so neither can slip in between the
+    # other's check and its change.
+    row = conn.execute(
+        "select deleted_at is not null from public.editions where id = %s for update",
         (edition_id,),
-    ).fetchone():
+    ).fetchone()
+    if row is not None and row[0]:
         raise EditionError(f"Edition {edition_id} is being deleted")
     missing = missing_for_publish(conn, edition_id)
     if missing:

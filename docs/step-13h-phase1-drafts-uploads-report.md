@@ -116,3 +116,21 @@ Every delete is logged as an audit event: `edition_deleted` with the admin's and
   - Uploads (2): pause, resume and remove all at once; Remove all can be cancelled.
   - Upload queue (5): a file for an existing draft uses its item and key; without its key, a new one is made for that item; pause, resume and remove all; Resume all leaves a file that's too large; deleting an edition removes only its own uploads.
   - The old New draft dialog test was replaced.
+
+## Fixes after review
+
+CodeRabbit raised nine points on the pull request, and all of them held. Each was fixed and has a test:
+
+| Problem | Fix |
+| --- | --- |
+| A slow refresh could answer after a delete's reload, and bring the deleted draft back | Each load is numbered, and only the newest one's answer is shown |
+| A draft uploading from elsewhere never moved up without Refresh | Drafts keeps asking while any video is uploading, and asks again when this browser finishes an upload |
+| Delete all stopped uploads by the old list, so a draft hidden in the meantime lost its uploads | The server answers with the IDs it deleted, and only their uploads stop. A single delete also stops uploads only after the server has deleted the draft |
+| Choosing a series and then switching to Movie still sent the series | The chosen series counts only while Series is selected |
+| A video over 50 GB was accepted, then failed silently | It's refused when chosen, with the limit named |
+| Deleting a new series left its episodes that hadn't started yet, which would make the series again | They're removed with it: they belong to the same new series |
+| Publishing could slip between a delete's check and its change | Publishing locks the title the way deleting does |
+| Progress under 5% was never written, however long it took | The first report sets the starting time, so small steps are written every 5 seconds |
+| A local file that couldn't be deleted was marked removed anyway, and lost track of | It's marked removed only after this computer's copies are gone. Otherwise it stays `removing`, and the removal is tried again |
+
+Tests now: API 789, with 2 new. App 700, with 5 new.

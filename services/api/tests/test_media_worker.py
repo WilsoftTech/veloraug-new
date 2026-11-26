@@ -738,3 +738,20 @@ def test_a_deleted_drafts_upload_is_never_converted(
         )
     assert Worker(media_database, uploads, output).purge_deleted() == 1
     assert row(owner_url, original_id) is None
+
+
+@needs_database
+def test_small_steps_are_written_once_some_time_has_passed(
+    owner_url, media_database, folders, quiet_queue
+):
+    uploads, output = folders
+    original_id = new_original(owner_url, uploads, state="converting")
+    now = [1000.0]
+    worker = Worker(media_database, uploads, output, clock=lambda: now[0])
+
+    worker.report(original_id, 1)
+    assert progress_of(owner_url, original_id) is None
+    # A slow film: 1% more a minute later is still worth showing.
+    now[0] += 60
+    worker.report(original_id, 2)
+    assert progress_of(owner_url, original_id) == 2

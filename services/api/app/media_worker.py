@@ -579,7 +579,9 @@ class Worker:
         """Writes how far converting or publishing has got, now and then.
         A failure to write it never stops the work."""
         now = self.clock()
-        last, at = self._progress.get(original_id, (0, now))
+        # The first call sets the baseline, so small steps are still written
+        # every few seconds before the first big one.
+        last, at = self._progress.setdefault(original_id, (0, now))
         if percent <= last or (
             percent - last < PROGRESS_STEP and now - at < PROGRESS_SECONDS
         ):

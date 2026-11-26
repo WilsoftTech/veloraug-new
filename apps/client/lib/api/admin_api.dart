@@ -596,12 +596,16 @@ class AdminApi {
     await _send('DELETE', '/editions/${_id(id)}');
   }
 
-  /// Deletes every draft. Published and hidden editions stay. How many.
-  Future<int> deleteAllDrafts() async {
+  /// Deletes every draft. Published and hidden editions stay. The IDs of
+  /// the drafts the server deleted.
+  Future<List<String>> deleteAllDrafts() async {
     final json = _need<Map<String, Object?>>(
       await _send('POST', '/drafts/delete-all', {'confirm': 'DELETE'}),
     );
-    return _need<int>(json['deleted']);
+    return [
+      for (final id in _need<List<Object?>>(json['ids'] ?? const []))
+        _need<String>(id),
+    ];
   }
 
   Future<AdminEdition> edition(String id) async =>

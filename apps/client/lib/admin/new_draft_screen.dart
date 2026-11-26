@@ -13,7 +13,7 @@ import 'admin_common.dart';
 import 'category_input.dart';
 import 'draft_screen.dart';
 import 'image_picker.dart';
-import 'uploads/file_names.dart' show isVideoFileName;
+import 'uploads/file_names.dart' show isVideoFileName, maxVideoBytes;
 import 'uploads/upload_queue.dart';
 import 'uploads/uploads_view.dart' show UploadsScope, formatBytes;
 
@@ -126,8 +126,11 @@ class _NewDraftScreenState extends State<NewDraftScreen> {
     });
   }
 
-  AdminSeries? get _existingSeries =>
-      _series.where((s) => s.id == _seriesId).firstOrNull;
+  /// The series an episode goes to. Never for a movie, even if a series
+  /// was chosen before switching to Movie.
+  AdminSeries? get _existingSeries => _kind == EditionKind.series
+      ? _series.where((s) => s.id == _seriesId).firstOrNull
+      : null;
 
   bool get _newEdition => _kind == EditionKind.movie || _seriesId == null;
 
@@ -187,6 +190,11 @@ class _NewDraftScreenState extends State<NewDraftScreen> {
     if (!isVideoFileName(video.file.name)) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l.uploadsNotVideos(1))));
+      return;
+    }
+    if (video.file.size > maxVideoBytes) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.uploadTooLarge)));
       return;
     }
     setState(() => _video = video);
