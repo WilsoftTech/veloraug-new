@@ -366,7 +366,7 @@ def test_databases_at_different_migrations_are_refused(dbs):
         with pytest.raises(CopyError, match="Migrate production first"):
             run(source, target, FakeFiles())
     finally:
-        target.execute("update public.alembic_version set version_num = '0014'")
+        target.execute("update public.alembic_version set version_num = '0015'")
 
 
 @needs_database

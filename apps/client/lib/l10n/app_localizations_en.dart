@@ -2864,4 +2864,237 @@ class AppLocalizationsEn extends AppLocalizations {
   String percentWatched(int percent) {
     return '$percent% watched';
   }
+
+  @override
+  String get pauseAll => 'Pause all';
+
+  @override
+  String get resumeAll => 'Resume all';
+
+  @override
+  String get removeAll => 'Remove all';
+
+  @override
+  String uploadsSummary(int running, int finished, int total) {
+    return '$running running · $finished of $total finished';
+  }
+
+  @override
+  String removeAllUploadsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Remove all $count uploads?',
+      one: 'Remove 1 upload?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get removeAllUploadsMessage =>
+      'Each stops, and the part it uploaded is deleted from the server. Finished uploads are cleared from the list. Their drafts stay in Drafts.';
+
+  @override
+  String typeToConfirm(String word) {
+    return 'Type $word to confirm';
+  }
+
+  @override
+  String get stageQueued => 'Waiting to convert';
+
+  @override
+  String get stageChecking => 'Checking the file';
+
+  @override
+  String get stageConverting => 'Converting';
+
+  @override
+  String get stageSending => 'Sending to the server';
+
+  @override
+  String stageQueuePosition(int position) {
+    return 'Number $position in line';
+  }
+
+  @override
+  String get stageCheckingHelp => 'Takes a few seconds';
+
+  @override
+  String stageProgressLabel(String video, String stage) {
+    return '$video: $stage';
+  }
+
+  @override
+  String get deletePermanently => 'Delete permanently';
+
+  @override
+  String deleteDraftTitle(String title) {
+    return 'Delete “$title”?';
+  }
+
+  @override
+  String get deleteDraftMessage =>
+      'This can\'t be undone. The draft, its details and every video uploaded for it are deleted from VeloraUG and the server. Uploads of it from this browser are stopped.';
+
+  @override
+  String draftDeleted(String title) {
+    return '“$title” deleted';
+  }
+
+  @override
+  String get deleteAllDrafts => 'Delete all drafts';
+
+  @override
+  String deleteAllDraftsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Delete all $count drafts?',
+      one: 'Delete 1 draft?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get deleteAllDraftsMessage =>
+      'This can\'t be undone. Every draft, with its details and videos, is deleted from VeloraUG and the server, including drafts still uploading. Published and hidden titles stay.';
+
+  @override
+  String draftsDeleted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count drafts deleted',
+      one: '1 draft deleted',
+      zero: 'No drafts to delete',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get noDraftsReadyMessage =>
+      'Nothing has finished uploading yet. Drafts still uploading are below.';
+
+  @override
+  String andMoreVideos(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'and $count more videos',
+      one: 'and 1 more video',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String episodesStillUploading(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count videos still uploading',
+      one: '1 video still uploading',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get moreActions => 'More actions';
+
+  @override
+  String incompleteUploadsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count drafts still uploading',
+      one: '1 draft still uploading',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get incompleteUploadsIntro =>
+      'Listed with the rest once their video has finished uploading.';
+
+  @override
+  String get goToUploads => 'Go to Uploads';
+
+  @override
+  String incompleteUploadingHere(int percent) {
+    return 'Uploading from this browser: $percent%';
+  }
+
+  @override
+  String get incompleteUploadingElsewhere =>
+      'Uploading from somewhere else, or stopped part way';
+
+  @override
+  String get incompleteWaitingForVideo => 'Waiting for its video';
+
+  @override
+  String get createDraft => 'Create draft';
+
+  @override
+  String get newDraftScreenIntro =>
+      'Everything here is saved when you create the draft. Only the title and VJ are needed now: the rest can be added in the draft later.';
+
+  @override
+  String get newDraftWhat => 'Movie or series';
+
+  @override
+  String get titleAndVj => 'Title and VJ';
+
+  @override
+  String get newDraftVjHelp =>
+      'Credited when the draft is made. Check it: a wrong credit, once published, harms a VJ.';
+
+  @override
+  String get detailsFromTmdb => 'Find on TMDB';
+
+  @override
+  String get detailsLater => 'Later';
+
+  @override
+  String get detailsFromTmdbHelp =>
+      'TMDB is searched with the title and year. A clear match fills in the details and poster; otherwise the draft lists what it found to choose from.';
+
+  @override
+  String get detailsTypedHelp =>
+      'For a title TMDB doesn\'t have. Upload a poster too.';
+
+  @override
+  String get detailsLaterHelp =>
+      'TMDB is searched once the video is ready, as for uploads.';
+
+  @override
+  String get changePoster => 'Choose another poster';
+
+  @override
+  String get newDraftPosterHelp =>
+      'Optional. JPEG, PNG or WebP, up to 2 MB. Without one, choose from TMDB\'s posters in the draft.';
+
+  @override
+  String get episodeVideo => 'Episode video';
+
+  @override
+  String get newDraftVideoHelp =>
+      'Choose the video to upload it from this browser, with the draft\'s own key. Without one, you get an upload key to give whoever has the file.';
+
+  @override
+  String get newDraftVideoQueued =>
+      'It uploads in the Uploads tab once the draft is created. You can pause or resume it there.';
+
+  @override
+  String get newDraftKeyOnly =>
+      'Uploading isn\'t set up in this browser. You get an upload key to give whoever has the file.';
+
+  @override
+  String get newDraftMade => 'Draft created';
+
+  @override
+  String get newDraftMadeUploading => 'Draft created. Its video is uploading.';
+
+  @override
+  String newDraftMadeWithProblems(String problems) {
+    return 'Draft created, but some parts weren\'t saved. Add them in the draft:\n$problems';
+  }
 }

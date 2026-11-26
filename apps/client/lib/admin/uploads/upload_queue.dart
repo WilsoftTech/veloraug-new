@@ -10,6 +10,8 @@
 ///   kept file handle, with one click in Chrome and Edge, or by dropping the
 ///   same file again. Either way it carries on from the server's offset.
 /// - Remove stops it, and deletes the part uploaded from the server.
+/// - Pause all, Resume all and Remove all do the same to every upload.
+/// - A file can also be added to a draft made already, by New draft.
 ///
 /// Upload keys are kept in memory only, until tusd has used one. An upload
 /// that lost its key before starting gets a new one from the API.
@@ -444,6 +446,39 @@ class UploadQueue extends ChangeNotifier {
     _pump();
   }
 
+  /// Queues a file for a draft made already, such as by New draft: no new
+  /// draft is made. [key] is the upload key the draft came with, if unused.
+  Future<void> addToItem(
+    PickedVideo picked,
+    UploadPlan plan, {
+    required String editionId,
+    required String itemId,
+    String? key,
+  }) async {
+    final task =
+        UploadTask._(
+            id: '${_now().microsecondsSinceEpoch}-${_ids++}',
+            plan: plan,
+            fileName: picked.file.name,
+            size: picked.file.size,
+            lastModified: picked.file.lastModified,
+            file: picked.file,
+            canReopen: picked.handle != null,
+          )
+          ..editionId = editionId
+          ..itemId = itemId
+          ..seriesEditionId = plan.seriesEditionId
+          .._key = key;
+    if (task.size > maxVideoBytes) {
+      task
+        ..phase = UploadPhase.failed
+        ..problem = UploadProblem.tooLarge;
+    }
+    _tasks.add(task);
+    await _persist(task, handle: picked.handle);
+    _pump();
+  }
+
   /// Gives files back to uploads listed after a reload, matched by name,
   /// size and date. Returns the files that matched none.
   Future<List<PickedVideo>> attach(List<PickedVideo> picked) async {
@@ -570,6 +605,62 @@ class UploadQueue extends ChangeNotifier {
       // Listed again after a reload at worst, and removable then.
     }
     _tasks.remove(task);
+    _changed();
+  }
+
+  /// Something Pause all would pause.
+  bool get canPauseAll => _tasks.any((t) => t.active);
+
+  /// Something Resume all would carry on.
+  bool get canResumeAll => _tasks.any(_resumable);
+
+  /// Something Remove all would remove.
+  bool get canRemoveAll => _tasks.any((t) => t.phase != UploadPhase.removing);
+
+  bool _resumable(UploadTask t) => switch (t.phase) {
+    UploadPhase.paused || UploadPhase.retrying || UploadPhase.offline => true,
+    UploadPhase.needsFile => t.canReopen,
+    UploadPhase.failed =>
+      t.problem != UploadProblem.tooLarge &&
+          t.problem != UploadProblem.removeFailed,
+    _ => false,
+  };
+
+  /// Pauses every upload that is running or waiting to.
+  void pauseAll() {
+    for (final task in List.of(_tasks)) {
+      if (task.active) pause(task.id);
+    }
+  }
+
+  /// Carries on every paused, failed or waiting upload. Two run at a time;
+  /// the rest wait their turn.
+  Future<void> resumeAll() async {
+    for (final task in List.of(_tasks)) {
+      if (_resumable(task)) await resume(task.id);
+    }
+  }
+
+  /// Removes every upload, deleting what each sent from the server, and
+  /// clears the finished ones from the list. Their drafts stay.
+  Future<void> removeAll() async {
+    clearFinished();
+    await Future.wait([
+      for (final task in List.of(_tasks))
+        if (task.phase != UploadPhase.removing) remove(task.id),
+    ]);
+  }
+
+  /// Removes the uploads for an edition, as it is deleted.
+  Future<void> removeForEdition(String editionId) async {
+    _tasks.removeWhere(
+      (t) => t.phase == UploadPhase.finished && t.editionId == editionId,
+    );
+    await Future.wait([
+      for (final task in List.of(_tasks))
+        if (task.editionId == editionId || task.seriesEditionId == editionId)
+          remove(task.id),
+    ]);
     _changed();
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:veloraug/admin/uploads/file_names.dart' show maxVideoBytes;
 import 'package:veloraug/admin/uploads/tus.dart';
 import 'package:veloraug/admin/uploads/upload_queue.dart';
 import 'package:veloraug/api/catalogue_api.dart' show EditionKind;
@@ -447,6 +448,111 @@ void main() {
       task.creditError!.detail,
       'This VJ already has an edition of that title',
     );
+  });
+
+  group('Step 13H', () {
+    testWidgets('a file for a draft made already uses its item and key', (
+      tester,
+    ) async {
+      server.keys.add('the-drafts-own-key');
+      final q = await queue();
+
+      await q.addToItem(
+        video('a.mp4'),
+        movie('A'),
+        editionId: 'e9',
+        itemId: 'i9',
+        key: 'the-drafts-own-key',
+      );
+      await settle(tester);
+
+      final task = only(q);
+      expect(task.phase, UploadPhase.finished);
+      expect(task.editionId, 'e9');
+      // No second draft, and no second key.
+      expect(admin.drafts, isEmpty);
+      expect(admin.newKeys, isEmpty);
+    });
+
+    testWidgets('without its key, a new one is made for the same item', (
+      tester,
+    ) async {
+      final q = await queue();
+
+      await q.addToItem(
+        video('a.mp4'),
+        movie('A'),
+        editionId: 'e9',
+        itemId: 'i9',
+      );
+      await settle(tester);
+
+      expect(only(q).phase, UploadPhase.finished);
+      expect(admin.drafts, isEmpty);
+      expect(admin.newKeys, ['i9']);
+    });
+
+    testWidgets('pause all, resume all and remove all', (tester) async {
+      server.hold = Completer();
+      final q = await queue();
+      await q.add([
+        (video('a.mp4'), movie('A')),
+        (video('b.mp4'), movie('B')),
+        (video('c.mp4'), movie('C')),
+      ]);
+      await settle(tester);
+      expect(q.tasks.map((t) => t.phase), [
+        UploadPhase.uploading,
+        UploadPhase.uploading,
+        UploadPhase.queued,
+      ]);
+      expect((q.canPauseAll, q.canResumeAll), (true, false));
+
+      q.pauseAll();
+      await settle(tester);
+      expect(q.tasks.map((t) => t.phase), everyElement(UploadPhase.paused));
+      expect((q.canPauseAll, q.canResumeAll), (false, true));
+
+      await q.resumeAll();
+      await settle(tester);
+      expect(
+        q.tasks.where((t) => t.phase == UploadPhase.uploading),
+        hasLength(2),
+      );
+      expect(q.tasks.last.phase, UploadPhase.queued);
+
+      await q.removeAll();
+      await settle(tester);
+      expect(q.tasks, isEmpty);
+      expect(q.canRemoveAll, isFalse);
+      // What reached tusd is deleted there.
+      expect(server.offsets, isEmpty);
+      expect(store.records, isEmpty);
+    });
+
+    testWidgets('resume all leaves a file too large to upload', (tester) async {
+      final q = await queue();
+      await q.add([(video('big.mp4', size: maxVideoBytes + 1), movie('Big'))]);
+      await settle(tester);
+
+      expect(only(q).problem, UploadProblem.tooLarge);
+      expect(q.canResumeAll, isFalse);
+    });
+
+    testWidgets('a deleted edition takes only its own uploads with it', (
+      tester,
+    ) async {
+      server.hold = Completer();
+      final q = await queue();
+      await q.add([(video('a.mp4'), movie('A')), (video('b.mp4'), movie('B'))]);
+      await settle(tester);
+      final doomed = q.tasks.first.editionId!;
+
+      await q.removeForEdition(doomed);
+      await settle(tester);
+
+      expect(q.tasks.map((t) => t.fileName), ['b.mp4']);
+    });
   });
 
   test('the upload is only ever sent back to the same server', () async {

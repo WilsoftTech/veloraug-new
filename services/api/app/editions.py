@@ -88,7 +88,8 @@ def create_draft(
     if series_edition is not None:
         edition_id = _parse_id(series_edition, "an edition ID")
         row = conn.execute(
-            "select kind from public.editions where id = %s", (edition_id,)
+            "select kind from public.editions where id = %s and deleted_at is null",
+            (edition_id,),
         ).fetchone()
         if row is None:
             raise EditionError(f"No edition {edition_id}")
@@ -179,6 +180,11 @@ def publish(conn: psycopg.Connection, key: str | uuid.UUID) -> uuid.UUID:
     """Publishes an edition, or refuses with what is missing. Approves its
     items that have a ready video, so a series shows its ready episodes."""
     edition_id = _parse_id(key, "an edition ID")
+    if conn.execute(
+        "select 1 from public.editions where id = %s and deleted_at is not null",
+        (edition_id,),
+    ).fetchone():
+        raise EditionError(f"Edition {edition_id} is being deleted")
     missing = missing_for_publish(conn, edition_id)
     if missing:
         raise PublishRefused(missing)

@@ -4713,6 +4713,312 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{percent}% watched'**
   String percentWatched(int percent);
+
+  /// No description provided for @pauseAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause all'**
+  String get pauseAll;
+
+  /// No description provided for @resumeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume all'**
+  String get resumeAll;
+
+  /// No description provided for @removeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove all'**
+  String get removeAll;
+
+  /// No description provided for @uploadsSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{running} running · {finished} of {total} finished'**
+  String uploadsSummary(int running, int finished, int total);
+
+  /// No description provided for @removeAllUploadsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Remove 1 upload?} other{Remove all {count} uploads?}}'**
+  String removeAllUploadsTitle(int count);
+
+  /// No description provided for @removeAllUploadsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Each stops, and the part it uploaded is deleted from the server. Finished uploads are cleared from the list. Their drafts stay in Drafts.'**
+  String get removeAllUploadsMessage;
+
+  /// No description provided for @typeToConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Type {word} to confirm'**
+  String typeToConfirm(String word);
+
+  /// No description provided for @stageQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting to convert'**
+  String get stageQueued;
+
+  /// No description provided for @stageChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the file'**
+  String get stageChecking;
+
+  /// No description provided for @stageConverting.
+  ///
+  /// In en, this message translates to:
+  /// **'Converting'**
+  String get stageConverting;
+
+  /// No description provided for @stageSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending to the server'**
+  String get stageSending;
+
+  /// No description provided for @stageQueuePosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Number {position} in line'**
+  String stageQueuePosition(int position);
+
+  /// No description provided for @stageCheckingHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Takes a few seconds'**
+  String get stageCheckingHelp;
+
+  /// No description provided for @stageProgressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{video}: {stage}'**
+  String stageProgressLabel(String video, String stage);
+
+  /// No description provided for @deletePermanently.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get deletePermanently;
+
+  /// No description provided for @deleteDraftTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{title}”?'**
+  String deleteDraftTitle(String title);
+
+  /// No description provided for @deleteDraftMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone. The draft, its details and every video uploaded for it are deleted from VeloraUG and the server. Uploads of it from this browser are stopped.'**
+  String get deleteDraftMessage;
+
+  /// No description provided for @draftDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'“{title}” deleted'**
+  String draftDeleted(String title);
+
+  /// No description provided for @deleteAllDrafts.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all drafts'**
+  String get deleteAllDrafts;
+
+  /// No description provided for @deleteAllDraftsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Delete 1 draft?} other{Delete all {count} drafts?}}'**
+  String deleteAllDraftsTitle(int count);
+
+  /// No description provided for @deleteAllDraftsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This can\'t be undone. Every draft, with its details and videos, is deleted from VeloraUG and the server, including drafts still uploading. Published and hidden titles stay.'**
+  String get deleteAllDraftsMessage;
+
+  /// No description provided for @draftsDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No drafts to delete} =1{1 draft deleted} other{{count} drafts deleted}}'**
+  String draftsDeleted(int count);
+
+  /// No description provided for @noDraftsReadyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing has finished uploading yet. Drafts still uploading are below.'**
+  String get noDraftsReadyMessage;
+
+  /// No description provided for @andMoreVideos.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{and 1 more video} other{and {count} more videos}}'**
+  String andMoreVideos(int count);
+
+  /// No description provided for @episodesStillUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 video still uploading} other{{count} videos still uploading}}'**
+  String episodesStillUploading(int count);
+
+  /// No description provided for @moreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get moreActions;
+
+  /// No description provided for @incompleteUploadsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 draft still uploading} other{{count} drafts still uploading}}'**
+  String incompleteUploadsTitle(int count);
+
+  /// No description provided for @incompleteUploadsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Listed with the rest once their video has finished uploading.'**
+  String get incompleteUploadsIntro;
+
+  /// No description provided for @goToUploads.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Uploads'**
+  String get goToUploads;
+
+  /// No description provided for @incompleteUploadingHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading from this browser: {percent}%'**
+  String incompleteUploadingHere(int percent);
+
+  /// No description provided for @incompleteUploadingElsewhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading from somewhere else, or stopped part way'**
+  String get incompleteUploadingElsewhere;
+
+  /// No description provided for @incompleteWaitingForVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for its video'**
+  String get incompleteWaitingForVideo;
+
+  /// No description provided for @createDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Create draft'**
+  String get createDraft;
+
+  /// No description provided for @newDraftScreenIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything here is saved when you create the draft. Only the title and VJ are needed now: the rest can be added in the draft later.'**
+  String get newDraftScreenIntro;
+
+  /// No description provided for @newDraftWhat.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie or series'**
+  String get newDraftWhat;
+
+  /// No description provided for @titleAndVj.
+  ///
+  /// In en, this message translates to:
+  /// **'Title and VJ'**
+  String get titleAndVj;
+
+  /// No description provided for @newDraftVjHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Credited when the draft is made. Check it: a wrong credit, once published, harms a VJ.'**
+  String get newDraftVjHelp;
+
+  /// No description provided for @detailsFromTmdb.
+  ///
+  /// In en, this message translates to:
+  /// **'Find on TMDB'**
+  String get detailsFromTmdb;
+
+  /// No description provided for @detailsLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get detailsLater;
+
+  /// No description provided for @detailsFromTmdbHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB is searched with the title and year. A clear match fills in the details and poster; otherwise the draft lists what it found to choose from.'**
+  String get detailsFromTmdbHelp;
+
+  /// No description provided for @detailsTypedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'For a title TMDB doesn\'t have. Upload a poster too.'**
+  String get detailsTypedHelp;
+
+  /// No description provided for @detailsLaterHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB is searched once the video is ready, as for uploads.'**
+  String get detailsLaterHelp;
+
+  /// No description provided for @changePoster.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose another poster'**
+  String get changePoster;
+
+  /// No description provided for @newDraftPosterHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. JPEG, PNG or WebP, up to 2 MB. Without one, choose from TMDB\'s posters in the draft.'**
+  String get newDraftPosterHelp;
+
+  /// No description provided for @episodeVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode video'**
+  String get episodeVideo;
+
+  /// No description provided for @newDraftVideoHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the video to upload it from this browser, with the draft\'s own key. Without one, you get an upload key to give whoever has the file.'**
+  String get newDraftVideoHelp;
+
+  /// No description provided for @newDraftVideoQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'It uploads in the Uploads tab once the draft is created. You can pause or resume it there.'**
+  String get newDraftVideoQueued;
+
+  /// No description provided for @newDraftKeyOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading isn\'t set up in this browser. You get an upload key to give whoever has the file.'**
+  String get newDraftKeyOnly;
+
+  /// No description provided for @newDraftMade.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft created'**
+  String get newDraftMade;
+
+  /// No description provided for @newDraftMadeUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft created. Its video is uploading.'**
+  String get newDraftMadeUploading;
+
+  /// No description provided for @newDraftMadeWithProblems.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft created, but some parts weren\'t saved. Add them in the draft:\n{problems}'**
+  String newDraftMadeWithProblems(String problems);
 }
 
 class _AppLocalizationsDelegate

@@ -188,6 +188,68 @@ void main() {
     expect(server.offsets, isEmpty);
   });
 
+  testWidgets('every upload can be paused, resumed and removed at once', (
+    tester,
+  ) async {
+    server.hold = Completer();
+    await openUploads(tester, [
+      video('VJ Junior - Commando (1985).mp4'),
+      video('VJ Junior - Rambo (1982).mp4'),
+    ]);
+    await choose(tester);
+    await tester.tap(find.text('Start 2 uploads'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+    expect(find.text('Uploading'), findsNWidgets(2));
+    expect(find.text('2 running · 0 of 2 finished · 0 B of 50 B'), findsOne);
+
+    await tester.tap(find.text('Pause all'));
+    await tester.pumpAndSettle();
+    expect(find.text('Paused'), findsNWidgets(2));
+    expect(find.text('0 running · 0 of 2 finished · 0 B of 50 B'), findsOne);
+
+    await tester.tap(find.text('Resume all'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+    expect(find.text('Uploading'), findsNWidgets(2));
+
+    await tester.tap(find.text('Remove all'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove all 2 uploads?'), findsOneWidget);
+    expect(
+      find.textContaining('the part it uploaded is deleted from the server'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Remove all').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Uploading'), findsNothing);
+    expect(find.text('Pause all'), findsNothing);
+    expect(server.offsets, isEmpty);
+  });
+
+  testWidgets('Remove all can be cancelled', (tester) async {
+    server.hold = Completer();
+    await openUploads(tester, [video('VJ Junior - Commando (1985).mp4')]);
+    await choose(tester);
+    await tester.tap(find.text('Start the upload'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+
+    await tester.tap(find.text('Remove all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Uploading'), findsOneWidget);
+    expect(server.offsets, hasLength(1));
+    await tester.tap(find.text('Pause all'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('fits a narrow phone with large text', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);

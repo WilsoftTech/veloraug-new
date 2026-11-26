@@ -29,6 +29,7 @@ from app.media_worker import (
     length_matches,
     parse_probe,
     playlist_seconds,
+    progress_percent,
 )
 from scripts.create_app_role import scram_verifier
 from tests.db_support import needs_database, new_item, url_for
@@ -302,6 +303,8 @@ class FakeTools:
         self.joined_seconds = joined_seconds
         self.ffmpeg_runs = 0
         self.joined = []
+        # What FFmpeg writes to stdout with -progress pipe:1.
+        self.ffmpeg_stdout = ""
 
     def __call__(self, command, **kwargs):
         if command[0] == "ffprobe" and "format=duration" in command:
@@ -330,7 +333,7 @@ class FakeTools:
             (out / name).mkdir()
             (out / name / "index.m3u8").write_text("#EXTM3U\n")
         (out / "master.m3u8").write_text("#EXTM3U\n")
-        return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.CompletedProcess(command, 0, self.ffmpeg_stdout, "")
 
 
 @pytest.fixture(scope="module")
@@ -603,3 +606,135 @@ def test_a_complete_upload_whose_hook_was_missed_is_received(
         "uploading",
         "uploading",
     ]
+
+
+# --- Progress, Step 13H ------------------------------------------------------
+
+
+def test_ffmpeg_reports_its_progress_on_stdout():
+    command = ffmpeg_command(Path("x"), list(LADDER[:1]), has_audio=True)
+    assert command[command.index("-progress") + 1] == "pipe:1"
+    assert "-nostats" in command
+    # Before the input, where FFmpeg reads global options.
+    assert command.index("-progress") < command.index("-i")
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("out_time_us=3600000000", 50),
+        # Old FFmpeg builds call microseconds _ms.
+        ("out_time_ms=720000000", 10),
+        ("out_time_us=0", 0),
+        # Never 100 until the files are checked, and never past it.
+        ("out_time_us=7200000000", 99),
+        ("out_time_us=9999000000", 99),
+        ("frame=1200", None),
+        ("out_time=00:01:00.000000", None),
+        ("progress=continue", None),
+    ],
+)
+def test_a_progress_line_becomes_a_percentage(line, expected):
+    assert progress_percent(line, 7200) == expected
+
+
+def test_without_a_length_there_is_no_percentage():
+    assert progress_percent("out_time_us=1000000", 0) is None
+
+
+def progress_of(owner_url, original_id):
+    with psycopg.connect(owner_url) as conn:
+        return conn.execute(
+            "select progress from public.media_originals where id = %s",
+            (original_id,),
+        ).fetchone()[0]
+
+
+@needs_database
+def test_conversion_progress_is_reported_as_ffmpeg_goes(
+    owner_url, media_database, folders, quiet_queue
+):
+    uploads, output = folders
+    original_id = new_original(owner_url, uploads)
+    tools = FakeTools(probe_json(1280, 720, duration="1000"))
+    tools.ffmpeg_stdout = "\n".join(
+        f"out_time_us={seconds * 1_000_000}\nprogress=continue"
+        for seconds in (100, 250, 600)
+    )
+    worker = Worker(media_database, uploads, output, run=tools)
+    heard = []
+    report = worker.report
+    worker.report = lambda original, percent: (
+        heard.append((original, percent)),
+        report(original, percent),
+    )
+
+    worker.run_once()
+
+    assert heard == [(original_id, 10), (original_id, 25), (original_id, 60)]
+    # Publishing starts again from 0.
+    assert row(owner_url, original_id)[0] == "publishing"
+    assert progress_of(owner_url, original_id) == 0
+
+
+@needs_database
+def test_progress_is_written_now_and_then_and_only_while_working(
+    owner_url, media_database, folders, quiet_queue
+):
+    uploads, output = folders
+    original_id = new_original(owner_url, uploads, state="converting")
+    now = [1000.0]
+    worker = Worker(media_database, uploads, output, clock=lambda: now[0])
+
+    worker.report(original_id, 3)
+    assert progress_of(owner_url, original_id) is None
+    worker.report(original_id, 7)
+    assert progress_of(owner_url, original_id) == 7
+    worker.report(original_id, 9)
+    assert progress_of(owner_url, original_id) == 7
+    now[0] += 6
+    worker.report(original_id, 9)
+    assert progress_of(owner_url, original_id) == 9
+    # Never backwards.
+    worker.report(original_id, 4)
+    assert progress_of(owner_url, original_id) == 9
+
+    with psycopg.connect(owner_url) as conn:
+        conn.execute(
+            "update public.media_originals set state = 'failed' where id = %s",
+            (original_id,),
+        )
+    worker.report(original_id, 50)
+    assert progress_of(owner_url, original_id) == 9
+
+
+@needs_database
+def test_a_deleted_drafts_upload_is_never_converted(
+    owner_url, media_database, folders, quiet_queue
+):
+    uploads, output = folders
+    original_id = new_original(owner_url, uploads)
+    with psycopg.connect(owner_url) as conn:
+        conn.execute(
+            """
+            update public.editions set deleted_at = now() where id = (
+              select i.edition_id from public.items i
+              join public.media_originals o on o.item_id = i.id where o.id = %s)
+            """,
+            (original_id,),
+        )
+    tools = FakeTools()
+
+    assert Worker(media_database, uploads, output, run=tools).run_once() is False
+
+    assert tools.ffmpeg_runs == 0
+    assert row(owner_url, original_id)[0] == "removing"
+
+    # Once its file is removed, the worker deletes its rows.
+    with psycopg.connect(owner_url) as conn:
+        conn.execute(
+            "update public.media_originals set state = 'removed' where id = %s",
+            (original_id,),
+        )
+    assert Worker(media_database, uploads, output).purge_deleted() == 1
+    assert row(owner_url, original_id) is None

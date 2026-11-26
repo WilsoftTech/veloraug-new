@@ -20,7 +20,7 @@ from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, Field, StringConstraints
 
 from app import admin_catalogue as work
-from app import editions
+from app import audit, editions
 from app.admin_catalogue import AdminError, NotFound
 from app.auth import VerifiedUser, current_user
 from app.db import Database
@@ -173,6 +173,12 @@ class Item(BaseModel):
     filename: str | None
     credit_hints: str | None
     keys: list[dict]
+    # From the media worker, while it converts or publishes: 0 to 100.
+    progress: int | None = None
+    eta_seconds: int | None = None
+    # Waiting to be converted: its place in the queue, from 1.
+    queue_position: int | None = None
+    size_bytes: int | None = None
 
 
 class Edition(BaseModel):
@@ -198,6 +204,8 @@ class Edition(BaseModel):
     missing: list[str]
     matches: list[Match]
     categories: list[str] = []
+    # No video has finished uploading yet.
+    incomplete: bool = False
 
 
 class EditionList(BaseModel):
@@ -413,11 +421,16 @@ def _edition(state: work.EditionState, images: ImageUrls) -> Edition:
                 filename=item.filename,
                 credit_hints=item.credit_hints,
                 keys=item.keys,
+                progress=item.progress,
+                eta_seconds=item.eta_seconds,
+                queue_position=item.queue_position,
+                size_bytes=item.size_bytes,
             )
             for item in state.items
         ],
         missing=state.missing,
         categories=state.categories,
+        incomplete=state.incomplete,
         matches=[
             Match(
                 tmdb_id=m.tmdb_id,
@@ -547,6 +560,8 @@ def list_drafts(
     what it still needs. Drafts whose video has just become ready are
     looked up on TMDB after answering."""
     with editing(db, user) as conn:
+        # Deleted drafts whose files the worker has removed by now.
+        work.purge_deleted(conn)
         found = work.list_work(conn)
         due = work.due_for_lookup(conn, limit=1)
     client = request.app.state.tmdb
@@ -825,6 +840,37 @@ def hide(
         editions.hide(conn, edition_id)
     logger.info("Admin %s hid edition %s", user.user_id, edition_id)
     return _current(db, user, edition_id, images)
+
+
+class DeleteAll(BaseModel):
+    # The word the admin typed, so a stray request can't delete every draft.
+    confirm: Literal["DELETE"]
+
+
+class Deleted(BaseModel):
+    deleted: int
+
+
+@router.delete("/editions/{edition_id}")
+def delete_edition(edition_id: UUID, user: AdminUser, db: EditorDatabase) -> Deleted:
+    """Deletes a draft or hidden edition for good: its videos, keys and
+    details. It goes from every list at once. Its files are deleted by the
+    media worker, and its rows after them."""
+    with editing(db, user) as conn:
+        work.delete_edition(conn, edition_id)
+    audit.event("edition_deleted", admin_id=user.user_id, edition_id=edition_id)
+    logger.info("Admin %s deleted edition %s", user.user_id, edition_id)
+    return Deleted(deleted=1)
+
+
+@router.post("/drafts/delete-all")
+def delete_all_drafts(body: DeleteAll, user: AdminUser, db: EditorDatabase) -> Deleted:
+    """Deletes every draft, as above. Published and hidden editions stay."""
+    with editing(db, user) as conn:
+        ids = work.delete_all_drafts(conn)
+    audit.event("drafts_deleted", admin_id=user.user_id, count=len(ids))
+    logger.info("Admin %s deleted %s drafts", user.user_id, len(ids))
+    return Deleted(deleted=len(ids))
 
 
 # --- Items and keys ----------------------------------------------------------
