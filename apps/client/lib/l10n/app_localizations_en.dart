@@ -3097,4 +3097,336 @@ class AppLocalizationsEn extends AppLocalizations {
   String newDraftMadeWithProblems(String problems) {
     return 'Draft created, but some parts weren\'t saved. Add them in the draft:\n$problems';
   }
+
+  @override
+  String get adminLibrary => 'Library';
+
+  @override
+  String get adminLibraryIntro =>
+      'Every title viewers can see, or once could. Open one to change its details, or hide, withdraw or delete it.';
+
+  @override
+  String get libraryAll => 'All';
+
+  @override
+  String get librarySearch => 'Search titles and VJs';
+
+  @override
+  String libraryCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles',
+      one: '1 title',
+      zero: 'No titles',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get libraryEmptyTitle => 'Nothing here yet';
+
+  @override
+  String get libraryEmptyMessage =>
+      'Titles appear here once they are published.';
+
+  @override
+  String get libraryNoMatches => 'No titles match. Try other words or filters.';
+
+  @override
+  String loadMore(int count) {
+    return 'Show more ($count left)';
+  }
+
+  @override
+  String get seriesPlural => 'Series';
+
+  @override
+  String get sortBy => 'Sort by';
+
+  @override
+  String get sortNewest => 'Newest';
+
+  @override
+  String get sortOldest => 'Oldest';
+
+  @override
+  String get sortTitle => 'Title, A to Z';
+
+  @override
+  String get sortViewers => 'Most viewers';
+
+  @override
+  String get sortUpdated => 'Recently changed';
+
+  @override
+  String get statusWithdrawn => 'Withdrawn';
+
+  @override
+  String publishedOn(String date) {
+    return 'Published $date';
+  }
+
+  @override
+  String viewersLately(int count, int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count viewers in $days days',
+      one: '1 viewer in $days days',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String episodeCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count episodes',
+      one: '1 episode',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String hiddenEpisodeCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hidden',
+      one: '1 hidden',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String selectTitle(String title) {
+    return 'Select $title';
+  }
+
+  @override
+  String get selectAllShown => 'Select every title shown';
+
+  @override
+  String selectedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count selected',
+      one: '1 selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get clearSelection => 'Clear selection';
+
+  @override
+  String get editTitle => 'Edit';
+
+  @override
+  String get changeVj => 'Change VJ';
+
+  @override
+  String get showAgain => 'Show again';
+
+  @override
+  String shownAgain(String title) {
+    return '“$title” is showing again';
+  }
+
+  @override
+  String get withdraw => 'Withdraw';
+
+  @override
+  String withdrawTitle(String title) {
+    return 'Withdraw “$title”?';
+  }
+
+  @override
+  String withdrawManyTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Withdraw $count titles?',
+      one: 'Withdraw 1 title?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get withdrawMessage =>
+      'Viewers stop seeing it at once: it leaves every list, search and Continue watching. Nothing is deleted. It goes back to Drafts, and Show again brings it back. Copies viewers already downloaded are theirs, and can\'t be taken back.';
+
+  @override
+  String withdrawnNow(String title) {
+    return '“$title” withdrawn to Drafts';
+  }
+
+  @override
+  String hideManyTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Hide $count titles?',
+      one: 'Hide 1 title?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String creditManyTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Credit $count titles to…',
+      one: 'Credit 1 title to…',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get creditManyMessage =>
+      'A wrong credit, published, harms a VJ. Check each title first.';
+
+  @override
+  String bulkChanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles changed.',
+      one: '1 title changed.',
+      zero: 'Nothing changed.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String bulkSkipped(String list) {
+    return 'Skipped:\n$list';
+  }
+
+  @override
+  String get deletePublishedMessage =>
+      'This can\'t be undone. It disappears for viewers at once, and its details and every video are deleted from VeloraUG and the server. Copies viewers already downloaded are theirs, and can\'t be taken back. To take it down for now instead, hide or withdraw it.';
+
+  @override
+  String get hiddenExplained =>
+      'Hidden: viewers can\'t see it. Show again puts it back as it was.';
+
+  @override
+  String get withdrawnExplained =>
+      'Withdrawn: back to a draft, once published. Show again publishes it again, in its old place among the newest.';
+
+  @override
+  String get viewerDetails => 'What viewers see';
+
+  @override
+  String get viewerDetailsIntro =>
+      'This title\'s own details, shown over TMDB\'s or the typed-in ones. Leave one empty to show those instead. Other VJs\' editions of the same film keep theirs.';
+
+  @override
+  String get descriptionForViewers => 'Description';
+
+  @override
+  String get descriptionHelp =>
+      'Empty: the description shown greyed out is used.';
+
+  @override
+  String get descriptionHelpNoSource => 'Up to 5,000 characters.';
+
+  @override
+  String get trailerAddress => 'Trailer, a YouTube address';
+
+  @override
+  String get trailerHelp => 'Empty: TMDB\'s trailer is used.';
+
+  @override
+  String get trailerHelpNoSource => 'Empty: no trailer is shown.';
+
+  @override
+  String get backdrop => 'Backdrop';
+
+  @override
+  String get backdropOwn => 'This title\'s own backdrop.';
+
+  @override
+  String get backdropFromSource =>
+      'TMDB\'s backdrop. Upload one to use your own.';
+
+  @override
+  String get backdropNone => 'No backdrop. Upload one: 16 by 9, up to 2 MB.';
+
+  @override
+  String get uploadBackdrop => 'Upload a backdrop';
+
+  @override
+  String get useSourceBackdrop => 'Use TMDB\'s instead';
+
+  @override
+  String get backdropSaved => 'Backdrop saved';
+
+  @override
+  String get backdropRemoved => 'Back to TMDB\'s backdrop';
+
+  @override
+  String get saveDetails => 'Save details';
+
+  @override
+  String get detailsSaved => 'Details saved';
+
+  @override
+  String episodeActions(String episode) {
+    return 'Actions for $episode';
+  }
+
+  @override
+  String get editEpisode => 'Edit episode';
+
+  @override
+  String get editEpisodeHelp =>
+      'A number another episode has swaps the two, to put them in order.';
+
+  @override
+  String get episodeSaved => 'Episode saved';
+
+  @override
+  String get hideEpisode => 'Hide episode';
+
+  @override
+  String get showEpisode => 'Show episode';
+
+  @override
+  String get episodeHidden => 'Episode hidden';
+
+  @override
+  String get episodeShown => 'Episode showing again';
+
+  @override
+  String get withdrawEpisode => 'Withdraw episode';
+
+  @override
+  String withdrawEpisodeTitle(String episode) {
+    return 'Withdraw $episode?';
+  }
+
+  @override
+  String get withdrawEpisodeMessage =>
+      'Viewers stop seeing it, and it waits for approval in Drafts again. Nothing is deleted.';
+
+  @override
+  String get episodeWithdrawn => 'Episode withdrawn to Drafts';
+
+  @override
+  String deleteEpisodeTitle(String episode) {
+    return 'Delete $episode?';
+  }
+
+  @override
+  String get deleteEpisodeMessage =>
+      'This can\'t be undone. The episode and its video are deleted from VeloraUG and the server. The rest of the series stays.';
+
+  @override
+  String get episodeDeleted => 'Episode deleted';
 }

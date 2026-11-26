@@ -203,7 +203,7 @@ def publish(conn: psycopg.Connection, key: str | uuid.UUID) -> uuid.UUID:
     conn.execute(
         """
         update public.items i set approved_at = now()
-        where i.edition_id = %s and i.approved_at is null
+        where i.edition_id = %s and i.approved_at is null and i.deleted_at is null
           and exists (select from public.media_originals o
                       where o.item_id = i.id and o.state = 'ready')
         """,

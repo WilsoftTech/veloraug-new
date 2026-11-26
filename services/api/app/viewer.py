@@ -172,8 +172,10 @@ def get_edition(conn: psycopg.Connection, edition_id: UUID) -> EditionDetail | N
     if its TMDB copy can't be shown."""
     row = conn.execute(
         f"""
-        select {_SUMMARY}, s.title, s.overview, s.runtime_minutes, s.genres,
-               s.backdrop_path, s.trailer_key, s.tmdb_id, s.details_from,
+        select {_SUMMARY}, s.title, coalesce(e.overview, s.overview),
+               s.runtime_minutes, s.genres,
+               coalesce(e.backdrop_path, s.backdrop_path),
+               coalesce(e.trailer_key, s.trailer_key), s.tmdb_id, s.details_from,
                s.details_from = 'tmdb'
                  and coalesce(s.fetched_at < now() - %(refresh_after)s, true),
                v.id, v.photo_path, {_SERVABLE}
@@ -258,7 +260,7 @@ def list_featured(
     and ready originals, so the exists() means "playable"."""
     rows = conn.execute(
         f"""
-        select {_SUMMARY}, s.genres, s.backdrop_path,
+        select {_SUMMARY}, s.genres, coalesce(e.backdrop_path, s.backdrop_path),
                (select i.id from public.items i
                 where i.edition_id = e.id and e.kind = 'movie' limit 1)
         {_FROM}

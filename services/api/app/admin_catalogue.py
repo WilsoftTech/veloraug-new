@@ -303,6 +303,8 @@ class ItemState:
     # Waiting to be converted: its place in the worker's queue, from 1.
     queue_position: int | None = None
     size_bytes: int | None = None
+    # Hidden from viewers on its own, apart from its series.
+    hidden: bool = False
     keys: list[dict] = field(default_factory=list)
 
 
@@ -327,6 +329,13 @@ class EditionState:
     vj_id: uuid.UUID | None
     vj_name: str | None
     created_at: datetime
+    # The edition's own description, backdrop and trailer, over the source's.
+    overview: str | None = None
+    backdrop_path: str | None = None
+    trailer_key: str | None = None
+    source_backdrop: str | None = None
+    source_trailer: str | None = None
+    published_at: datetime | None = None
     items: list[ItemState] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
     matches: list[SearchResult] = field(default_factory=list)
@@ -344,7 +353,9 @@ _EDITION = """
     select e.id, e.kind, e.display_title, e.submitted_year, e.language,
            e.status, e.test, e.tmdb_lookup, e.source_id, s.tmdb_id, s.title,
            extract(year from s.release_date)::int, s.overview, s.poster_path,
-           s.details_from, e.poster_path, e.vj_id, v.name, e.created_at
+           s.details_from, e.poster_path, e.vj_id, v.name, e.created_at,
+           e.overview, e.backdrop_path, e.trailer_key, s.backdrop_path,
+           s.trailer_key, e.published_at
     from public.editions e
     left join public.sources s on s.id = e.source_id
     left join public.vjs v on v.id = e.vj_id
@@ -369,7 +380,8 @@ def _items(conn: psycopg.Connection, edition_id: uuid.UUID) -> list[ItemState]:
                  select count(*) from public.media_originals q
                  where q.state = 'received' and q.created_at <= o.created_at
                )::int end,
-               o.size_bytes
+               o.size_bytes,
+               i.hidden_at is not null
         from public.items i
         left join lateral (
           select state, reason, filename, credit_hints, progress, progress_at,
@@ -377,7 +389,7 @@ def _items(conn: psycopg.Connection, edition_id: uuid.UUID) -> list[ItemState]:
           from public.media_originals
           where item_id = i.id order by created_at desc limit 1
         ) o on true
-        where i.edition_id = %s
+        where i.edition_id = %s and i.deleted_at is null
         order by i.season nulls first, i.episode nulls first
         """,
         (edition_id,),
@@ -435,7 +447,8 @@ def list_work(conn: psycopg.Connection) -> list[EditionState]:
         where e.deleted_at is null
           and (e.status <> 'published'
                or exists (select from public.items i where i.edition_id = e.id
-                          and i.approved_at is null))
+                          and i.approved_at is null and i.hidden_at is null
+                          and i.deleted_at is null))
         order by e.created_at desc
         limit 200
         """
@@ -465,7 +478,8 @@ def list_series(conn: psycopg.Connection) -> list[SeriesRef]:
                coalesce(
                  (select array_agg(array[i.season, i.episode]
                                    order by i.season, i.episode)
-                  from public.items i where i.edition_id = e.id),
+                  from public.items i
+                  where i.edition_id = e.id and i.deleted_at is null),
                  '{}')
         from public.editions e
         left join public.vjs v on v.id = e.vj_id
@@ -519,6 +533,391 @@ def delete_all_drafts(conn: psycopg.Connection) -> list[uuid.UUID]:
     for edition_id in ids:
         conn.execute("select public.delete_edition(%s)", (edition_id,))
     return ids
+
+
+# --- The Library: published, hidden and withdrawn titles ---------------------
+
+LIBRARY_STATES = ("published", "hidden", "withdrawn")
+LIBRARY_SORTS = ("newest", "oldest", "title", "viewers", "updated")
+LIBRARY_PAGE = 50
+# Viewers are counted over this many days, with public.edition_viewers.
+VIEWER_DAYS = 30
+
+# A title's place in the Library. Withdrawn: back to a draft, once published.
+_LIBRARY_STATE = """
+    case when e.status = 'draft' then 'withdrawn' else e.status end
+"""
+
+
+@dataclass(frozen=True)
+class LibraryTitle:
+    id: uuid.UUID
+    kind: str
+    display_title: str
+    poster_path: str | None
+    vj_id: uuid.UUID | None
+    vj_name: str | None
+    state: str
+    published_at: datetime | None
+    updated_at: datetime
+    episodes: int
+    hidden_episodes: int
+    waiting: int
+    viewers: int
+    categories: list[str]
+    year: int | None
+
+
+def list_library(
+    conn: psycopg.Connection,
+    *,
+    query: str | None = None,
+    vj_id: uuid.UUID | None = None,
+    kind: str | None = None,
+    category: str | None = None,
+    state: str | None = None,
+    sort: str = "newest",
+    limit: int = LIBRARY_PAGE,
+    offset: int = 0,
+) -> tuple[list[LibraryTitle], int]:
+    """Titles viewers can see or once could, a page at a time, with how many
+    match in all. Test films and deleted titles are left out."""
+    if kind is not None and kind not in ("movie", "series"):
+        raise AdminError("The kind is movie or series")
+    if state is not None and state not in LIBRARY_STATES:
+        raise AdminError("The state is published, hidden or withdrawn")
+    if sort not in LIBRARY_SORTS:
+        raise AdminError("Sort by newest, oldest, title, viewers or updated")
+    where = [
+        "not e.test",
+        "e.deleted_at is null",
+        "(e.status in ('published', 'hidden') or e.published_at is not null)",
+    ]
+    params: dict = {"days": VIEWER_DAYS, "limit": limit, "offset": offset}
+    if query:
+        where.append(
+            "(strpos(lower(e.display_title), lower(%(q)s)) > 0"
+            " or strpos(lower(coalesce(s.title, '')), lower(%(q)s)) > 0"
+            " or strpos(lower(coalesce(v.name, '')), lower(%(q)s)) > 0)"
+        )
+        params["q"] = query.strip()[:120]
+    if vj_id is not None:
+        where.append("e.vj_id = %(vj)s")
+        params["vj"] = vj_id
+    if kind is not None:
+        where.append("e.kind = %(kind)s")
+        params["kind"] = kind
+    if category:
+        where.append(
+            "exists (select from public.edition_categories ec"
+            " join public.categories c on c.id = ec.category_id"
+            " where ec.edition_id = e.id and lower(c.name) = lower(%(category)s))"
+        )
+        params["category"] = category
+    if state is not None:
+        where.append(f"{_LIBRARY_STATE} = %(state)s")
+        params["state"] = state
+    order = {
+        "newest": "e.published_at desc nulls last, e.id",
+        "oldest": "e.published_at asc nulls last, e.id",
+        "title": "lower(e.display_title), e.id",
+        "viewers": "coalesce(w.viewers, 0) desc, e.published_at desc, e.id",
+        "updated": "e.updated_at desc, e.id",
+    }[sort]
+    rows = conn.execute(
+        f"""
+        select e.id, e.kind, e.display_title, e.poster_path, e.vj_id, v.name,
+               {_LIBRARY_STATE}, e.published_at, e.updated_at,
+               (select count(*) from public.items i
+                where i.edition_id = e.id and i.deleted_at is null)::int,
+               (select count(*) from public.items i
+                where i.edition_id = e.id and i.deleted_at is null
+                  and i.hidden_at is not null)::int,
+               (select count(*) from public.items i
+                where i.edition_id = e.id and i.deleted_at is null
+                  and i.hidden_at is null and i.approved_at is null)::int,
+               coalesce(w.viewers, 0)::int,
+               coalesce((select array_agg(c.name order by ec.added_at)
+                         from public.edition_categories ec
+                         join public.categories c on c.id = ec.category_id
+                         where ec.edition_id = e.id), '{{}}'),
+               coalesce(e.submitted_year,
+                        extract(year from s.release_date)::int),
+               count(*) over ()
+        from public.editions e
+        left join public.sources s on s.id = e.source_id
+        left join public.vjs v on v.id = e.vj_id
+        left join public.edition_viewers(%(days)s) w on w.edition_id = e.id
+        where {" and ".join(where)}
+        order by {order}
+        limit %(limit)s offset %(offset)s
+        """,
+        params,
+    ).fetchall()
+    total = rows[0][-1] if rows else 0
+    if not rows and offset:
+        (total,) = conn.execute(
+            f"""
+            select count(*) from public.editions e
+            left join public.sources s on s.id = e.source_id
+            left join public.vjs v on v.id = e.vj_id
+            left join public.edition_viewers(%(days)s) w on w.edition_id = e.id
+            where {" and ".join(where)}
+            """,
+            params,
+        ).fetchone()
+    return [LibraryTitle(*row[:-1]) for row in rows], total
+
+
+_YOUTUBE = re.compile(
+    r"^(?:https?://)?(?:www\.|m\.)?(?:youtube\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/)"
+    r"|youtu\.be/)([A-Za-z0-9_-]{6,20})(?:[?&#].*)?$"
+)
+_TRAILER_KEY = re.compile(r"^[A-Za-z0-9_-]{6,20}$")
+
+
+def trailer_key(text: str) -> str | None:
+    """A YouTube video's key, from its address or the key itself. None for
+    empty text, which clears the edition's own trailer."""
+    text = text.strip()
+    if not text:
+        return None
+    match = _YOUTUBE.match(text)
+    if match:
+        return match.group(1)
+    if _TRAILER_KEY.match(text):
+        return text
+    raise AdminError("Give a YouTube address, such as https://youtu.be/abc123XYZ")
+
+
+def update_details(
+    conn: psycopg.Connection, edition_id: uuid.UUID, changes: dict
+) -> None:
+    """Changes what is given of the edition's own details: title, year,
+    language, description, trailer and backdrop. An empty description,
+    trailer or backdrop clears the edition's own, so the source's shows."""
+    fields: dict = {}
+    if "display_title" in changes:
+        fields["display_title"] = editions.clean_title(changes["display_title"] or "")
+    if "submitted_year" in changes:
+        year = changes["submitted_year"]
+        if year is not None and not 1900 <= year <= 2100:
+            raise AdminError("The year is from 1900 to 2100")
+        fields["submitted_year"] = year
+    if "language" in changes:
+        code = changes["language"]
+        if not conn.execute(
+            "select 1 from public.languages where code = %s", (code,)
+        ).fetchone():
+            raise AdminError(f"No language {code!r}. Add it first")
+        fields["language"] = code
+    if "overview" in changes:
+        text = (changes["overview"] or "").strip()
+        if len(text) > 5000:
+            raise AdminError("A description is at most 5,000 characters")
+        fields["overview"] = text or None
+    if "trailer" in changes:
+        fields["trailer_key"] = trailer_key(changes["trailer"] or "")
+    if "backdrop_path" in changes:
+        path = changes["backdrop_path"] or ""
+        if path and not re.fullmatch(
+            rf"posters/{edition_id}/[A-Za-z0-9_-]{{16,43}}\.(jpg|png|webp)", path
+        ):
+            raise AdminError("That isn't a backdrop uploaded for this title")
+        fields["backdrop_path"] = path or None
+    if not fields:
+        return
+    columns = ", ".join(f"{column} = %({column})s" for column in fields)
+    changed = conn.execute(
+        f"update public.editions set {columns}, updated_at = now() "
+        "where id = %(id)s and deleted_at is null",
+        {**fields, "id": edition_id},
+    ).rowcount
+    if not changed:
+        raise NotFound("No such edition")
+
+
+def withdraw(conn: psycopg.Connection, edition_id: uuid.UUID) -> None:
+    """Takes a published or hidden title back to a draft. Nothing is deleted:
+    it waits in Drafts, and Publish brings it back."""
+    row = conn.execute(
+        "select status from public.editions "
+        "where id = %s and deleted_at is null for update",
+        (edition_id,),
+    ).fetchone()
+    if row is None:
+        raise NotFound("No such edition")
+    if row[0] == "draft":
+        raise AdminError("This is a draft already")
+    conn.execute(
+        "update public.editions set status = 'draft', updated_at = now() where id = %s",
+        (edition_id,),
+    )
+
+
+# --- Single episodes -------------------------------------------------------------
+
+
+def _episode(conn: psycopg.Connection, item_id: uuid.UUID) -> tuple:
+    """(edition ID, kind, season, episode), locked. NotFound if deleted."""
+    row = conn.execute(
+        """
+        select i.edition_id, i.kind, i.season, i.episode from public.items i
+        join public.editions e on e.id = i.edition_id
+        where i.id = %s and i.deleted_at is null and e.deleted_at is null
+        for update of i
+        """,
+        (item_id,),
+    ).fetchone()
+    if row is None:
+        raise NotFound("No such episode")
+    return row
+
+
+def set_item_hidden(conn: psycopg.Connection, item_id: uuid.UUID, hidden: bool) -> None:
+    """Hides an episode from viewers, or shows it again. A hidden episode
+    keeps its approval, so showing it needs nothing else."""
+    _episode(conn, item_id)
+    conn.execute(
+        "update public.items set hidden_at = "
+        + ("coalesce(hidden_at, now())" if hidden else "null")
+        + " where id = %s",
+        (item_id,),
+    )
+
+
+def withdraw_item(conn: psycopg.Connection, item_id: uuid.UUID) -> None:
+    """Takes an episode back to waiting for approval, in Drafts."""
+    _episode(conn, item_id)
+    conn.execute(
+        "update public.items set approved_at = null, hidden_at = null where id = %s",
+        (item_id,),
+    )
+
+
+def delete_item(conn: psycopg.Connection, item_id: uuid.UUID) -> None:
+    """Deletes one episode for good, as delete_edition does a title. A
+    movie's only video is deleted with its title instead."""
+    edition_id, kind, *_ = _episode(conn, item_id)
+    if kind != "series":
+        raise AdminError("A movie's video goes with the movie: delete the movie")
+    (others,) = conn.execute(
+        "select count(*) from public.items "
+        "where edition_id = %s and id <> %s and deleted_at is null",
+        (edition_id, item_id),
+    ).fetchone()
+    if not others:
+        raise AdminError("This is the series' only episode. Delete the series instead")
+    conn.execute("select public.delete_item(%s)", (item_id,))
+
+
+def update_item(conn: psycopg.Connection, item_id: uuid.UUID, changes: dict) -> None:
+    """Changes an episode's title, or its season and episode numbers. Moving
+    it to a number another episode has swaps the two, so episodes can be put
+    in order."""
+    edition_id, kind, season, episode = _episode(conn, item_id)
+    if "episode_title" in changes:
+        title = " ".join((changes["episode_title"] or "").split())[:200] or None
+        conn.execute(
+            "update public.items set episode_title = %s where id = %s",
+            (title, item_id),
+        )
+    if "season" not in changes and "episode" not in changes:
+        return
+    if kind != "series":
+        raise AdminError("A movie has no season or episode")
+    new_season = changes.get("season", season)
+    new_episode = changes.get("episode", episode)
+    if new_season is None or new_episode is None:
+        raise AdminError("An episode needs its season and episode numbers")
+    if not 0 <= new_season <= 999 or not 1 <= new_episode <= 9999:
+        raise AdminError("Seasons are 0 to 999, and episodes 1 to 9999")
+    if (new_season, new_episode) == (season, episode):
+        return
+    other = conn.execute(
+        """
+        select id from public.items
+        where edition_id = %s and season = %s and episode = %s and id <> %s
+        for update
+        """,
+        (edition_id, new_season, new_episode, item_id),
+    ).fetchone()
+    if other is not None:
+        # Swapped through a number nothing uses: the pair is unique.
+        (free,) = conn.execute(
+            """
+            select n from generate_series(9999, 1, -1) n
+            where not exists (select from public.items
+                              where edition_id = %s and season = %s and episode = n)
+            limit 1
+            """,
+            (edition_id, season),
+        ).fetchone()
+        conn.execute(
+            "update public.items set episode = %s where id = %s", (free, item_id)
+        )
+        conn.execute(
+            "update public.items set season = %s, episode = %s where id = %s",
+            (season, episode, other[0]),
+        )
+    conn.execute(
+        "update public.items set season = %s, episode = %s where id = %s",
+        (new_season, new_episode, item_id),
+    )
+    conn.execute(
+        "update public.editions set updated_at = now() where id = %s", (edition_id,)
+    )
+
+
+# --- Many titles at once ----------------------------------------------------------
+
+BULK_ACTIONS = ("hide", "show", "withdraw", "credit")
+BULK_MOST = 200
+
+
+def bulk_change(
+    conn: psycopg.Connection,
+    ids: list[uuid.UUID],
+    action: str,
+    vj_id: uuid.UUID | None = None,
+) -> dict[uuid.UUID, str | None]:
+    """Does one action to each title, each on its own: a title that can't be
+    changed is skipped with its reason. Each title's reason, or None."""
+    if action not in BULK_ACTIONS:
+        raise AdminError("The action is hide, show, withdraw or credit")
+    if not 1 <= len(ids) <= BULK_MOST:
+        raise AdminError(f"Choose 1 to {BULK_MOST} titles")
+    if action == "credit" and vj_id is None:
+        raise AdminError("Choose the VJ to credit")
+    results: dict[uuid.UUID, str | None] = {}
+    for edition_id in dict.fromkeys(ids):
+        try:
+            with conn.transaction():
+                if action == "hide":
+                    row = conn.execute(
+                        "select status from public.editions "
+                        "where id = %s and deleted_at is null",
+                        (edition_id,),
+                    ).fetchone()
+                    if row is None:
+                        raise NotFound("No such edition")
+                    if row[0] != "published":
+                        raise AdminError("Only a published title can be hidden")
+                    editions.hide(conn, edition_id)
+                elif action == "show":
+                    editions.publish(conn, edition_id)
+                elif action == "withdraw":
+                    withdraw(conn, edition_id)
+                else:
+                    set_credit(conn, edition_id, vj_id)
+            results[edition_id] = None
+        except editions.PublishRefused as refused:
+            results[edition_id] = "Still needs " + ", ".join(refused.missing)
+        except EditionError as error:
+            results[edition_id] = str(error)
+        except psycopg.errors.UniqueViolation:
+            results[edition_id] = "This VJ already has an edition of that title"
+    return results
 
 
 def purge_deleted(conn: psycopg.Connection) -> int:

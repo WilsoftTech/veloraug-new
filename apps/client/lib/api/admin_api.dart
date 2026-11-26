@@ -45,6 +45,7 @@ class AdminItem {
     this.etaSeconds,
     this.queuePosition,
     this.sizeBytes,
+    this.hidden = false,
   });
 
   final String id;
@@ -72,6 +73,9 @@ class AdminItem {
   /// Waiting to be converted: its place in the queue, from 1.
   final int? queuePosition;
   final int? sizeBytes;
+
+  /// Hidden from viewers on its own, apart from its series.
+  final bool hidden;
 }
 
 /// A TMDB title the admin can choose.
@@ -118,6 +122,13 @@ class AdminEdition {
     this.matches = const [],
     this.categories = const [],
     this.incomplete = false,
+    this.overview,
+    this.backdropPath,
+    this.backdropUrl,
+    this.trailerKey,
+    this.sourceBackdropUrl,
+    this.sourceTrailerKey,
+    this.publishedAt,
   });
 
   final String id;
@@ -156,7 +167,23 @@ class AdminEdition {
   /// No video of it has finished uploading yet.
   final bool incomplete;
 
+  /// The edition's own description, backdrop and trailer, which viewers see
+  /// over the source's. Null: the source's show.
+  final String? overview;
+  final String? backdropPath;
+  final String? backdropUrl;
+  final String? trailerKey;
+  final String? sourceBackdropUrl;
+  final String? sourceTrailerKey;
+
+  /// When it was first published. Set on a withdrawn title too.
+  final DateTime? publishedAt;
+
   bool get published => status == 'published';
+  bool get hidden => status == 'hidden';
+
+  /// Back to a draft, once published.
+  bool get withdrawn => status == 'draft' && publishedAt != null;
 }
 
 /// A category, with how many editions have it, for autocomplete.
@@ -464,6 +491,73 @@ class LookupResult {
   final AdminEdition edition;
 }
 
+/// A title in the Library: published, hidden, or withdrawn back to a draft.
+class LibraryTitle {
+  const LibraryTitle({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.state,
+    required this.updatedAt,
+    this.posterUrl,
+    this.vjId,
+    this.vjName,
+    this.publishedAt,
+    this.episodes = 0,
+    this.hiddenEpisodes = 0,
+    this.waiting = 0,
+    this.viewers = 0,
+    this.categories = const [],
+    this.year,
+  });
+
+  final String id;
+  final EditionKind kind;
+  final String title;
+
+  /// `published`, `hidden` or `withdrawn`.
+  final String state;
+  final DateTime updatedAt;
+  final String? posterUrl;
+  final String? vjId;
+  final String? vjName;
+  final DateTime? publishedAt;
+  final int episodes;
+  final int hiddenEpisodes;
+
+  /// Episodes waiting for approval.
+  final int waiting;
+
+  /// Viewers who played part of it lately: see [LibraryPage.viewerDays].
+  final int viewers;
+  final List<String> categories;
+  final int? year;
+}
+
+class LibraryPage {
+  const LibraryPage({
+    required this.titles,
+    required this.total,
+    this.viewerDays = 30,
+  });
+
+  final List<LibraryTitle> titles;
+
+  /// How many match, on every page.
+  final int total;
+  final int viewerDays;
+}
+
+/// What a change to many titles did to each.
+class BulkOutcome {
+  const BulkOutcome({required this.changed, required this.skipped});
+
+  final int changed;
+
+  /// Title ID, and why it wasn't changed.
+  final Map<String, String> skipped;
+}
+
 enum AdminFailure {
   /// The app has no session, so it sent nothing.
   signedOut,
@@ -591,9 +685,13 @@ class AdminApi {
     return _key(json);
   }
 
-  /// Deletes a draft or hidden edition for good, with its videos.
-  Future<void> deleteEdition(String id) async {
-    await _send('DELETE', '/editions/${_id(id)}');
+  /// Deletes an edition for good, with its videos. A published one only
+  /// with [published], once the admin has confirmed it.
+  Future<void> deleteEdition(String id, {bool published = false}) async {
+    await _send(
+      'DELETE',
+      '/editions/${_id(id)}${published ? '?published=true' : ''}',
+    );
   }
 
   /// Deletes every draft. Published and hidden editions stay. The IDs of
@@ -606,6 +704,146 @@ class AdminApi {
       for (final id in _need<List<Object?>>(json['ids'] ?? const []))
         _need<String>(id),
     ];
+  }
+
+  /// Published, hidden and withdrawn titles, 50 at a time.
+  Future<LibraryPage> library({
+    String? query,
+    String? vjId,
+    EditionKind? kind,
+    String? category,
+    String? state,
+    String sort = 'newest',
+    int offset = 0,
+  }) async {
+    final params = {
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      'vj': ?vjId,
+      'kind': ?kind?.name,
+      if (category != null && category.isNotEmpty) 'category': category,
+      'state': ?state,
+      'sort': sort,
+      if (offset > 0) 'offset': '$offset',
+    };
+    final encoded = Uri(queryParameters: params).query;
+    final json = _need<Map<String, Object?>>(
+      await _send('GET', '/library?$encoded'),
+    );
+    return LibraryPage(
+      total: _need<int>(json['total']),
+      viewerDays: _need<int>(json['viewer_days'] ?? 30),
+      titles: [
+        for (final row in _rows(json['titles']))
+          LibraryTitle(
+            id: _need<String>(row['id']),
+            kind: row['kind'] == 'series'
+                ? EditionKind.series
+                : EditionKind.movie,
+            title: _need<String>(row['display_title']),
+            state: _need<String>(row['state']),
+            updatedAt: _time(row['updated_at']),
+            posterUrl: safeImageUrl(row['poster_url'], gateway: mediaBaseUrl),
+            vjId: _maybe<String>(row['vj_id']),
+            vjName: _maybe<String>(row['vj_name']),
+            publishedAt: row['published_at'] == null
+                ? null
+                : _time(row['published_at']),
+            episodes: _need<int>(row['episodes'] ?? 0),
+            hiddenEpisodes: _need<int>(row['hidden_episodes'] ?? 0),
+            waiting: _need<int>(row['waiting'] ?? 0),
+            viewers: _need<int>(row['viewers'] ?? 0),
+            categories: [
+              for (final name in _need<List<Object?>>(
+                row['categories'] ?? const [],
+              ))
+                _need<String>(name),
+            ],
+            year: _maybe<int>(row['year']),
+          ),
+      ],
+    );
+  }
+
+  /// Changes what is given of an edition's own details. An empty
+  /// [overview], [trailer] or [backdropPath] clears it, so the source's
+  /// shows again.
+  Future<AdminEdition> updateDetails(
+    String id, {
+    String? title,
+    int? year,
+    bool clearYear = false,
+    String? language,
+    String? overview,
+    String? trailer,
+    String? backdropPath,
+  }) async => _edition(
+    await _send('PATCH', '/editions/${_id(id)}', {
+      'display_title': ?title,
+      if (year != null || clearYear) 'submitted_year': year,
+      'language': ?language,
+      'overview': ?overview,
+      'trailer': ?trailer,
+      'backdrop_path': ?backdropPath,
+    }),
+  );
+
+  /// Takes a published or hidden title back to a draft.
+  Future<AdminEdition> withdraw(String id) async =>
+      _edition(await _send('POST', '/editions/${_id(id)}/withdraw'));
+
+  /// Hides, shows, withdraws or credits many titles, each on its own.
+  Future<BulkOutcome> bulkChange(
+    List<String> ids,
+    String action, {
+    String? vjId,
+  }) async {
+    final json = _need<Map<String, Object?>>(
+      await _send('POST', '/library/bulk', {
+        'ids': ids,
+        'action': action,
+        'vj_id': ?vjId,
+      }),
+    );
+    return BulkOutcome(
+      changed: _need<int>(json['changed']),
+      skipped: {
+        for (final row in _rows(json['results']))
+          if (row['ok'] != true)
+            _need<String>(row['id']): _maybe<String>(row['reason']) ?? '',
+      },
+    );
+  }
+
+  /// Renames or renumbers an episode. Another episode's number swaps them.
+  Future<void> changeEpisode(
+    String itemId, {
+    int? season,
+    int? episode,
+    String? title,
+  }) async {
+    await _send('PATCH', '/items/${_id(itemId)}', {
+      'season': ?season,
+      'episode': ?episode,
+      'episode_title': ?title,
+    });
+  }
+
+  Future<void> hideEpisode(String itemId) async {
+    await _send('POST', '/items/${_id(itemId)}/hide');
+  }
+
+  Future<void> showEpisode(String itemId) async {
+    await _send('POST', '/items/${_id(itemId)}/show');
+  }
+
+  /// Back to waiting for approval, in Drafts.
+  Future<void> withdrawEpisode(String itemId) async {
+    await _send('POST', '/items/${_id(itemId)}/withdraw');
+  }
+
+  /// Deletes one episode of a series for good, with its videos.
+  Future<void> deleteEpisode(String itemId) async {
+    await _send('DELETE', '/items/${_id(itemId)}');
   }
 
   Future<AdminEdition> edition(String id) async =>
@@ -1135,6 +1373,18 @@ class AdminApi {
           _need<String>(name),
       ],
       incomplete: _need<bool>(json['incomplete'] ?? false),
+      overview: _maybe<String>(json['overview']),
+      backdropPath: _maybe<String>(json['backdrop_path']),
+      backdropUrl: safeImageUrl(json['backdrop_url'], gateway: mediaBaseUrl),
+      trailerKey: _maybe<String>(json['trailer_key']),
+      sourceBackdropUrl: safeImageUrl(
+        json['source_backdrop_url'],
+        gateway: mediaBaseUrl,
+      ),
+      sourceTrailerKey: _maybe<String>(json['source_trailer_key']),
+      publishedAt: json['published_at'] == null
+          ? null
+          : _time(json['published_at']),
     );
   }
 
@@ -1153,6 +1403,7 @@ class AdminApi {
     etaSeconds: _maybe<int>(json['eta_seconds']),
     queuePosition: _maybe<int>(json['queue_position']),
     sizeBytes: _maybe<int>(json['size_bytes']),
+    hidden: _need<bool>(json['hidden'] ?? false),
     keys: [
       for (final key in _rows(json['keys'] ?? const []))
         UploadKeyInfo(

@@ -33,12 +33,19 @@ class ImageUrls:
         return self._uploaded(path)
 
     def backdrop(self, path: str | None) -> str | None:
-        return self.tmdb.backdrop_url(path) if path and _TMDB.match(path) else None
+        if not path:
+            return None
+        if _TMDB.match(path):
+            return self.tmdb.backdrop_url(path)
+        # One an admin uploaded for the edition (Step 13H).
+        return self._uploaded(path)
 
     def hero_backdrop(self, path: str | None) -> str | None:
-        if path and _TMDB.match(path):
+        if not path:
+            return None
+        if _TMDB.match(path):
             return self.tmdb.hero_backdrop_url(path)
-        return None
+        return self._uploaded(path)
 
     def photo(self, path: str | None) -> str | None:
         return self._uploaded(path) if path else None

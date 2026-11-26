@@ -344,10 +344,11 @@ class _DraftTile extends StatelessWidget {
                           Text(l.episodesWaiting(waiting))
                         else if (!draft.published)
                           Text(l.readyToPublish),
+                        // Under the details, so a narrow phone has room.
+                        StatusBadge(label: status, tone: tone),
                       ],
                     ),
                   ),
-                  StatusBadge(label: status, tone: tone),
                   _DraftMenu(onOpen: onTap, onDelete: onDelete),
                 ],
               ),

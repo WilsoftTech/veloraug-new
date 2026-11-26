@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:veloraug/admin/draft_screen.dart';
 import 'package:veloraug/admin/drafts_view.dart' show draftsRefreshEvery;
+import 'package:veloraug/admin/library_view.dart' show librarySearchDelay;
 import 'package:veloraug/admin/new_draft_screen.dart';
 import 'package:veloraug/admin/uploads/file_names.dart' show maxVideoBytes;
 import 'package:veloraug/admin/uploads/tus.dart';
@@ -28,6 +29,7 @@ Map<String, Object?> item({
   int? progress,
   int? eta,
   int? queue,
+  bool hidden = false,
 }) => {
   'id': id,
   'season': season,
@@ -43,6 +45,7 @@ Map<String, Object?> item({
   'progress': progress,
   'eta_seconds': eta,
   'queue_position': queue,
+  'hidden': hidden,
 };
 
 Map<String, Object?> edition(
@@ -61,6 +64,9 @@ Map<String, Object?> edition(
   String? vj,
   String? detailsFrom,
   bool incomplete = false,
+  String? publishedAt,
+  String? overview,
+  String? trailer,
 }) => {
   'id': id,
   'kind': kind,
@@ -84,6 +90,10 @@ Map<String, Object?> edition(
   'missing': missing,
   'matches': matches,
   'incomplete': incomplete,
+  'published_at': publishedAt,
+  'overview': overview,
+  'trailer_key': trailer,
+  'source_trailer_key': 'tmdbTrailer1',
 };
 
 Map<String, Object?> match(int id, String title, int year) => {
@@ -1063,5 +1073,477 @@ void main() {
 
     expect(find.text('VJ Junior'), findsOneWidget);
     expect(find.text('Nothing published · Also: Junior'), findsOneWidget);
+  });
+
+  group('the Library', () {
+    Map<String, Object?> row(
+      String id,
+      String title, {
+      String state = 'published',
+      String kind = 'movie',
+      String? vj = 'VJ Junior',
+      int viewers = 0,
+      int episodes = 1,
+      int hidden = 0,
+      int waiting = 0,
+      List<String> categories = const [],
+    }) => {
+      'id': id,
+      'kind': kind,
+      'display_title': title,
+      'poster_url': null,
+      'vj_id': vj == null ? null : 'vj-1',
+      'vj_name': vj,
+      'state': state,
+      'published_at': '2026-11-03T10:00:00Z',
+      'updated_at': '2026-11-20T10:00:00Z',
+      'episodes': episodes,
+      'hidden_episodes': hidden,
+      'waiting': waiting,
+      'viewers': viewers,
+      'categories': categories,
+      'year': 2023,
+    };
+
+    /// An admin API whose Library answers with [rows], [total] in all, and
+    /// records each query it was asked.
+    (FakeApi, List<Map<String, String>>) libraryApi(
+      List<Map<String, Object?>> rows, {
+      int? total,
+    }) {
+      final api = adminApi(
+        drafts: [
+          edition(
+            'l1',
+            title: 'Fast X',
+            status: 'published',
+            missing: const [],
+            vj: 'VJ Junior',
+            detailsFrom: 'tmdb',
+            publishedAt: '2026-11-03T10:00:00Z',
+          ),
+        ],
+      );
+      final asked = <Map<String, String>>[];
+      api.admin.addAll({
+        'GET /library': (request) {
+          asked.add(request.url.queryParameters);
+          final later = request.url.queryParameters.containsKey('offset');
+          return json({
+            // A later page: titles not on the first.
+            'titles': later
+                ? [
+                    for (final r in rows) {...r, 'id': '${r['id']}-more'},
+                  ]
+                : rows,
+            'total': total ?? rows.length,
+            'viewer_days': 30,
+          });
+        },
+        'GET /categories': (_) => json([
+          {'id': 'c1', 'name': 'Indian', 'slug': 'indian', 'editions': 1},
+        ]),
+      });
+      return (api, asked);
+    }
+
+    Future<void> openLibrary(WidgetTester tester, FakeApi api) async {
+      await openAdmin(tester, api);
+      await tester.tap(find.widgetWithText(Tab, 'Library'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> fromMenu(
+      WidgetTester tester,
+      String title,
+      String action,
+    ) async {
+      final card = find.ancestor(
+        of: find.textContaining(title),
+        matching: find.byType(Card),
+      );
+      await tester.tap(
+        find.descendant(
+          of: card.first,
+          matching: find.byTooltip('More actions'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(action).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('lists each title with its state, VJ, viewers and episodes', (
+      tester,
+    ) async {
+      final (api, _) = libraryApi([
+        row('l1', 'Fast X', viewers: 120, categories: ['Indian']),
+        row(
+          'l2',
+          'Kabaka',
+          kind: 'series',
+          state: 'hidden',
+          vj: 'VJ Emmy',
+          episodes: 8,
+          hidden: 1,
+          waiting: 2,
+        ),
+        row('l3', 'Commando', state: 'withdrawn', viewers: 1),
+      ]);
+      await openLibrary(tester, api);
+
+      expect(find.text('3 titles'), findsOneWidget);
+      expect(find.text('Fast X (2023)'), findsOneWidget);
+      expect(find.text('Movie · VJ Junior · Indian'), findsOneWidget);
+      expect(
+        find.text('Published Nov 3, 2026 · 120 viewers in 30 days'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Published Nov 3, 2026 · 0 viewers in 30 days · 8 episodes · '
+          '1 hidden · 2 episodes waiting for approval',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Withdrawn'), findsWidgets);
+    });
+
+    testWidgets('searches, filters and sorts on the server', (tester) async {
+      final (api, asked) = libraryApi([row('l1', 'Fast X')]);
+      await openLibrary(tester, api);
+      expect(asked.single, {'sort': 'newest'});
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search titles and VJs'),
+        'fast',
+      );
+      await tester.pump(librarySearchDelay);
+      await tester.pumpAndSettle();
+      expect(asked.last, {'q': 'fast', 'sort': 'newest'});
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Hidden'));
+      await tester.pumpAndSettle();
+      expect(asked.last['state'], 'hidden');
+
+      await tester.tap(find.text('Newest'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Most viewers').last);
+      await tester.pumpAndSettle();
+      expect(asked.last, {'q': 'fast', 'state': 'hidden', 'sort': 'viewers'});
+    });
+
+    testWidgets('shows more, 50 at a time', (tester) async {
+      final (api, asked) = libraryApi([row('l1', 'Fast X')], total: 51);
+      await openLibrary(tester, api);
+
+      await tester.ensureVisible(find.text('Show more (50 left)'));
+      await tester.tap(find.text('Show more (50 left)'));
+      await tester.pumpAndSettle();
+
+      expect(asked.last['offset'], '1');
+    });
+
+    testWidgets('many titles are hidden at once, with what was skipped', (
+      tester,
+    ) async {
+      final (api, _) = libraryApi([
+        row('l1', 'Fast X'),
+        row('l2', 'Commando', state: 'withdrawn'),
+      ]);
+      api.admin['POST /library/bulk'] = (_) => json({
+        'changed': 1,
+        'results': [
+          {'id': 'l1', 'ok': true, 'reason': null},
+          {
+            'id': 'l2',
+            'ok': false,
+            'reason': 'Only a published title can be hidden',
+          },
+        ],
+      });
+      await openLibrary(tester, api);
+
+      await tester.tap(find.bySemanticsLabel('Select every title shown'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 selected'), findsOneWidget);
+      await tester.tap(find.widgetWithText(VeloraButton, 'Hide').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Hide 2 titles?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(VeloraButton, 'Hide').last);
+      await tester.pumpAndSettle();
+
+      expect(body(api, '/library/bulk'), {
+        'ids': ['l1', 'l2'],
+        'action': 'hide',
+      });
+      expect(
+        find.text(
+          '1 title changed.\n'
+          'Skipped:\nCommando: Only a published title can be hidden',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('2 selected'), findsNothing);
+    });
+
+    testWidgets('many titles are credited to another VJ', (tester) async {
+      final (api, _) = libraryApi([row('l1', 'Fast X')]);
+      api.admin['POST /library/bulk'] = (_) => json({
+        'changed': 1,
+        'results': [
+          {'id': 'l1', 'ok': true},
+        ],
+      });
+      await openLibrary(tester, api);
+
+      await tester.tap(find.bySemanticsLabel('Select Fast X'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Change VJ'));
+      await tester.pumpAndSettle();
+      expect(find.text('Credit 1 title to…'), findsOneWidget);
+      await tester.tap(find.text('VJ Junior').last);
+      await tester.pumpAndSettle();
+
+      expect(body(api, '/library/bulk'), {
+        'ids': ['l1'],
+        'action': 'credit',
+        'vj_id': 'vj-1',
+      });
+    });
+
+    testWidgets('withdrawing says what happens to viewers and downloads', (
+      tester,
+    ) async {
+      final (api, _) = libraryApi([row('l1', 'Fast X')]);
+      api.admin['POST /editions/l1/withdraw'] = (_) => json(
+        edition('l1', publishedAt: '2026-11-03T10:00:00Z', missing: const []),
+      );
+      await openLibrary(tester, api);
+
+      await fromMenu(tester, 'Fast X', 'Withdraw');
+      expect(find.text('Withdraw “Fast X”?'), findsOneWidget);
+      expect(
+        find.textContaining("already downloaded are theirs, and can't be"),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(VeloraButton, 'Withdraw').last);
+      await tester.pumpAndSettle();
+
+      expect(api.adminCalls, contains('POST /editions/l1/withdraw'));
+      expect(find.text('“Fast X” withdrawn to Drafts'), findsOneWidget);
+    });
+
+    testWidgets('a published title is deleted only once DELETE is typed', (
+      tester,
+    ) async {
+      final (api, _) = libraryApi([row('l1', 'Fast X')]);
+      Uri? asked;
+      api.admin['DELETE /editions/l1'] = (request) {
+        asked = request.url;
+        return json({
+          'deleted': 1,
+          'ids': ['l1'],
+        });
+      };
+      await openLibrary(tester, api);
+
+      await fromMenu(tester, 'Fast X', 'Delete permanently');
+      expect(
+        find.textContaining('To take it down for now instead'),
+        findsOneWidget,
+      );
+      VeloraButton action() => tester.widget<VeloraButton>(
+        find.widgetWithText(VeloraButton, 'Delete permanently').last,
+      );
+      expect(action().onPressed, isNull);
+      await tester.enterText(find.byType(TextField).last, 'DELETE');
+      await tester.pump();
+      await tester.tap(
+        find.widgetWithText(VeloraButton, 'Delete permanently').last,
+      );
+      await tester.pumpAndSettle();
+
+      expect(asked?.queryParameters, {'published': 'true'});
+    });
+
+    testWidgets('a hidden title is shown again from the menu', (tester) async {
+      final (api, _) = libraryApi([row('l1', 'Fast X', state: 'hidden')]);
+      api.admin['POST /editions/l1/publish'] = (_) =>
+          json(edition('l1', status: 'published', missing: const []));
+      await openLibrary(tester, api);
+
+      await fromMenu(tester, 'Fast X', 'Show again');
+
+      expect(api.adminCalls, contains('POST /editions/l1/publish'));
+      expect(find.text('“Fast X” is showing again'), findsOneWidget);
+    });
+
+    testWidgets('fits a narrow phone with large text', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final (api, _) = libraryApi([
+        row('l1', 'A very long title of a translated film', kind: 'series'),
+      ]);
+      await pumpApp(tester, api, signedIn: true, size: const Size(320, 2400));
+      await goTo(tester, 'Admin');
+      await tester.ensureVisible(find.widgetWithText(Tab, 'Library'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, 'Library'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group("a published title's page", () {
+    FakeApi titleApi({
+      String status = 'published',
+      List<Map<String, Object?>>? items,
+    }) {
+      final api = adminApi(
+        drafts: [
+          edition(
+            'd1',
+            kind: items == null ? 'movie' : 'series',
+            status: status,
+            missing: const [],
+            vj: 'VJ Junior',
+            detailsFrom: 'tmdb',
+            publishedAt: '2026-11-03T10:00:00Z',
+            items: items,
+          ),
+        ],
+      );
+      api.admin['PATCH /editions/d1'] = (_) => json(
+        edition(
+          'd1',
+          status: status,
+          missing: const [],
+          detailsFrom: 'tmdb',
+          overview: 'Own words.',
+        ),
+      );
+      return api;
+    }
+
+    testWidgets('saves only the details that changed', (tester) async {
+      final api = titleApi();
+      await openDraft(tester, api, 'Fast X');
+
+      expect(find.text('What viewers see'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Description'),
+        'Own words.',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Trailer, a YouTube address'),
+        'https://youtu.be/abc123XYZ',
+      );
+      await tester.ensureVisible(find.text('Save details'));
+      await tester.tap(find.text('Save details'));
+      await tester.pumpAndSettle();
+
+      final request = api.requests.lastWhere((r) => r.method == 'PATCH');
+      expect(jsonDecode(request.body), {
+        'overview': 'Own words.',
+        'trailer': 'https://youtu.be/abc123XYZ',
+      });
+      expect(find.text('Details saved'), findsOneWidget);
+    });
+
+    testWidgets('offers Hide, Withdraw and Delete', (tester) async {
+      await openDraft(tester, titleApi(), 'Fast X');
+
+      for (final label in ['Hide', 'Withdraw', 'Delete permanently']) {
+        expect(find.widgetWithText(VeloraButton, label), findsOneWidget);
+      }
+      expect(find.widgetWithText(VeloraButton, 'Show again'), findsNothing);
+    });
+
+    testWidgets('a hidden title says so, and can be shown again', (
+      tester,
+    ) async {
+      await openDraft(tester, titleApi(status: 'hidden'), 'Fast X');
+
+      expect(
+        find.text(
+          "Hidden: viewers can't see it. Show again puts it back as it was.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(VeloraButton, 'Show again'), findsOneWidget);
+      expect(find.widgetWithText(VeloraButton, 'Withdraw'), findsOneWidget);
+    });
+
+    testWidgets('each episode is edited, hidden, withdrawn or deleted', (
+      tester,
+    ) async {
+      final api = titleApi(
+        items: [
+          item(id: 'e1', season: 1, episode: 1, approved: true),
+          item(id: 'e2', season: 1, episode: 2, approved: true, hidden: true),
+        ],
+      );
+      for (final call in [
+        'PATCH /items/e1',
+        'POST /items/e1/hide',
+        'POST /items/e2/show',
+        'POST /items/e1/withdraw',
+        'DELETE /items/e2',
+      ]) {
+        api.admin[call] = (_) => json({'item_id': 'x'});
+      }
+      await openDraft(tester, api, 'Fast X');
+      expect(find.text('Hidden'), findsWidgets);
+
+      Future<void> episodeAction(String episode, String action) async {
+        await tester.ensureVisible(find.byTooltip('Actions for $episode'));
+        await tester.tap(find.byTooltip('Actions for $episode'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(action).last);
+        await tester.pumpAndSettle();
+      }
+
+      await episodeAction('S1 E1', 'Edit episode');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Episode').last,
+        '2',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Episode title (optional)'),
+        'Pilot',
+      );
+      await tester.tap(find.widgetWithText(VeloraButton, 'Save').last);
+      await tester.pumpAndSettle();
+      final edit = api.requests.lastWhere((r) => r.method == 'PATCH');
+      expect(jsonDecode(edit.body), {
+        'season': 1,
+        'episode': 2,
+        'episode_title': 'Pilot',
+      });
+
+      await episodeAction('S1 E1', 'Hide episode');
+      await episodeAction('S1 E2', 'Show episode');
+      await episodeAction('S1 E1', 'Withdraw episode');
+      expect(find.text('Withdraw S1 E1?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(VeloraButton, 'Withdraw').last);
+      await tester.pumpAndSettle();
+      await episodeAction('S1 E2', 'Delete permanently');
+      expect(find.text('Delete S1 E2?'), findsOneWidget);
+      await tester.tap(find.text('Delete permanently').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        api.adminCalls,
+        containsAllInOrder([
+          'PATCH /items/e1',
+          'POST /items/e1/hide',
+          'POST /items/e2/show',
+          'POST /items/e1/withdraw',
+          'DELETE /items/e2',
+        ]),
+      );
+    });
   });
 }
