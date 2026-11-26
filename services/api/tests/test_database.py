@@ -41,7 +41,7 @@ pytestmark = needs_database
 
 def test_the_migration_is_at_head(owner_url, app_url):
     assert owner_query(owner_url, "select version_num from alembic_version") == [
-        ("0017",)
+        ("0018",)
     ]
 
 

@@ -233,8 +233,9 @@ with events as (
   where p.user_id = %(user)s and p.state = 'refunded' and p.refunded_at is not null
   union all
   select 'pass.ending:' || s.id, 'pass_ending', s.ends_at - %(soon)s,
-         p.plan_name, null
-  from public.passes s join public.payments p on p.id = s.payment_id
+         coalesce(p.plan_name, pp.display_name), null
+  from public.passes s left join public.payments p on p.id = s.payment_id
+  left join public.pass_plans pp on pp.id = s.plan_id
   where s.user_id = %(user)s and s.revoked_at is null
     and s.ends_at > %(now)s and s.ends_at - %(soon)s <= %(now)s
     and not exists (
@@ -243,8 +244,10 @@ with events as (
         and later.starts_at >= s.ends_at
     )
   union all
-  select 'pass.ended:' || s.id, 'pass_ended', s.ends_at, p.plan_name, null
-  from public.passes s join public.payments p on p.id = s.payment_id
+  select 'pass.ended:' || s.id, 'pass_ended', s.ends_at,
+         coalesce(p.plan_name, pp.display_name), null
+  from public.passes s left join public.payments p on p.id = s.payment_id
+  left join public.pass_plans pp on pp.id = s.plan_id
   where s.user_id = %(user)s and s.revoked_at is null and s.ends_at <= %(now)s
   union all
   select 'device.removed:' || d.id, 'device_removed', d.revoked_at, null, d.label

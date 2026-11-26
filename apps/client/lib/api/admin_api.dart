@@ -372,6 +372,13 @@ class BillingMetrics {
     required this.devices,
     required this.playing,
     this.refunded = 0,
+    this.revenueTodayUgx = 0,
+    this.revenue7DaysUgx = 0,
+    this.successRate,
+    this.endingSoon = 0,
+    this.granted = 0,
+    this.daily = const [],
+    this.timeoutMinutes = 60,
   });
 
   final int activeSubscribers;
@@ -387,6 +394,35 @@ class BillingMetrics {
 
   /// Payments marked refunded in the last 30 days.
   final int refunded;
+  final int revenueTodayUgx;
+  final int revenue7DaysUgx;
+
+  /// Paid of those settled in the last 30 days, 0 to 1. Null with none.
+  final double? successRate;
+
+  /// Subscribers whose pass ends within 3 days, with nothing after it.
+  final int endingSoon;
+
+  /// Free-day grants in the last 30 days.
+  final int granted;
+
+  /// The last 30 days in Kampala, oldest first.
+  final List<DayRevenue> daily;
+
+  /// A payment still open this many minutes after it began is settled.
+  final int timeoutMinutes;
+}
+
+class DayRevenue {
+  const DayRevenue({
+    required this.day,
+    required this.revenueUgx,
+    required this.completed,
+  });
+
+  final DateTime day;
+  final int revenueUgx;
+  final int completed;
 }
 
 class AdminPayment {
@@ -401,11 +437,19 @@ class AdminPayment {
     this.reference,
     this.reason,
     this.contact,
+    this.planId,
+    this.completedAt,
+    this.trackingId,
   });
 
   final String id;
   final String userId;
   final String planName;
+  final String? planId;
+  final DateTime? completedAt;
+
+  /// Pesapal's ID for the order, once it was sent there.
+  final String? trackingId;
   final int amountUgx;
   final String state;
   final DateTime createdAt;
@@ -415,6 +459,95 @@ class AdminPayment {
 
   /// Masked by the API: a***@example.com.
   final String? contact;
+}
+
+/// A page of payments, and how many match in all.
+class TransactionPage {
+  const TransactionPage({required this.payments, required this.total});
+
+  final List<AdminPayment> payments;
+  final int total;
+}
+
+/// One step of a payment: started, sent, completed, failed, expired,
+/// reversed or refunded. [at] is null when its time wasn't recorded.
+class PaymentStep {
+  const PaymentStep({required this.step, this.at});
+
+  final String step;
+  final DateTime? at;
+}
+
+class AdminPass {
+  const AdminPass({
+    required this.id,
+    required this.planName,
+    required this.startsAt,
+    required this.endsAt,
+    this.paymentId,
+    this.grantId,
+    this.revokedAt,
+  });
+
+  final String id;
+  final String planName;
+  final DateTime startsAt;
+  final DateTime endsAt;
+
+  /// One or the other: bought, or given by an admin.
+  final String? paymentId;
+  final String? grantId;
+  final DateTime? revokedAt;
+}
+
+class PaymentDetail {
+  const PaymentDetail({
+    required this.payment,
+    required this.timeline,
+    this.pass,
+    this.refundedAt,
+  });
+
+  final AdminPayment payment;
+  final List<PaymentStep> timeline;
+  final AdminPass? pass;
+  final DateTime? refundedAt;
+}
+
+/// Free days an admin gave, and why.
+class AdminGrant {
+  const AdminGrant({
+    required this.id,
+    required this.planName,
+    required this.days,
+    required this.reason,
+    required this.createdAt,
+    this.grantedByEmail,
+  });
+
+  final String id;
+  final String planName;
+  final int days;
+  final String reason;
+  final DateTime createdAt;
+  final String? grantedByEmail;
+}
+
+/// One account: passes, payments, grants and devices.
+class AccountBilling {
+  const AccountBilling({
+    required this.userId,
+    this.passes = const [],
+    this.payments = const [],
+    this.grants = const [],
+    this.devices = const [],
+  });
+
+  final String userId;
+  final List<AdminPass> passes;
+  final List<AdminPayment> payments;
+  final List<AdminGrant> grants;
+  final List<AdminDevice> devices;
 }
 
 class AdminSubscriber {
@@ -1175,6 +1308,174 @@ class AdminApi {
       devices: _need<int>(json['active_devices']),
       playing: _need<int>(json['live_sessions']),
       refunded: _maybe<int>(json['refunded_30_days']) ?? 0,
+      revenueTodayUgx: _maybe<int>(json['revenue_today_ugx']) ?? 0,
+      revenue7DaysUgx: _maybe<int>(json['revenue_7_days_ugx']) ?? 0,
+      successRate: (json['success_rate_30_days'] as num?)?.toDouble(),
+      endingSoon: _maybe<int>(json['ending_soon']) ?? 0,
+      granted: _maybe<int>(json['granted_30_days']) ?? 0,
+      daily: [
+        for (final row in _rows(json['daily'] ?? const <Object?>[]))
+          DayRevenue(
+            day: DateTime.tryParse(_need<String>(row['day'])) ?? _bad(),
+            revenueUgx: _need<int>(row['revenue_ugx']),
+            completed: _need<int>(row['completed']),
+          ),
+      ],
+      timeoutMinutes: _maybe<int>(json['payment_timeout_minutes']) ?? 60,
+    );
+  }
+
+  /// The query for transactions, as both the list and the export ask.
+  String _transactionQuery({
+    String? state,
+    String? planId,
+    DateTime? since,
+    DateTime? until,
+    String? search,
+    int offset = 0,
+    int? limit,
+  }) {
+    String day(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return Uri(
+      queryParameters: {
+        'state': ?state,
+        'plan': ?planId,
+        if (since != null) 'since': day(since),
+        if (until != null) 'until': day(until),
+        if (search != null && search.trim().isNotEmpty) 'q': search.trim(),
+        if (offset > 0) 'offset': '$offset',
+        if (limit != null) 'limit': '$limit',
+      },
+    ).query;
+  }
+
+  /// Payments, newest first, filtered and searched. Stale ones are settled
+  /// by the server first.
+  Future<TransactionPage> transactions({
+    String? state,
+    String? planId,
+    DateTime? since,
+    DateTime? until,
+    String? search,
+    int offset = 0,
+  }) async {
+    final query = _transactionQuery(
+      state: state,
+      planId: planId,
+      since: since,
+      until: until,
+      search: search,
+      offset: offset,
+    );
+    final json = _need<Map<String, Object?>>(
+      await _send('GET', '/billing/transactions?$query'),
+    );
+    return TransactionPage(
+      payments: [for (final row in _rows(json['payments'])) _payment(row)],
+      total: _need<int>(json['total']),
+    );
+  }
+
+  /// The same payments as a CSV spreadsheet's text.
+  Future<String> transactionsCsv({
+    String? state,
+    String? planId,
+    DateTime? since,
+    DateTime? until,
+    String? search,
+  }) => _sendText(
+    '/billing/transactions.csv?${_transactionQuery(state: state, planId: planId, since: since, until: until, search: search)}',
+  );
+
+  Future<PaymentDetail> paymentDetail(String id) async =>
+      _paymentDetail(await _send('GET', '/billing/payments/${_id(id)}'));
+
+  /// Asks Pesapal about one payment now. A payment given up on that was
+  /// paid after all is completed.
+  Future<PaymentDetail> recheckPayment(String id) async => _paymentDetail(
+    await _send('POST', '/billing/payments/${_id(id)}/recheck'),
+  );
+
+  PaymentDetail _paymentDetail(Object? value) {
+    final json = _need<Map<String, Object?>>(value);
+    final pass = json['pass'];
+    return PaymentDetail(
+      payment: _payment(_need<Map<String, Object?>>(json['payment'])),
+      timeline: [
+        for (final row in _rows(json['timeline']))
+          PaymentStep(
+            step: _need<String>(row['step']),
+            at: row['at'] == null ? null : _time(row['at']),
+          ),
+      ],
+      pass: pass == null ? null : _pass(_need<Map<String, Object?>>(pass)),
+      refundedAt: json['refunded_at'] == null
+          ? null
+          : _time(json['refunded_at']),
+    );
+  }
+
+  AdminPass _pass(Map<String, Object?> row) => AdminPass(
+    id: _need<String>(row['id']),
+    planName: _need<String>(row['plan_name']),
+    startsAt: _time(row['starts_at']),
+    endsAt: _time(row['ends_at']),
+    paymentId: _maybe<String>(row['payment_id']),
+    grantId: _maybe<String>(row['grant_id']),
+    revokedAt: row['revoked_at'] == null ? null : _time(row['revoked_at']),
+  );
+
+  /// Gives an account free days on a plan, with a reason. They start when
+  /// the account's passes end, or now.
+  Future<AdminPass> grantDays(
+    String userId, {
+    required String planId,
+    required int days,
+    required String reason,
+  }) async => _pass(
+    _need<Map<String, Object?>>(
+      await _send('POST', '/billing/users/${_id(userId)}/grants', {
+        'plan_id': planId,
+        'days': days,
+        'reason': reason,
+      }),
+    ),
+  );
+
+  /// One account's passes, payments, grants and devices.
+  Future<AccountBilling> account(String userId) async {
+    final json = _need<Map<String, Object?>>(
+      await _send('GET', '/billing/users/${_id(userId)}'),
+    );
+    return AccountBilling(
+      userId: userId,
+      passes: [for (final row in _rows(json['passes'])) _pass(row)],
+      payments: [for (final row in _rows(json['payments'])) _payment(row)],
+      grants: [
+        for (final row in _rows(json['grants'] ?? const <Object?>[]))
+          AdminGrant(
+            id: _need<String>(row['id']),
+            planName: _need<String>(row['plan_name']),
+            days: _need<int>(row['days']),
+            reason: _need<String>(row['reason']),
+            createdAt: _time(row['created_at']),
+            grantedByEmail: _maybe<String>(row['granted_by_email']),
+          ),
+      ],
+      devices: [
+        for (final row in _rows(json['devices']))
+          AdminDevice(
+            id: _need<String>(row['id']),
+            label: _need<String>(row['label']),
+            platform: _need<String>(row['platform']),
+            lastActiveAt: _time(row['last_active_at']),
+            revokedAt: row['revoked_at'] == null
+                ? null
+                : _time(row['revoked_at']),
+          ),
+      ],
     );
   }
 
@@ -1208,10 +1509,25 @@ class AdminApi {
     reference: _maybe<String>(row['provider_reference']),
     reason: _maybe<String>(row['reason']),
     contact: _maybe<String>(row['contact']),
+    planId: _maybe<String>(row['plan_id']),
+    completedAt: row['completed_at'] == null
+        ? null
+        : _time(row['completed_at']),
+    trackingId: _maybe<String>(row['tracking_id']),
   );
 
-  Future<List<AdminSubscriber>> subscribers() async => [
-    for (final row in _rows(await _send('GET', '/billing/subscribers')))
+  /// Accounts with a pass now, ending soonest first: searched by account,
+  /// email or phone, or only those ending within [endingWithinDays].
+  Future<List<AdminSubscriber>> subscribers({
+    String? search,
+    int? endingWithinDays,
+  }) async => [
+    for (final row in _rows(
+      await _send(
+        'GET',
+        '/billing/subscribers?${Uri(queryParameters: {if (search != null && search.trim().isNotEmpty) 'q': search.trim(), if (endingWithinDays != null) 'ending_within_days': '$endingWithinDays'}).query}',
+      ),
+    ))
       AdminSubscriber(
         userId: _need<String>(row['user_id']),
         planName: _need<String>(row['plan_name']),
@@ -1326,6 +1642,40 @@ class AdminApi {
   }
 
   String _id(String id) => Uri.encodeComponent(id);
+
+  /// A GET answered with text, such as a CSV file.
+  Future<String> _sendText(String path) async {
+    final String? token;
+    try {
+      token = await accessToken();
+    } on OAuthException {
+      throw const AdminException(AdminFailure.unreachable);
+    }
+    if (token == null) throw const AdminException(AdminFailure.signedOut);
+    final (route, query) = switch (path.indexOf('?')) {
+      -1 => (path, null),
+      final at => (path.substring(0, at), path.substring(at + 1)),
+    };
+    final http.Response response;
+    try {
+      response = await httpClient
+          .get(
+            baseUrl.replace(path: '/api/v1/admin$route', query: query),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(timeout);
+    } on Exception {
+      throw const AdminException(AdminFailure.unreachable);
+    }
+    if (response.statusCode == 200) return utf8.decode(response.bodyBytes);
+    Object? json;
+    try {
+      json = jsonDecode(utf8.decode(response.bodyBytes));
+    } on FormatException {
+      json = null;
+    }
+    throw _failure(response.statusCode, json);
+  }
 
   Future<Object?> _send(
     String method,

@@ -5715,6 +5715,432 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} on {site}'**
   String vjFollowOn(String name, String site);
+
+  /// No description provided for @adminSubscriptionsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Money, subscribers and every payment. A payment not paid within {minutes} minutes is checked with Pesapal and, if still unpaid, shown as expired.'**
+  String adminSubscriptionsIntro(int minutes);
+
+  /// No description provided for @metricRevenueToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken today'**
+  String get metricRevenueToday;
+
+  /// No description provided for @metricRevenue7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken in 7 days'**
+  String get metricRevenue7Days;
+
+  /// No description provided for @metricSuccessRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid, of payments in 30 days'**
+  String get metricSuccessRate;
+
+  /// No description provided for @metricEndingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Passes ending in 3 days'**
+  String get metricEndingSoon;
+
+  /// No description provided for @metricFreeDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Free days given in 30 days'**
+  String get metricFreeDays;
+
+  /// No description provided for @subscribersByPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribers by plan: {list}'**
+  String subscribersByPlan(String list);
+
+  /// No description provided for @revenueChartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Money taken each day, last 30 days'**
+  String get revenueChartTitle;
+
+  /// No description provided for @revenueChartEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No figures yet.'**
+  String get revenueChartEmpty;
+
+  /// No description provided for @revenueChartNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing taken in 30 days'**
+  String get revenueChartNone;
+
+  /// No description provided for @revenueChartDay.
+  ///
+  /// In en, this message translates to:
+  /// **'{day}: {amount}, {count, plural, =0{no payments} =1{1 payment} other{{count} payments}}'**
+  String revenueChartDay(String day, String amount, int count);
+
+  /// No description provided for @showAsTable.
+  ///
+  /// In en, this message translates to:
+  /// **'Show as table'**
+  String get showAsTable;
+
+  /// No description provided for @showAsChart.
+  ///
+  /// In en, this message translates to:
+  /// **'Show as chart'**
+  String get showAsChart;
+
+  /// No description provided for @paymentsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No payments} =1{1 payment} other{{count} payments}}'**
+  String paymentsCount(int count);
+
+  /// No description provided for @searchPayments.
+  ///
+  /// In en, this message translates to:
+  /// **'Search payments'**
+  String get searchPayments;
+
+  /// No description provided for @searchPaymentsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Email, phone, account or payment ID, Pesapal tracking ID or confirmation code'**
+  String get searchPaymentsHelp;
+
+  /// No description provided for @paymentStateWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get paymentStateWaiting;
+
+  /// No description provided for @paymentStatePaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get paymentStatePaid;
+
+  /// No description provided for @paymentStateExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get paymentStateExpired;
+
+  /// No description provided for @paymentPlanFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan'**
+  String get paymentPlanFilter;
+
+  /// No description provided for @paymentDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Any date'**
+  String get paymentDates;
+
+  /// No description provided for @paymentDatesChosen.
+  ///
+  /// In en, this message translates to:
+  /// **'{from} to {to}'**
+  String paymentDatesChosen(String from, String to);
+
+  /// No description provided for @clearDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Any date'**
+  String get clearDates;
+
+  /// No description provided for @exportCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Export CSV'**
+  String get exportCsv;
+
+  /// No description provided for @paymentsExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved {name}'**
+  String paymentsExported(String name);
+
+  /// No description provided for @exportWebOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Exporting works in the browser only.'**
+  String get exportWebOnly;
+
+  /// No description provided for @searchSubscribers.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by email, phone or account ID'**
+  String get searchSubscribers;
+
+  /// No description provided for @endingWithin3Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Ending within 3 days'**
+  String get endingWithin3Days;
+
+  /// No description provided for @paymentContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact'**
+  String get paymentContact;
+
+  /// No description provided for @paymentMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid with'**
+  String get paymentMethod;
+
+  /// No description provided for @paymentConfirmationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmation code'**
+  String get paymentConfirmationCode;
+
+  /// No description provided for @paymentTrackingId.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal tracking ID'**
+  String get paymentTrackingId;
+
+  /// No description provided for @paymentId.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment ID'**
+  String get paymentId;
+
+  /// No description provided for @paymentReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Why'**
+  String get paymentReason;
+
+  /// No description provided for @paymentTimeline.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened'**
+  String get paymentTimeline;
+
+  /// No description provided for @paymentTimeNotRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'time not recorded'**
+  String get paymentTimeNotRecorded;
+
+  /// No description provided for @stepStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Started in the app'**
+  String get stepStarted;
+
+  /// No description provided for @stepSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent to Pesapal'**
+  String get stepSent;
+
+  /// No description provided for @stepCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get stepCompleted;
+
+  /// No description provided for @stepFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get stepFailed;
+
+  /// No description provided for @stepExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired, not paid'**
+  String get stepExpired;
+
+  /// No description provided for @stepReversed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reversed by Pesapal'**
+  String get stepReversed;
+
+  /// No description provided for @stepRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked refunded'**
+  String get stepRefunded;
+
+  /// No description provided for @paymentMadePass.
+  ///
+  /// In en, this message translates to:
+  /// **'Its pass: {from} to {to}'**
+  String paymentMadePass(String from, String to);
+
+  /// No description provided for @paymentExpiredHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Not paid in time. If the viewer says they paid, re-check with Pesapal: a payment that went through is completed, with its pass.'**
+  String get paymentExpiredHelp;
+
+  /// No description provided for @recheckWithPesapal.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-check with Pesapal'**
+  String get recheckWithPesapal;
+
+  /// No description provided for @paymentRechecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Pesapal checked: {state}'**
+  String paymentRechecked(String state);
+
+  /// No description provided for @refundHowTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunds are made on Pesapal\'s dashboard, which doesn\'t tell VeloraUG. Then mark it refunded here: its pass ends at once.'**
+  String get refundHowTo;
+
+  /// No description provided for @openAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Open account'**
+  String get openAccount;
+
+  /// No description provided for @accountShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Account {id}'**
+  String accountShort(String id);
+
+  /// No description provided for @accountIdLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Account ID {id}'**
+  String accountIdLine(String id);
+
+  /// No description provided for @adminPasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Passes'**
+  String get adminPasses;
+
+  /// No description provided for @passesNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No passes.'**
+  String get passesNone;
+
+  /// No description provided for @passFromTo.
+  ///
+  /// In en, this message translates to:
+  /// **'{from} to {to}'**
+  String passFromTo(String from, String to);
+
+  /// No description provided for @passBought.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought'**
+  String get passBought;
+
+  /// No description provided for @passGiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Free days'**
+  String get passGiven;
+
+  /// No description provided for @passRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get passRunning;
+
+  /// No description provided for @passQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Still to come'**
+  String get passQueued;
+
+  /// No description provided for @passOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Over'**
+  String get passOver;
+
+  /// No description provided for @passEndedEarly.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended early'**
+  String get passEndedEarly;
+
+  /// No description provided for @freeDaysTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Free days given'**
+  String get freeDaysTitle;
+
+  /// No description provided for @freeDaysNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None.'**
+  String get freeDaysNone;
+
+  /// No description provided for @freeDaysLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{1 day of {plan}} other{{days} days of {plan}}}'**
+  String freeDaysLine(int days, String plan);
+
+  /// No description provided for @givenBy.
+  ///
+  /// In en, this message translates to:
+  /// **'by {email}'**
+  String givenBy(String email);
+
+  /// No description provided for @giveFreeDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Give free days'**
+  String get giveFreeDays;
+
+  /// No description provided for @giveFreeDaysIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'They start when this account\'s passes end, or now if it has none: so they extend a pass, or start one. They are never counted as money.'**
+  String get giveFreeDaysIntro;
+
+  /// No description provided for @freeDaysPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan'**
+  String get freeDaysPlan;
+
+  /// No description provided for @freeDaysCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Days, 1 to 90'**
+  String get freeDaysCount;
+
+  /// No description provided for @freeDaysReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Why'**
+  String get freeDaysReason;
+
+  /// No description provided for @freeDaysReasonHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Kept with the days, for other admins. Such as: sorry for Sunday\'s outage.'**
+  String get freeDaysReasonHelp;
+
+  /// No description provided for @freeDaysGiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Free days given: {from} to {to}'**
+  String freeDaysGiven(String from, String to);
 }
 
 class _AppLocalizationsDelegate

@@ -2,7 +2,7 @@ import re
 from typing import Literal
 from urllib.parse import unquote, urlsplit
 
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     pesapal_consumer_secret: SecretStr | None = None
     pesapal_ipn_id: str | None = None
     pesapal_environment: Literal["sandbox", "live"] = "sandbox"
+    # A payment still started or pending this long after it began is
+    # settled: Pesapal is asked, and if it wasn't paid it is given up on
+    # ("expired"). Paid later after all, it is still honoured.
+    payment_timeout_minutes: int = Field(default=60, ge=5, le=1440)
     public_api_url: str | None = None
 
     @field_validator("pesapal_ipn_id")

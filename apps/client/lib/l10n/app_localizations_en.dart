@@ -3634,4 +3634,270 @@ class AppLocalizationsEn extends AppLocalizations {
   String vjFollowOn(String name, String site) {
     return '$name on $site';
   }
+
+  @override
+  String adminSubscriptionsIntro(int minutes) {
+    return 'Money, subscribers and every payment. A payment not paid within $minutes minutes is checked with Pesapal and, if still unpaid, shown as expired.';
+  }
+
+  @override
+  String get metricRevenueToday => 'Taken today';
+
+  @override
+  String get metricRevenue7Days => 'Taken in 7 days';
+
+  @override
+  String get metricSuccessRate => 'Paid, of payments in 30 days';
+
+  @override
+  String get metricEndingSoon => 'Passes ending in 3 days';
+
+  @override
+  String get metricFreeDays => 'Free days given in 30 days';
+
+  @override
+  String subscribersByPlan(String list) {
+    return 'Subscribers by plan: $list';
+  }
+
+  @override
+  String get revenueChartTitle => 'Money taken each day, last 30 days';
+
+  @override
+  String get revenueChartEmpty => 'No figures yet.';
+
+  @override
+  String get revenueChartNone => 'Nothing taken in 30 days';
+
+  @override
+  String revenueChartDay(String day, String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count payments',
+      one: '1 payment',
+      zero: 'no payments',
+    );
+    return '$day: $amount, $_temp0';
+  }
+
+  @override
+  String get showAsTable => 'Show as table';
+
+  @override
+  String get showAsChart => 'Show as chart';
+
+  @override
+  String paymentsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count payments',
+      one: '1 payment',
+      zero: 'No payments',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get searchPayments => 'Search payments';
+
+  @override
+  String get searchPaymentsHelp =>
+      'Email, phone, account or payment ID, Pesapal tracking ID or confirmation code';
+
+  @override
+  String get paymentStateWaiting => 'Waiting';
+
+  @override
+  String get paymentStatePaid => 'Paid';
+
+  @override
+  String get paymentStateExpired => 'Expired';
+
+  @override
+  String get paymentPlanFilter => 'Plan';
+
+  @override
+  String get paymentDates => 'Any date';
+
+  @override
+  String paymentDatesChosen(String from, String to) {
+    return '$from to $to';
+  }
+
+  @override
+  String get clearDates => 'Any date';
+
+  @override
+  String get exportCsv => 'Export CSV';
+
+  @override
+  String paymentsExported(String name) {
+    return 'Saved $name';
+  }
+
+  @override
+  String get exportWebOnly => 'Exporting works in the browser only.';
+
+  @override
+  String get searchSubscribers => 'Search by email, phone or account ID';
+
+  @override
+  String get endingWithin3Days => 'Ending within 3 days';
+
+  @override
+  String get paymentContact => 'Contact';
+
+  @override
+  String get paymentMethod => 'Paid with';
+
+  @override
+  String get paymentConfirmationCode => 'Confirmation code';
+
+  @override
+  String get paymentTrackingId => 'Pesapal tracking ID';
+
+  @override
+  String get paymentId => 'Payment ID';
+
+  @override
+  String get paymentReason => 'Why';
+
+  @override
+  String get paymentTimeline => 'What happened';
+
+  @override
+  String get paymentTimeNotRecorded => 'time not recorded';
+
+  @override
+  String get stepStarted => 'Started in the app';
+
+  @override
+  String get stepSent => 'Sent to Pesapal';
+
+  @override
+  String get stepCompleted => 'Paid';
+
+  @override
+  String get stepFailed => 'Failed';
+
+  @override
+  String get stepExpired => 'Expired, not paid';
+
+  @override
+  String get stepReversed => 'Reversed by Pesapal';
+
+  @override
+  String get stepRefunded => 'Marked refunded';
+
+  @override
+  String paymentMadePass(String from, String to) {
+    return 'Its pass: $from to $to';
+  }
+
+  @override
+  String get paymentExpiredHelp =>
+      'Not paid in time. If the viewer says they paid, re-check with Pesapal: a payment that went through is completed, with its pass.';
+
+  @override
+  String get recheckWithPesapal => 'Re-check with Pesapal';
+
+  @override
+  String paymentRechecked(String state) {
+    return 'Pesapal checked: $state';
+  }
+
+  @override
+  String get refundHowTo =>
+      'Refunds are made on Pesapal\'s dashboard, which doesn\'t tell VeloraUG. Then mark it refunded here: its pass ends at once.';
+
+  @override
+  String get openAccount => 'Open account';
+
+  @override
+  String accountShort(String id) {
+    return 'Account $id';
+  }
+
+  @override
+  String accountIdLine(String id) {
+    return 'Account ID $id';
+  }
+
+  @override
+  String get adminPasses => 'Passes';
+
+  @override
+  String get passesNone => 'No passes.';
+
+  @override
+  String passFromTo(String from, String to) {
+    return '$from to $to';
+  }
+
+  @override
+  String get passBought => 'Bought';
+
+  @override
+  String get passGiven => 'Free days';
+
+  @override
+  String get passRunning => 'Running';
+
+  @override
+  String get passQueued => 'Still to come';
+
+  @override
+  String get passOver => 'Over';
+
+  @override
+  String get passEndedEarly => 'Ended early';
+
+  @override
+  String get freeDaysTitle => 'Free days given';
+
+  @override
+  String get freeDaysNone => 'None.';
+
+  @override
+  String freeDaysLine(int days, String plan) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days of $plan',
+      one: '1 day of $plan',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String givenBy(String email) {
+    return 'by $email';
+  }
+
+  @override
+  String get giveFreeDays => 'Give free days';
+
+  @override
+  String get giveFreeDaysIntro =>
+      'They start when this account\'s passes end, or now if it has none: so they extend a pass, or start one. They are never counted as money.';
+
+  @override
+  String get freeDaysPlan => 'Plan';
+
+  @override
+  String get freeDaysCount => 'Days, 1 to 90';
+
+  @override
+  String get freeDaysReason => 'Why';
+
+  @override
+  String get freeDaysReasonHelp =>
+      'Kept with the days, for other admins. Such as: sorry for Sunday\'s outage.';
+
+  @override
+  String freeDaysGiven(String from, String to) {
+    return 'Free days given: $from to $to';
+  }
 }
