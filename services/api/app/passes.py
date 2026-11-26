@@ -98,7 +98,8 @@ class Entitlement:
     """One pass: its own start, end, plan and allowances."""
 
     id: UUID
-    payment_id: UUID
+    # None for a pass an admin granted.
+    payment_id: UUID | None
     plan_id: str
     plan_name: str
     starts_at: datetime
@@ -124,9 +125,11 @@ PLAN_COLUMNS = (
     "id, days, price_ugx, display_name, description, max_devices, max_streams, "
     "display_order, featured, for_sale, legacy"
 )
+# A pass is a payment's or, from migration 0018, an admin's grant: a
+# granted pass takes its plan's name.
 ENTITLEMENT_COLUMNS = (
-    "s.id, s.payment_id, s.plan_id, p.plan_name, s.starts_at, s.ends_at, "
-    "s.max_devices, s.max_streams"
+    "s.id, s.payment_id, s.plan_id, coalesce(p.plan_name, pp.display_name), "
+    "s.starts_at, s.ends_at, s.max_devices, s.max_streams"
 )
 
 
@@ -351,7 +354,12 @@ def _matches(payment: Payment, status: Status) -> str | None:
 
 
 def apply_status(
-    conn: psycopg.Connection, payment_id: UUID, status: Status, now: datetime
+    conn: psycopg.Connection,
+    payment_id: UUID,
+    status: Status,
+    now: datetime,
+    *,
+    give_up_after: timedelta = GIVE_UP_AFTER,
 ) -> str:
     """Records Pesapal's status of one payment, in the viewer's transaction.
     Answers the payment's state afterwards. Seeing the same status again
@@ -373,8 +381,12 @@ def apply_status(
         return payment.state
 
     if status.code == pesapal.COMPLETED:
-        if payment.state in ("completed", "reversed", "abandoned"):
+        # An abandoned payment that Pesapal says was paid after all, such as
+        # after the admins' timeout, is honoured: the money arrived.
+        if payment.state in ("completed", "reversed"):
             return payment.state
+        if payment.state == "abandoned":
+            logger.info("payment %s was paid after it was given up on", payment.id)
         problem = _matches(payment, status)
         if problem:
             logger.warning("payment %s not accepted: %s", payment.id, problem)
@@ -435,14 +447,14 @@ def apply_status(
 
     if payment.state not in OPEN:
         return payment.state
-    if now - payment.created_at > GIVE_UP_AFTER:
+    if now - payment.created_at > give_up_after:
         conn.execute(
             """
             update public.payments set state = 'abandoned', updated_at = now(),
-              reason = coalesce(reason, 'Not paid within 24 hours')
+              reason = coalesce(reason, %s)
             where id = %s
             """,
-            (payment.id,),
+            (f"Not paid within {_duration(give_up_after)}", payment.id),
         )
         audit.event("payment.abandoned", payment_id=payment.id, user_id=payment.user_id)
         return "abandoned"
@@ -616,6 +628,15 @@ def refund(
 # --- Asking Pesapal ----------------------------------------------------------
 
 
+def _duration(span: timedelta) -> str:
+    """'24 hours', '90 minutes'."""
+    minutes = int(span.total_seconds() // 60)
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        return f"{hours} hour" + ("" if hours == 1 else "s")
+    return f"{minutes} minutes"
+
+
 def refresh(
     db,
     client: PesapalClient,
@@ -624,12 +645,15 @@ def refresh(
     now: datetime,
     *,
     even_if_completed: bool = False,
+    give_up_after: timedelta = GIVE_UP_AFTER,
 ) -> str:
     """Asks Pesapal about one of the viewer's payments, outside any
     transaction, then records the answer. Answers the state afterwards.
     Raises PesapalUnavailable when Pesapal can't be asked."""
-    settled = ("reversed", "abandoned", "refunded") + (
-        () if even_if_completed else ("completed",)
+    # A notification means Pesapal's status changed: even a completed
+    # payment may be reversed, and an abandoned one paid after all.
+    settled = ("reversed", "refunded") + (
+        () if even_if_completed else ("completed", "abandoned")
     )
     if payment.state in settled or payment.tracking_id is None:
         return payment.state
@@ -642,7 +666,70 @@ def refresh(
         logger.info("payment %s not reported yet: %s", payment.id, error)
         status = Status(None, "", None, None, None, None, None)
     with db.as_user(user_id) as conn:
-        return apply_status(conn, payment.id, status, now)
+        return apply_status(conn, payment.id, status, now, give_up_after=give_up_after)
+
+
+# Pesapal's answer when it can't be asked, or has nothing to say.
+NO_ANSWER = Status(None, "", None, None, None, None, None)
+
+
+@dataclass(frozen=True)
+class Settled:
+    """What settling stale payments did."""
+
+    checked: int
+    # Payment ID -> its state now.
+    states: dict[UUID, str]
+    # Pesapal couldn't be asked, so some were left for next time.
+    pesapal_down: bool = False
+
+
+def stale_payments(
+    conn: psycopg.Connection, now: datetime, after: timedelta, limit: int
+) -> list[tuple[UUID, UUID, str | None]]:
+    """(payment, owner, tracking ID) of payments still started or pending
+    after `after`, oldest first. Any role that can read payments."""
+    return conn.execute(
+        """
+        select id, user_id, tracking_id from public.payments
+        where state in ('started', 'pending') and created_at < %s
+        order by created_at limit %s
+        """,
+        (now - after, limit),
+    ).fetchall()
+
+
+def settle_stale(
+    db,
+    client: PesapalClient | None,
+    stale: list[tuple[UUID, UUID, str | None]],
+    now: datetime,
+    after: timedelta,
+) -> Settled:
+    """Settles payments left started or pending past `after`: those sent to
+    Pesapal are asked about first, so one paid after all is completed and
+    gets its pass; the rest are given up on. One never sent to Pesapal, or
+    with Pesapal not set up, is given up on at once. When Pesapal can't be
+    asked, those sent to it are left for next time rather than guessed."""
+    states: dict[UUID, str] = {}
+    down = False
+    for payment_id, user_id, tracking_id in stale:
+        status = NO_ANSWER
+        if tracking_id is not None and client is not None and not down:
+            try:
+                status = client.status(tracking_id)
+            except pesapal.PesapalUnavailable:
+                down = True
+                continue
+            except PesapalError as error:
+                logger.info("payment %s not reported: %s", payment_id, error)
+        elif tracking_id is not None and client is not None:
+            continue
+        with db.as_user(user_id) as conn:
+            states[payment_id] = apply_status(
+                conn, payment_id, status, now, give_up_after=after
+            )
+    return Settled(checked=len(states), states=states, pesapal_down=down)
 
 
 # --- Who may watch -----------------------------------------------------------
@@ -655,7 +742,8 @@ def entitlements(
     rows = conn.execute(
         f"""
         select {ENTITLEMENT_COLUMNS}
-        from public.passes s join public.payments p on p.id = s.payment_id
+        from public.passes s left join public.payments p on p.id = s.payment_id
+        left join public.pass_plans pp on pp.id = s.plan_id
         where s.user_id = %s and s.revoked_at is null and s.ends_at > %s
         order by s.starts_at
         """,
@@ -679,7 +767,8 @@ def history(conn: psycopg.Connection, user_id: UUID, limit: int = 20):
     rows = conn.execute(
         f"""
         select {ENTITLEMENT_COLUMNS}, s.revoked_at
-        from public.passes s join public.payments p on p.id = s.payment_id
+        from public.passes s left join public.payments p on p.id = s.payment_id
+        left join public.pass_plans pp on pp.id = s.plan_id
         where s.user_id = %s order by s.starts_at desc limit %s
         """,
         (user_id, limit),

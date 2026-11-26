@@ -2805,5 +2805,195 @@
         "type": "String"
       }
     }
+  },
+  "adminSubscriptionsIntro": "Money, subscribers and every payment. A payment not paid within {minutes} minutes is checked with Pesapal and, if still unpaid, shown as expired.",
+  "@adminSubscriptionsIntro": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "metricRevenueToday": "Taken today",
+  "metricRevenue7Days": "Taken in 7 days",
+  "metricSuccessRate": "Paid, of payments in 30 days",
+  "metricEndingSoon": "Passes ending in 3 days",
+  "metricFreeDays": "Free days given in 30 days",
+  "subscribersByPlan": "Subscribers by plan: {list}",
+  "@subscribersByPlan": {
+    "placeholders": {
+      "list": {
+        "type": "String"
+      }
+    }
+  },
+  "revenueChartTitle": "Money taken each day, last 30 days",
+  "revenueChartEmpty": "No figures yet.",
+  "revenueChartNone": "Nothing taken in 30 days",
+  "revenueChartDay": "{day}: {amount}, {count, plural, =0{no payments} =1{1 payment} other{{count} payments}}",
+  "@revenueChartDay": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "showAsTable": "Show as table",
+  "showAsChart": "Show as chart",
+  "paymentsCount": "{count, plural, =0{No payments} =1{1 payment} other{{count} payments}}",
+  "@paymentsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchPayments": "Search payments",
+  "searchPaymentsHelp": "Email, phone, account or payment ID, Pesapal tracking ID or confirmation code",
+  "paymentStateWaiting": "Waiting",
+  "paymentStatePaid": "Paid",
+  "paymentStateExpired": "Expired",
+  "paymentPlanFilter": "Plan",
+  "paymentDates": "Any date",
+  "paymentDatesChosen": "{from} to {to}",
+  "@paymentDatesChosen": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "clearDates": "Any date",
+  "exportCsv": "Export CSV",
+  "paymentsExported": "Saved {name}",
+  "@paymentsExported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "exportWebOnly": "Exporting works in the browser only.",
+  "searchSubscribers": "Search by email, phone or account ID",
+  "endingWithin3Days": "Ending within 3 days",
+  "paymentContact": "Contact",
+  "paymentMethod": "Paid with",
+  "paymentConfirmationCode": "Confirmation code",
+  "paymentTrackingId": "Pesapal tracking ID",
+  "paymentId": "Payment ID",
+  "paymentReason": "Why",
+  "paymentTimeline": "What happened",
+  "paymentTimeNotRecorded": "time not recorded",
+  "stepStarted": "Started in the app",
+  "stepSent": "Sent to Pesapal",
+  "stepCompleted": "Paid",
+  "stepFailed": "Failed",
+  "stepExpired": "Expired, not paid",
+  "stepReversed": "Reversed by Pesapal",
+  "stepRefunded": "Marked refunded",
+  "paymentMadePass": "Its pass: {from} to {to}",
+  "@paymentMadePass": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentExpiredHelp": "Not paid in time. If the viewer says they paid, re-check with Pesapal: a payment that went through is completed, with its pass.",
+  "recheckWithPesapal": "Re-check with Pesapal",
+  "paymentRechecked": "Pesapal checked: {state}",
+  "@paymentRechecked": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "refundHowTo": "Refunds are made on Pesapal's dashboard, which doesn't tell VeloraUG. Then mark it refunded here: its pass ends at once.",
+  "openAccount": "Open account",
+  "accountShort": "Account {id}",
+  "@accountShort": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "accountIdLine": "Account ID {id}",
+  "@accountIdLine": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "adminPasses": "Passes",
+  "passesNone": "No passes.",
+  "passFromTo": "{from} to {to}",
+  "@passFromTo": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "passBought": "Bought",
+  "passGiven": "Free days",
+  "passRunning": "Running",
+  "passQueued": "Still to come",
+  "passOver": "Over",
+  "passEndedEarly": "Ended early",
+  "freeDaysTitle": "Free days given",
+  "freeDaysNone": "None.",
+  "freeDaysLine": "{days, plural, =1{1 day of {plan}} other{{days} days of {plan}}}",
+  "@freeDaysLine": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "givenBy": "by {email}",
+  "@givenBy": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "giveFreeDays": "Give free days",
+  "giveFreeDaysIntro": "They start when this account's passes end, or now if it has none: so they extend a pass, or start one. They are never counted as money.",
+  "freeDaysPlan": "Plan",
+  "freeDaysCount": "Days, 1 to 90",
+  "freeDaysReason": "Why",
+  "freeDaysReasonHelp": "Kept with the days, for other admins. Such as: sorry for Sunday's outage.",
+  "freeDaysGiven": "Free days given: {from} to {to}",
+  "@freeDaysGiven": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
   }
 }
