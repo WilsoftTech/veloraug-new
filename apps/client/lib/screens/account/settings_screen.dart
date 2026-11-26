@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../api/catalogue_api.dart';
 import '../../config/public_links.dart';
 import '../../l10n/l10n.dart';
 import '../../notifications/push_status.dart';
@@ -75,7 +76,76 @@ class SettingsBody extends StatelessWidget {
             ),
           ],
         ),
+        const _SupportGroup(),
         const AboutSection(),
+      ],
+    );
+  }
+}
+
+/// How to get help: the contacts admins set in Settings. Shown only once
+/// there are some.
+class _SupportGroup extends StatefulWidget {
+  const _SupportGroup();
+
+  @override
+  State<_SupportGroup> createState() => _SupportGroupState();
+}
+
+class _SupportGroupState extends State<_SupportGroup> {
+  AppStatus? _status;
+  bool _asked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_asked) return;
+    _asked = true;
+    CatalogueScope.of(context)?.status().then((status) {
+      if (mounted) setState(() => _status = status);
+    }, onError: (Object _) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final status = _status;
+    if (status == null || !status.hasSupport) return const SizedBox.shrink();
+    return AccountGroup(
+      title: l.supportGroup,
+      rows: [
+        if (status.supportWhatsapp.isNotEmpty)
+          AccountRow(
+            icon: Icons.chat_outlined,
+            title: l.supportWhatsapp,
+            subtitle: status.supportWhatsapp,
+            onTap: () => _openLink(
+              context,
+              Uri.parse(
+                'https://wa.me/${status.supportWhatsapp.replaceAll('+', '')}',
+              ),
+            ),
+          ),
+        if (status.supportPhone.isNotEmpty)
+          AccountRow(
+            icon: Icons.call_outlined,
+            title: l.supportCall,
+            subtitle: status.supportPhone,
+            onTap: () => _openLink(
+              context,
+              Uri(scheme: 'tel', path: status.supportPhone),
+            ),
+          ),
+        if (status.supportEmail.isNotEmpty)
+          AccountRow(
+            icon: Icons.mail_outline,
+            title: l.supportEmail,
+            subtitle: status.supportEmail,
+            onTap: () => _openLink(
+              context,
+              Uri(scheme: 'mailto', path: status.supportEmail),
+            ),
+          ),
       ],
     );
   }

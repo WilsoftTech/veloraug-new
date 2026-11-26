@@ -2995,5 +2995,108 @@
         "type": "String"
       }
     }
-  }
+  },
+  "adminSettingsIntro": "How VeloraUG runs. Changes to the first parts are saved together, with Save at the bottom.",
+  "settingsSupport": "Support contacts",
+  "settingsMaintenance": "Maintenance",
+  "settingsPayments": "Payments",
+  "settingsViewers": "Viewers",
+  "settingsContent": "Content defaults",
+  "settingsPlans": "Plans and pricing",
+  "settingsAbout": "About",
+  "settingsUnsaved": "Not saved",
+  "settingsUndo": "Undo changes",
+  "settingsUseDefaults": "Use defaults",
+  "settingsSave": "Save",
+  "settingsDiscard": "Discard",
+  "settingsUnsavedParts": "{count, plural, =1{Changes in 1 part aren't saved} other{Changes in {count} parts aren't saved}}",
+  "@settingsUnsavedParts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsSaved": "{count, plural, =1{1 setting saved} other{{count} settings saved}}",
+  "@settingsSaved": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsFixFirst": "Some settings need fixing first: see the red notes.",
+  "settingsSupportIntro": "Shown to viewers under Settings, Help and support. Leave one empty to leave it out.",
+  "settingSupportEmail": "Support email",
+  "settingSupportPhone": "Support phone",
+  "settingSupportWhatsapp": "Support WhatsApp",
+  "settingPhoneInvalid": "Give the whole number, starting +256",
+  "settingMaintenance": "Maintenance mode",
+  "settingMaintenanceHelp": "Viewers see a notice at the top of the app, and can't buy passes. Watching and downloads carry on.",
+  "settingMaintenanceMessage": "Message for viewers",
+  "settingMaintenanceMessageHelp": "Such as: We're upgrading VeloraUG. Back by 6pm. Empty: a general notice.",
+  "settingMaintenancePreview": "What viewers will see",
+  "maintenanceTitle": "VeloraUG is being worked on",
+  "maintenanceDefault": "Some things may not work for a while, and passes can't be bought until it's done.",
+  "settingProvider": "Payment provider",
+  "settingPesapalMode": "Pesapal, {mode}",
+  "@settingPesapalMode": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "settingLive": "live",
+  "settingSandbox": "sandbox, for testing",
+  "settingNotSetUp": "Not set up",
+  "settingProviderHelp": "Pesapal's keys and mode are set on the server, where they stay secret.",
+  "settingTimeout": "Give up on unpaid payments after, in minutes",
+  "settingTimeoutHelp": "5 to 1,440. Empty: the server's {minutes}. Pesapal is asked first, and a payment paid later is still honoured.",
+  "@settingTimeoutHelp": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "settingReminderDays": "Remind viewers before their pass ends, in days",
+  "settingReminderDaysHelp": "1 to 14. Viewers get a notification that many days before.",
+  "settingDefaultLanguage": "Language of new drafts",
+  "settingDefaultLanguageHelp": "Chosen at first in New draft and for uploads. Add languages below.",
+  "settingVideoLimit": "Largest video",
+  "settingVideoLimitValue": "{size} GB a file",
+  "@settingVideoLimitValue": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "settingImageLimit": "Largest poster or photo",
+  "settingImageLimitValue": "{size} MB",
+  "@settingImageLimitValue": {
+    "placeholders": {
+      "size": {
+        "type": "int"
+      }
+    }
+  },
+  "settingQualities": "Qualities made",
+  "settingServerFixedHelp": "These are set by the upload server and the media worker. Each video gets the qualities its original can fill.",
+  "settingPlansHelp": "Plans, prices and which is featured are set under Subscriptions, beside their payments.",
+  "openSubscriptions": "Open Subscriptions",
+  "adminRolesNote": "Every admin can do everything. Roles with fewer rights aren't set up yet.",
+  "aboutEnvironment": "Server",
+  "aboutApiVersion": "API version",
+  "aboutSchemaVersion": "Database migration",
+  "aboutUnknown": "Unknown",
+  "aboutTmdb2": "TMDB details",
+  "aboutPlayback": "Playback",
+  "aboutOn": "On",
+  "aboutOff": "Not set up",
+  "supportGroup": "Help and support",
+  "supportWhatsapp": "Chat on WhatsApp",
+  "supportCall": "Call us",
+  "supportEmail": "Email us"
 }

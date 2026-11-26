@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../admin/admin_screen.dart';
 import '../api/admin_api.dart';
+import '../api/catalogue_api.dart';
 import '../auth/auth_controller.dart';
 import '../downloads/downloads.dart';
 import '../l10n/l10n.dart';
@@ -13,6 +14,7 @@ import '../screens/home_screen.dart';
 import '../screens/search_screen.dart';
 import '../theme/tokens.dart';
 import '../widgets/brand.dart';
+import '../widgets/maintenance_banner.dart';
 
 /// Screens at least this wide use a side rail. Narrower ones use a bottom bar.
 const double wideLayoutBreakpoint = VeloraLayout.mediumBreakpoint;
@@ -92,6 +94,11 @@ class _AppShellState extends State<AppShell> {
   String? _checkedFor;
   int _check = 0;
 
+  /// Maintenance mode and support contacts, asked once. Null until
+  /// answered, or when it couldn't be: the app works without it.
+  AppStatus? _status;
+  bool _askedStatus = false;
+
   /// Opening the app at /admin starts on the admin screens, once they show.
   bool _wantsAdmin = WidgetsBinding.instance.platformDispatcher.defaultRouteName
       .startsWith('/admin');
@@ -101,6 +108,12 @@ class _AppShellState extends State<AppShell> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_askedStatus) {
+      _askedStatus = true;
+      CatalogueScope.of(context)?.status().then((status) {
+        if (mounted) setState(() => _status = status);
+      }, onError: (Object _) {});
+    }
     final auth = AuthScope.of(context);
     final admin = AdminScope.of(context);
     if (!identical(admin, _adminApi) || !identical(auth, _auth)) {
@@ -257,19 +270,21 @@ class _AppShellState extends State<AppShell> {
               // of the Tab order. Each screen is keyed by its destination, so
               // one added or removed beside it never replaces its state.
               Expanded(
-                child: IndexedStack(
-                  index: selected,
-                  children: [
-                    for (final destination in destinations)
-                      KeyedSubtree(
-                        key: ValueKey(destination.id),
-                        child:
-                            destination.id == AppDestination.filter &&
-                                !_openedFilter
-                            ? const SizedBox.shrink()
-                            : destination.screen,
-                      ),
-                  ],
+                child: _withMaintenance(
+                  IndexedStack(
+                    index: selected,
+                    children: [
+                      for (final destination in destinations)
+                        KeyedSubtree(
+                          key: ValueKey(destination.id),
+                          child:
+                              destination.id == AppDestination.filter &&
+                                  !_openedFilter
+                              ? const SizedBox.shrink()
+                              : destination.screen,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -291,6 +306,27 @@ class _AppShellState extends State<AppShell> {
                 ],
               ),
       ),
+    );
+  }
+
+  /// The admins' maintenance notice above every screen, while it is on.
+  Widget _withMaintenance(Widget screens) {
+    final status = _status;
+    if (status == null || !status.maintenance) return screens;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            VeloraSpacing.sm,
+            VeloraSpacing.sm,
+            VeloraSpacing.sm,
+            0,
+          ),
+          child: MaintenanceBanner(message: status.maintenanceMessage),
+        ),
+        Expanded(child: screens),
+      ],
     );
   }
 }

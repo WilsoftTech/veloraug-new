@@ -106,6 +106,44 @@ Map<String, Object?> match(int id, String title, int year) => {
   'poster_url': null,
 };
 
+/// GET /settings, as the API answers with nothing stored.
+Map<String, Object?> settingsJson({Map<String, Object?> values = const {}}) => {
+  'values': {
+    'support_email': '',
+    'support_phone': '',
+    'support_whatsapp': '',
+    'maintenance': false,
+    'maintenance_message': '',
+    'payment_timeout_minutes': null,
+    'pass_reminder_days': 3,
+    'default_language': 'lg',
+    ...values,
+  },
+  'defaults': {
+    'support_email': '',
+    'support_phone': '',
+    'support_whatsapp': '',
+    'maintenance': false,
+    'maintenance_message': '',
+    'payment_timeout_minutes': 60,
+    'pass_reminder_days': 3,
+    'default_language': 'lg',
+  },
+  'server': {
+    'environment': 'development',
+    'api_version': '0.1.0',
+    'schema_version': '0019',
+    'pesapal_configured': true,
+    'pesapal_environment': 'sandbox',
+    'tmdb_configured': true,
+    'playback_configured': false,
+    'payment_timeout_minutes_server': 60,
+    'video_limit_gb': 50,
+    'image_limit_mb': 2,
+    'qualities': ['360p', '480p', '720p', '1080p'],
+  },
+};
+
 /// An admin API with drafts, and the routes the draft screen loads.
 FakeApi adminApi({List<Map<String, Object?>>? drafts}) {
   final api = FakeApi()..isAdmin = true;
@@ -127,6 +165,7 @@ FakeApi adminApi({List<Map<String, Object?>>? drafts}) {
     'GET /languages': (_) => json([
       {'code': 'lg', 'name': 'Luganda'},
     ]),
+    'GET /settings': (_) => json(settingsJson()),
     'GET /admins': (_) => json([
       {
         'user_id': 'u1',
@@ -1032,10 +1071,16 @@ void main() {
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('owner@example.test'));
+      await tester.pumpAndSettle();
       expect(find.text('owner@example.test'), findsOneWidget);
       expect(find.text('Last admin'), findsOneWidget);
       expect(find.text('Remove'), findsNothing);
 
+      await tester.ensureVisible(
+        find.widgetWithText(TextFormField, 'Email of the new admin'),
+      );
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Email of the new admin'),
         'second@example.test',
@@ -1053,6 +1098,10 @@ void main() {
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(
+        find.widgetWithText(TextFormField, 'Email of the new admin'),
+      );
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Email of the new admin'),
         'nobody@example.test',

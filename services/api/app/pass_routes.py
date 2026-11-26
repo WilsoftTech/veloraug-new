@@ -30,7 +30,7 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
-from app import audit, passes, ratelimit
+from app import app_settings, audit, passes, ratelimit
 from app.admin import AdminUser, EditorDatabase
 from app.auth import VerifiedUser, current_user
 from app.db import Database
@@ -41,6 +41,7 @@ logger = logging.getLogger("veloraug.passes")
 router = APIRouter(prefix="/api/v1", tags=["passes"])
 
 PAYMENTS_OFF = "Buying passes isn't set up on this server."
+MAINTENANCE = "VeloraUG is being worked on. Try again a little later."
 NOT_FOR_SALE = "This pass isn't for sale."
 PESAPAL_DOWN = "Pesapal isn't answering. Try again in a few minutes."
 PESAPAL_REFUSED = "Pesapal couldn't start this payment. Try again later."
@@ -305,6 +306,13 @@ def checkout(
     so a double tap never makes two orders."""
     if body.email is None and body.phone is None:
         raise HTTPException(422, "An email or a phone number is needed.")
+    with db.anonymous() as conn:
+        shared = app_settings.safe_read(conn)
+    if shared["maintenance"]:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            shared["maintenance_message"] or MAINTENANCE,
+        )
     settings = request.app.state.settings
     with db.as_user(user.user_id) as conn:
         again = passes.reusable_checkout(conn, body.plan_id, _now())

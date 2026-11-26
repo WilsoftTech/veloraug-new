@@ -21,7 +21,7 @@ import psycopg
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field, StringConstraints
 
-from app import audit, devices, passes
+from app import app_settings, audit, devices, passes
 from app.admin import AdminUser, EditorDatabase
 from app.pesapal import PesapalUnavailable
 from app.viewer_routes import AppDatabase
@@ -47,8 +47,12 @@ ENDING_SOON_DAYS = 3
 CSV_MOST = 10_000
 
 
-def _timeout(request: Request) -> timedelta:
-    return timedelta(minutes=request.app.state.settings.payment_timeout_minutes)
+def _timeout(request: Request, conn: psycopg.Connection) -> timedelta:
+    """The timeout admins set in Settings, or the server's."""
+    return app_settings.payment_timeout(
+        app_settings.safe_read(conn),
+        request.app.state.settings.payment_timeout_minutes,
+    )
 
 
 def settle_stale_payments(
@@ -56,8 +60,8 @@ def settle_stale_payments(
 ) -> passes.Settled | None:
     """Settles payments left started or pending past the timeout, a batch
     at a time, as the admin looks. See passes.settle_stale."""
-    after = _timeout(request)
     with editor_db.as_user(admin_id) as conn:
+        after = _timeout(request, conn)
         stale = passes.stale_payments(conn, now, after, SETTLE_BATCH)
     if not stale:
         return None
@@ -263,6 +267,7 @@ def metrics(
     now = _now()
     settle_stale_payments(request, app_db, db, user.user_id, now)
     with db.as_user(user.user_id) as conn:
+        timeout = _timeout(request, conn)
         by_plan = conn.execute(
             """
             select s.plan_id, pp.display_name, count(distinct s.user_id)
@@ -346,7 +351,7 @@ def metrics(
         ending_soon=ending_soon,
         granted_30_days=granted,
         daily=[DayRevenue(day=d, revenue_ugx=r, completed=c) for d, r, c in daily],
-        payment_timeout_minutes=request.app.state.settings.payment_timeout_minutes,
+        payment_timeout_minutes=int(timeout.total_seconds() // 60),
         active_subscribers=active,
         by_plan=[
             PlanCount(plan_id=a, plan_name=b, subscribers=c) for a, b, c in by_plan
@@ -836,6 +841,7 @@ def recheck_payment(
     given up on that was paid after all is completed, with its pass."""
     client = request.app.state.pesapal
     with db.as_user(user.user_id) as conn:
+        after = _timeout(request, conn)
         row = conn.execute(
             "select user_id, tracking_id, state from public.payments where id = %s",
             (payment_id,),
@@ -862,7 +868,7 @@ def recheck_payment(
         answer = passes.NO_ANSWER
     with app_db.as_user(owner) as conn:
         now_state = passes.apply_status(
-            conn, payment_id, answer, _now(), give_up_after=_timeout(request)
+            conn, payment_id, answer, _now(), give_up_after=after
         )
     audit.event("admin.payment_rechecked", admin_id=user.user_id, payment_id=payment_id)
     logger.info(

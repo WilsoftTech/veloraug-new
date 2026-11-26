@@ -201,6 +201,29 @@ class VjCard {
   final int editions;
 }
 
+/// What everyone sees of the admins' settings: maintenance, and how to get
+/// help. Empty contacts aren't set.
+class AppStatus {
+  const AppStatus({
+    this.maintenance = false,
+    this.maintenanceMessage = '',
+    this.supportEmail = '',
+    this.supportPhone = '',
+    this.supportWhatsapp = '',
+  });
+
+  final bool maintenance;
+  final String maintenanceMessage;
+  final String supportEmail;
+  final String supportPhone;
+  final String supportWhatsapp;
+
+  bool get hasSupport =>
+      supportEmail.isNotEmpty ||
+      supportPhone.isNotEmpty ||
+      supportWhatsapp.isNotEmpty;
+}
+
 class VjPage {
   const VjPage({
     required this.vj,
@@ -407,6 +430,19 @@ class CatalogueApi {
             ],
           ),
     ];
+  }
+
+  /// Maintenance mode and support contacts. Needs no sign-in.
+  Future<AppStatus> status() async {
+    final json = await _getObject('/api/v1/status');
+    String text(String key) => json[key] is String ? json[key]! as String : '';
+    return AppStatus(
+      maintenance: json['maintenance'] == true,
+      maintenanceMessage: text('maintenance_message'),
+      supportEmail: text('support_email'),
+      supportPhone: text('support_phone'),
+      supportWhatsapp: text('support_whatsapp'),
+    );
   }
 
   /// VJs with something published, by name.

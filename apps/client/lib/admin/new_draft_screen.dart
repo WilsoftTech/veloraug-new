@@ -117,12 +117,18 @@ class _NewDraftScreenState extends State<NewDraftScreen> {
     final series = await quietly(api.series);
     final languages = await quietly(api.languages);
     final categories = await quietly(api.categories);
+    final settings = await quietly(api.settings);
     if (!mounted) return;
     setState(() {
       _vjs = vjs ?? _vjs;
       _series = series ?? _series;
       if (languages != null && languages.isNotEmpty) _languages = languages;
       _knownCategories = [for (final c in categories ?? const []) c.name];
+      // The admins' default, as Settings says, if it's one of the languages.
+      final preferred = settings?.values['default_language'];
+      if (preferred is String && _languages.any((x) => x.code == preferred)) {
+        _language = preferred;
+      }
     });
   }
 
