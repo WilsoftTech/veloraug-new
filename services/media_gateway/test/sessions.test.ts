@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 async function sessionGrant(session = SESSION, expires = NOW + 3600) {
-  return signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: expires, s: session });
+  return signGrant(SECRET, { p: "playback", m: MOVIE, o: ORIGINAL, e: expires, s: session });
 }
 
 function get(grant: string, file = "master.m3u8", now = NOW) {
@@ -86,6 +86,7 @@ test("the signature matches the API's, from the shared vector", async () => {
     movieId: vector.movie_id,
     originalId: vector.original_id,
     expires: vector.expires,
+    purpose: "playback",
     sessionId: vector.session_id,
   });
 });
@@ -136,19 +137,20 @@ test("a session grant without API_URL isn't served", async () => {
 });
 
 test("a grant without a session is served as before, without asking", async () => {
-  const grant = await signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: NOW + 60 });
+  const grant = await signGrant(SECRET, { p: "playback", m: MOVIE, o: ORIGINAL, e: NOW + 60 });
   assert.equal((await get(grant)).status, 200);
   assert.equal(calls.length, 0);
 });
 
 test("a malformed or forged session claim is refused", async () => {
   for (const s of ["not-a-uuid", 12, null, `${SESSION}x`]) {
-    const grant = await signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: NOW + 60, s });
+    const grant = await signGrant(SECRET, { p: "playback", m: MOVIE, o: ORIGINAL, e: NOW + 60, s });
     assert.equal((await get(grant)).status, 403, String(s));
   }
   // Swapping the session in a real grant breaks its signature.
   const real = await sessionGrant();
   const other = await signGrant("another-key-that-is-also-long-enough-0000", {
+    p: "playback",
     m: MOVIE,
     o: ORIGINAL,
     e: NOW + 60,

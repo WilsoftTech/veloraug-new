@@ -25,6 +25,7 @@ def test_service_info_identifies_the_service(client):
 def test_service_info_reports_the_configured_environment():
     settings = Settings(
         environment="production",
+        passes_required=True,
         neon_auth_url="https://auth.example.test/neondb/auth",
         api_resource="https://api.example.invalid",
         neon_auth_client_ids=["client-1"],

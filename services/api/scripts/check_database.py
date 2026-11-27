@@ -671,7 +671,9 @@ def check_account(conn: psycopg.Connection) -> list[Result]:
 
 def check_uploads(conn: psycopg.Connection) -> list[Result]:
     """The API can't see or change upload keys or qualities, and sees only
-    which published items have a ready original.
+    which published items have a ready original. From migration 0020 it
+    reads each quality's height for those originals, for downloads
+    (VUG-SEC-001), and nothing else of the qualities.
 
     These follow the Step 7B criteria in docs/step-07a-uploads-plan.md and
     the Step 8B criteria in docs/step-08a-playback-plan.md.
@@ -693,16 +695,33 @@ def check_uploads(conn: psycopg.Connection) -> list[Result]:
             (table,),
         ).fetchone()[0]
         or conn.execute(
-            "select has_any_column_privilege(%s, 'SELECT, INSERT, UPDATE')",
+            "select has_any_column_privilege(%s, 'INSERT, UPDATE')",
             (table,),
         ).fetchone()[0]
     ]
+    if conn.execute(
+        "select has_any_column_privilege('public.upload_keys', 'SELECT')"
+    ).fetchone()[0]:
+        rights.append("public.upload_keys")
+    quality_columns = {
+        column
+        for (column,) in conn.execute(
+            """
+            select attname from pg_attribute
+            where attrelid = 'public.media_renditions'::regclass and attnum > 0
+              and not attisdropped
+              and has_column_privilege(attrelid, attnum, 'SELECT')
+            """
+        ).fetchall()
+    }
+    if not quality_columns <= {"original_id", "height"}:
+        rights.append("public.media_renditions")
     results.append(
         Result(
             "can't read or change upload keys or qualities",
             not rights
             and refused(conn, "select count(*) from public.upload_keys")
-            and refused(conn, "select count(*) from public.media_renditions")
+            and refused(conn, "select * from public.media_renditions")
             and refused(conn, "update public.upload_keys set used_at = now()"),
             ", ".join(rights),
         )

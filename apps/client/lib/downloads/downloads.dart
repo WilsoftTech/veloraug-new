@@ -331,7 +331,7 @@ class Downloads extends ChangeNotifier {
       throw const PlaybackException(PlaybackFailure.unreachable);
     }
     final grant = await playback.downloadGrant(itemId);
-    final qualities = await playback.qualities(grant.grant);
+    final qualities = grant.qualities ?? await playback.qualities(grant.grant);
     if (qualities.isEmpty) {
       throw const PlaybackException(PlaybackFailure.unreachable);
     }

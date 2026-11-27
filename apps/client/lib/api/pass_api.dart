@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'playback_api.dart';
 
@@ -279,15 +280,24 @@ extension PassRequests on PlaybackApi {
     ];
   }
 
+  /// Starts paying for [planId]. [attemptId] names this try at paying:
+  /// sent again with a retry, the API answers the same payment instead of
+  /// making a second order.
   Future<Checkout> checkout(
     String planId, {
     String? email,
     String? phone,
+    String? attemptId,
   }) async {
     final json = await _passJson(
       'POST',
       '/api/v1/passes/checkout',
-      body: {'plan_id': planId, 'email': ?email, 'phone': ?phone},
+      body: {
+        'plan_id': planId,
+        'email': ?email,
+        'phone': ?phone,
+        'attempt_id': ?attemptId,
+      },
     );
     if (json case {
       'payment_id': final String id,
@@ -456,3 +466,15 @@ int? _int(Object? value) => value is int ? value : null;
 
 DateTime? _time(Object? value) =>
     value is String ? DateTime.tryParse(value)?.toUtc() : null;
+
+/// A new random ID for one try at paying: a version 4 UUID.
+String newAttemptId([Random? random]) {
+  final source = random ?? Random.secure();
+  final bytes = List<int>.generate(16, (_) => source.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final hex = [for (final b in bytes) b.toRadixString(16).padLeft(2, '0')]
+      .join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+}

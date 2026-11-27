@@ -1178,7 +1178,7 @@ def preview(
         original = work.ready_original(conn, item_id)
     if original is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "This video isn't ready yet.")
-    grant = granter.grant(item_id, original)
+    grant = granter.grant(item_id, original, purpose="preview")
     logger.info("Admin %s previewed item %s", user.user_id, item_id)
     return Preview(playlist_url=grant.playlist_url, expires_at=grant.expires_at)
 

@@ -17,7 +17,10 @@ test("the grant the API's tests make is accepted", async () => {
     movieId: vector.movie_id,
     originalId: vector.original_id,
     expires: vector.expires,
+    purpose: "playback",
   });
+  const download = await verifyGrant(key, vector.download_grant, vector.expires - 1);
+  assert.equal(download?.purpose, "download");
 });
 
 test("signing here gives the API's exact grant", async () => {
@@ -25,6 +28,7 @@ test("signing here gives the API's exact grant", async () => {
     m: vector.movie_id,
     o: vector.original_id,
     e: vector.expires,
+    p: "playback",
   });
   assert.equal(grant, vector.grant);
 });
@@ -65,12 +69,20 @@ test("a changed payload or signature is refused", async () => {
 test("a well-signed grant with bad contents is refused", async () => {
   const secret = "s".repeat(40);
   const key = await importSigningKey(secret);
-  const good = { m: vector.movie_id, o: vector.original_id, e: 2_000_000_000 };
+  const good = { m: vector.movie_id, o: vector.original_id, e: 2_000_000_000, p: "playback" };
+  const session = "3c9e0d4f-1b2a-4c5d-8e6f-7a8b9c0d1e2f";
   for (const claims of [
     { ...good, m: "../../originals" },
     { ...good, o: vector.original_id.toUpperCase() },
     { ...good, e: "2000000000" },
     { ...good, e: 1.5 },
+    { m: good.m, o: good.o, e: good.e },
+    { ...good, p: "stream" },
+    { ...good, p: "" },
+    { ...good, p: ["download"] },
+    // Only playback is bound to a session: a download or preview never is.
+    { ...good, p: "download", s: session },
+    { ...good, p: "preview", s: session },
     { m: good.m, o: good.o },
     [],
     "text",

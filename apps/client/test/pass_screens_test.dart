@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:veloraug/api/pass_api.dart';
 import 'package:veloraug/api/playback_api.dart';
 import 'package:veloraug/auth/auth_controller.dart';
 import 'package:veloraug/l10n/app_localizations.dart';
@@ -18,6 +19,10 @@ Future<void> settle(WidgetTester tester) async {
 }
 
 Finder payButton(String price) => find.text('Pay UGX $price');
+
+final uuidV4 = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+);
 
 void main() {
   late List<Uri> opened;
@@ -291,6 +296,7 @@ void main() {
       expect(api.checkouts.single, {
         'plan_id': 'velora_start',
         'email': 'owner@example.test',
+        'attempt_id': matches(uuidV4),
       });
       // Pesapal's page shows here: nothing opens outside the app.
       expect(opened, isEmpty);
@@ -485,6 +491,27 @@ void main() {
       });
     }
 
+    testWidgets('a retried checkout is the same attempt', (tester) async {
+      final api = FakeApi()..checkoutStatus = 503;
+      await pumpApp(tester, api, signedIn: true);
+      await goTo(tester, 'Account');
+      await openPlans(tester);
+      await pay(tester, '6,000');
+      api.checkoutStatus = 201;
+      await pay(tester, '6,000');
+
+      expect(api.checkouts, hasLength(2));
+      final first = api.checkouts.first['attempt_id'];
+      expect(first, matches(uuidV4));
+      expect(api.checkouts.last['attempt_id'], first);
+    });
+
+    test('attempt IDs are random version 4 UUIDs', () {
+      final ids = {for (var i = 0; i < 50; i++) newAttemptId()};
+      expect(ids, hasLength(50));
+      expect(ids, everyElement(matches(uuidV4)));
+    });
+
     testWidgets('a page that isn\'t Pesapal\'s is never opened', (
       tester,
     ) async {
@@ -613,6 +640,7 @@ void main() {
       expect(api.checkouts.single, {
         'plan_id': 'velora_start',
         'phone': '0772 123 456',
+        'attempt_id': matches(uuidV4),
       });
       await checks(tester, 2);
     });

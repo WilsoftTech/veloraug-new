@@ -89,11 +89,35 @@ def test_a_download_lasts_a_day_and_names_its_file(viewer_api, catalogue):
 
     assert response.status_code == 200, response.text
     assert "s" not in claims_of(response)
+    # VUG-SEC-001: good for the download files only, never for streaming.
+    assert claims_of(response)["p"] == "download"
     assert response.json()["playlist_url"].endswith("/master.m3u8")
     assert near(
         expires(response), now + timedelta(seconds=playback.DOWNLOAD_GRANT_SECONDS)
     )
     assert response.json()["file_name"] == "Fast X - VJ Junior"
+
+
+@needs_database
+def test_a_download_lists_its_qualities_without_the_playlist(
+    viewer_api, owner, catalogue
+):
+    """The gateway won't open the master playlist for a download grant, so
+    the API says which qualities there are, best first."""
+    from tests.test_uploads import add_quality
+
+    movie = catalogue["movie"].item_id
+    assert download(viewer_api, movie, uuid.uuid4()).json()["heights"] == []
+    (original,) = owner.execute(
+        "select id from public.media_originals where item_id = %s and state = 'ready'",
+        (movie,),
+    ).fetchone()
+    for height in (480, 1080, 720):
+        add_quality(owner, original, height)
+
+    response = download(viewer_api, movie, uuid.uuid4())
+
+    assert response.json()["heights"] == [1080, 720, 480]
 
 
 @needs_database

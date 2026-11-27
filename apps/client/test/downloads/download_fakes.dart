@@ -29,6 +29,11 @@ class FakeMediaServer {
   /// for a film whose files haven't been made yet.
   Map<String, int> sizes = {'720p': 1200000000, '360p': 350000000};
 
+  /// The qualities the API lists with a grant, best first, as it does
+  /// since VUG-SEC-001. Null for an older API that lists none, when the
+  /// app reads the master playlist instead.
+  List<int>? heights = [720, 360];
+
   int grants = 0;
   final List<http.Request> requests = [];
 
@@ -46,11 +51,14 @@ class FakeMediaServer {
           'playlist_url': '$gateway/v1/GRANT$grants.sig/master.m3u8',
           'expires_at': '2030-01-01T00:00:00Z',
           'file_name': fileName,
+          'heights': ?heights,
         }),
         200,
       );
     }
     if (url.path.endsWith('/master.m3u8')) {
+      // The gateway won't stream with a download grant.
+      if (heights != null) return http.Response('Not allowed.', 403);
       return http.Response(masterText, 200);
     }
     if (url.path.endsWith('/download.mp4') && request.method == 'HEAD') {

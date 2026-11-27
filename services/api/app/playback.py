@@ -36,6 +36,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
 import psycopg
@@ -62,16 +63,25 @@ def _b64(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+GrantPurpose = Literal["playback", "preview", "download"]
+
+
 def sign_grant(
     key: bytes,
     *,
     item_id: UUID,
     original_id: UUID,
     expires: int,
+    purpose: GrantPurpose = "playback",
     session_id: UUID | None = None,
 ) -> str:
     """The grant text. `expires` is in seconds since 1970, UTC."""
-    claims: dict[str, object] = {"m": str(item_id), "o": str(original_id), "e": expires}
+    claims: dict[str, object] = {
+        "m": str(item_id),
+        "o": str(original_id),
+        "e": expires,
+        "p": purpose,
+    }
     if session_id is not None:
         claims["s"] = str(session_id)
     payload = _b64(json.dumps(claims, separators=(",", ":")).encode())
@@ -99,6 +109,7 @@ class Granter:
         until: datetime | None = None,
         session_id: UUID | None = None,
         seconds: int | None = None,
+        purpose: GrantPurpose = "playback",
     ) -> Playback:
         """A grant for GRANT_SECONDS, or until `until` if that's sooner: the
         end of the viewer's pass, Step 10B. One bound to a playback session
@@ -114,6 +125,7 @@ class Granter:
             item_id=item_id,
             original_id=original_id,
             expires=expires,
+            purpose=purpose,
             session_id=session_id,
         )
         return Playback(

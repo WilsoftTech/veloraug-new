@@ -89,7 +89,7 @@ Each container gets only the files it needs. Every value is production's own: ne
 
 | File | Read by | What goes in it |
 | --- | --- | --- |
-| `api.env` | `api` | As [`services/api/.env.example`](../services/api/.env.example), with production values: `VELORAUG_ALLOWED_ORIGINS=["https://app.veloraug.com"]`, the default branch's Neon Auth URL and client IDs, `veloraug_app`'s and `veloraug_editor`'s pooled connections to the default branch, the production signing key, `VELORAUG_MEDIA_GATEWAY_URL=https://media.veloraug.com`, `VELORAUG_PUBLIC_API_URL=https://api.veloraug.com`, `VELORAUG_PASSES_REQUIRED=false`. `VELORAUG_ENVIRONMENT=production` is set by the Compose file |
+| `api.env` | `api` | As [`services/api/.env.example`](../services/api/.env.example), with production values: `VELORAUG_ALLOWED_ORIGINS=["https://app.veloraug.com"]`, the default branch's Neon Auth URL and client IDs, `veloraug_app`'s and `veloraug_editor`'s pooled connections to the default branch, the production signing key, `VELORAUG_MEDIA_GATEWAY_URL=https://media.veloraug.com`, `VELORAUG_PUBLIC_API_URL=https://api.veloraug.com`, and `VELORAUG_PASSES_REQUIRED`: `true` for the paid service, `false` only for an approved free pilot. Production refuses to start without it. `VELORAUG_ENVIRONMENT=production` is set by the Compose file |
 | `media.env` | `media-hooks`, `media-worker` | `VELORAUG_MEDIA_DATABASE_URL`: `veloraug_media`'s pooled connection to the default branch |
 | `r2.env` | `media-worker` | `VELORAUG_R2_ENDPOINT`, `VELORAUG_R2_BUCKET=veloraug`, and a key pair that can write that bucket only |
 | `tunnel.env` | `cloudflared` | `TUNNEL_TOKEN=`, from the tunnel's page in the Cloudflare dashboard |
@@ -105,7 +105,7 @@ ssh -i $HOME\.ssh\veloraug_server.key ubuntu@130.61.208.54
 bash /opt/veloraug/repo/infra/deploy.sh
 ```
 
-[`deploy.sh`](deploy.sh) checks the settings files, pulls `main`, builds, restarts what changed, waits for the API to be healthy and checks `https://api.veloraug.com/health` through the tunnel. It never runs migrations. If the pull brings a new migration, it stops before restarting anything: run the migration on production from your own terminal, as for development, then run `deploy.sh --migrated`. `--no-pull` rebuilds what is already checked out.
+[`deploy.sh`](deploy.sh) checks the settings files, pulls `main` over SSH that trusts only GitHub's pinned host key, builds, checks the new API accepts its settings, restarts what changed, waits for the API to be healthy and checks `https://api.veloraug.com/health` through the tunnel. It never runs migrations. If the pull brings a new migration, it stops before restarting anything: run the migration on production from your own terminal, as for development, then run `deploy.sh --migrated`. `--no-pull` rebuilds what is already checked out.
 
 | Task | Command, on the server, in `/opt/veloraug/repo` |
 | --- | --- |
