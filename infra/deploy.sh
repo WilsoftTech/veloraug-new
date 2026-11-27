@@ -6,6 +6,7 @@
 #   bash /opt/veloraug/repo/infra/deploy.sh --migrated  # the same, once a new
 #                                                       # migration has been run
 #   bash /opt/veloraug/repo/infra/deploy.sh --no-pull   # rebuild what's checked out
+#   bash /opt/veloraug/repo/infra/deploy.sh --check-paid-runtime  # inspect only
 #
 # It stops, changing nothing that is running, if the settings files are
 # missing or readable by others, or if the pull brings a migration and
@@ -17,6 +18,21 @@ ROOT=/opt/veloraug
 REPO="$ROOT/repo"
 COMPOSE=(docker compose -f "$REPO/infra/compose.prod.yaml")
 PUBLIC_HEALTH=https://api.veloraug.com/health
+
+if [[ $# == 1 && $1 == --check-paid-runtime ]]; then
+  container=$("${COMPOSE[@]}" ps -q api)
+  [[ -n "$container" ]] || { echo "The API is not running." >&2; exit 1; }
+  docker inspect --format 'Running API image ID: {{.Image}}' "$container"
+  if [[ -f "$ROOT/deployed-commit" ]]; then
+    revision=$(cat "$ROOT/deployed-commit")
+    [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid deployed-commit record." >&2; exit 1; }
+    echo "Last successful deploy recorded: $revision"
+  else
+    echo "Last successful deploy: no commit recorded"
+  fi
+  docker exec -i "$container" python -B - < "$REPO/infra/check_paid_runtime.py"
+  exit
+fi
 
 migrated=false
 pull=true
@@ -80,8 +96,7 @@ for _ in $(seq 1 30); do
   sleep 3
 done
 [ "$state" = healthy ] || {
-  "${COMPOSE[@]}" logs --tail 40 api
-  fail "the API isn't healthy ($state). Its last log lines are above"
+  fail "the API isn't healthy ($state). Inspect its logs on the server before sharing any details."
 }
 echo "api: healthy"
 

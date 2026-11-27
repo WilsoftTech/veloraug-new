@@ -89,12 +89,28 @@ Each container gets only the files it needs. Every value is production's own: ne
 
 | File | Read by | What goes in it |
 | --- | --- | --- |
-| `api.env` | `api` | As [`services/api/.env.example`](../services/api/.env.example), with production values: `VELORAUG_ALLOWED_ORIGINS=["https://app.veloraug.com"]`, the default branch's Neon Auth URL and client IDs, `veloraug_app`'s and `veloraug_editor`'s pooled connections to the default branch, the production signing key, `VELORAUG_MEDIA_GATEWAY_URL=https://media.veloraug.com`, `VELORAUG_PUBLIC_API_URL=https://api.veloraug.com`, `VELORAUG_PASSES_REQUIRED=false`. `VELORAUG_ENVIRONMENT=production` is set by the Compose file |
+| `api.env` | `api` | As [`services/api/.env.example`](../services/api/.env.example), with production values: `VELORAUG_ALLOWED_ORIGINS=["https://app.veloraug.com"]`, the default branch's Neon Auth URL and client IDs, `veloraug_app`'s and `veloraug_editor`'s pooled connections to the default branch, the production signing key, `VELORAUG_MEDIA_GATEWAY_URL=https://media.veloraug.com`, `VELORAUG_PUBLIC_API_URL=https://api.veloraug.com`. Set `VELORAUG_PASSES_REQUIRED=true` for paid service. An intentionally free pilot uses `false`. `VELORAUG_ENVIRONMENT=production` is set by the Compose file |
 | `media.env` | `media-hooks`, `media-worker` | `VELORAUG_MEDIA_DATABASE_URL`: `veloraug_media`'s pooled connection to the default branch |
 | `r2.env` | `media-worker` | `VELORAUG_R2_ENDPOINT`, `VELORAUG_R2_BUCKET=veloraug`, and a key pair that can write that bucket only |
 | `tunnel.env` | `cloudflared` | `TUNNEL_TOKEN=`, from the tunnel's page in the Cloudflare dashboard |
 
 To edit one: `nano /opt/veloraug/env/api.env`, then deploy again. Paste values in the editor on the server, never in a chat or a message.
+
+### Verify a paid release
+
+On the deployment host, run `bash /opt/veloraug/repo/infra/deploy.sh --check-paid-runtime`. This checks the configuration inherited by the running API container and prints the image ID and last successful deploy record. The commit record is an operator record, separate from the image identity. The check runs locally on the host and exits before the deployment steps. A nonzero result needs investigation. If it reports that checkout is unconfigured, verify whether sales are scheduled to be open.
+
+For a paid release, correct any mismatch in the deployment settings under change control, recreate the affected service and rerun the check. A container restart alone keeps the old environment. Record the UTC time, image ID, recorded commit and check outcomes in the private release record.
+
+| Owner check | Evidence to record privately |
+| --- | --- |
+| Cloudflare | Compare the active media Worker version, route, API origin and R2 binding with the production section of [wrangler.jsonc](../services/media_gateway/wrangler.jsonc). Verify the private bucket's public development URL and public custom-domain settings, tunnel hostnames, cache rules for private media, admin Access, upload/API WAF rules and access-log permissions. Record policy IDs and outcomes. |
+| Neon | Verify the intended branch, runtime roles and grants, IP restrictions, backup/restore window, and OAuth client/redirect registrations. Record branch and policy identifiers. |
+| Pesapal | Verify the merchant environment, registered notification endpoint and any outstanding settlement anomalies in the merchant dashboard. |
+| Google Play | Compare the app-signing certificate fingerprint against the production App Links file and confirm the upload key's status separately. |
+| Deployment owner | Before a new bootstrap, compare the GitHub SSH host fingerprint with [GitHub's published fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints) through an independent trusted channel. Review security events in a restricted log sink. Use synthetic events on development to check redaction and record whether the event actually arrived. |
+
+If actual misuse is observed, preserve redacted evidence and restrict the affected operation under incident change control. For download abuse, a temporary edge rule can suspend new download-grant requests while allowing ordinary playback. Existing grants retain their original expiry unless separately invalidated. For a verified credential disclosure, replace the credential at its issuer and in each consumer, revoke the exposed credential and verify the replacement. Keep raw URLs, provider errors, credentials and customer identifiers out of release records. For rollback, use a known-good paid configuration and the current valid credentials, then repeat the runtime and provider checks.
 
 ### Deploy
 
