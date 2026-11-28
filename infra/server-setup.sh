@@ -19,11 +19,11 @@ sudo install -d -o "$USER" -g "$USER" -m 755 "$ROOT"
 # Secrets: readable by the deploy account only.
 install -d -m 700 "$ROOT/env"
 # tusd and the media worker run as 1000:1000 (infra/compose.prod.yaml).
-sudo install -d -o 1000 -g 1000 -m 750 "$ROOT/uploads" "$ROOT/output"
+sudo install -d -o 1000 -g 1000 -m 750 "$ROOT/uploads" "$ROOT/output" "$ROOT/converter"
 ls -ld "$ROOT" "$ROOT/env" "$ROOT/uploads" "$ROOT/output"
 
 say "Empty settings files, mode 600"
-for name in api media r2 tunnel; do
+for name in api media r2 tunnel hook upload; do
   file="$ROOT/env/$name.env"
   if [ ! -e "$file" ]; then
     install -m 600 /dev/null "$file"

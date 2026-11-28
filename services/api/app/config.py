@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from typing import Literal
 from urllib.parse import unquote, urlsplit
 
@@ -66,6 +67,7 @@ class Settings(BaseSettings):
     # ("expired"). Paid later after all, it is still honoured.
     payment_timeout_minutes: int = Field(default=60, ge=5, le=1440)
     public_api_url: str | None = None
+    payment_queue_path: Path | None = None
 
     @field_validator("pesapal_ipn_id")
     @classmethod

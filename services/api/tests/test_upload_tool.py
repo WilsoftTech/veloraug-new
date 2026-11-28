@@ -221,9 +221,23 @@ def test_the_tool_needs_only_the_standard_library():
         "http",
         "json",
         "os",
+        "re",
         "sys",
         "time",
         "pathlib",
         "urllib",
     }
     assert set(imports) <= allowed
+
+
+def test_resume_location_stays_on_configured_https_origin():
+    server = "https://upload.example.test/files/"
+    assert tool.resume_address(server, "local-id") == server + "local-id"
+    for target in (
+        "https://elsewhere.example.test/files/id",
+        "http://upload.example.test/files/id",
+        "/elsewhere/id",
+        "/files/a%2fb",
+    ):
+        with pytest.raises(tool.UploadError):
+            tool.resume_address(server, target)

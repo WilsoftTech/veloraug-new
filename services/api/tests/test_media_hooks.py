@@ -4,12 +4,13 @@ The database tests run on a real local Postgres, as veloraug_media. Skipped
 without one: see tests/db_support.py.
 """
 
+import base64
 import uuid
 
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from app.db import Database
 from app.media_hooks import (
@@ -130,11 +131,13 @@ def test_the_app_has_no_documentation_pages_and_answers_health():
     settings = MediaSettings(
         database_url="postgresql://veloraug_media:pw@127.0.0.1:1/x"
     )
-    with TestClient(create_app(settings)) as client:
+    with TestClient(
+        create_app(settings.model_copy(update={"hook_secret": SecretStr("h" * 64)}))
+    ) as client:
         assert client.get("/health").json() == {"status": "ok"}
         for path in ("/docs", "/redoc", "/openapi.json"):
             assert client.get(path).status_code == 404
-        assert client.post("/tusd", content=b"not json").json() == {}
+        assert client.post("/tusd", content=b"not json").status_code == 401
 
 
 @pytest.mark.parametrize("upload_id", ["", "not-a-uuid", None])
@@ -270,9 +273,22 @@ def test_a_finished_upload_cant_be_removed(owner_url, media_database, key):
 
 @needs_database
 def test_the_app_answers_tusd_over_http(owner_url, media_database, key):
-    settings = MediaSettings(database_url=url_for("veloraug_media", MEDIA_PASSWORD))
+    secret = "d" * 64
+    settings = MediaSettings(
+        database_url=url_for("veloraug_media", MEDIA_PASSWORD), hook_secret=secret
+    )
     with TestClient(create_app(settings, media_database)) as client:
-        answer = client.post("/tusd", json=pre_create(key[1])).json()
+        assert client.post("/tusd", json=pre_create(key[1])).status_code == 401
+        headers = {
+            "Authorization": "Basic "
+            + base64.b64encode(f"tusd:{secret}".encode()).decode()
+        }
+        assert (
+            client.post("/tusd", headers=headers, content=b"x" * 65537).status_code
+            == 413
+        )
+        assert client.post("/tusd", headers=headers, content=b"x").status_code == 400
+        answer = client.post("/tusd", headers=headers, json=pre_create(key[1])).json()
 
     assert original(owner_url, answer["ChangeFileInfo"]["ID"])[1] == "uploading"
 

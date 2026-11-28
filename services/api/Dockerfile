@@ -16,6 +16,7 @@ COPY app ./app
 
 # The files above stay owned by root, so this user can read but not change them.
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin veloraug
+RUN install -d -o veloraug -g veloraug -m 700 /var/lib/veloraug-payments
 USER veloraug
 
 EXPOSE 8000

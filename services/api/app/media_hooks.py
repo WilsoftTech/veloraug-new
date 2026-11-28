@@ -15,6 +15,9 @@ Run with:
     python -m uvicorn app.media_hooks:create_app --factory --host 0.0.0.0 --port 8000
 """
 
+import base64
+import hmac
+import json
 import logging
 import unicodedata
 import uuid
@@ -22,7 +25,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.concurrency import run_in_threadpool
@@ -56,6 +59,7 @@ class MediaSettings(BaseSettings):
     )
 
     database_url: SecretStr
+    hook_secret: SecretStr | None = None
 
     @field_validator("database_url")
     @classmethod
@@ -256,6 +260,13 @@ def create_app(
     settings: MediaSettings | None = None, database: Database | None = None
 ) -> FastAPI:
     settings = settings or MediaSettings()
+    if (
+        settings.hook_secret is None
+        or len(settings.hook_secret.get_secret_value()) < 32
+    ):
+        raise ValueError("Configure VELORAUG_MEDIA_HOOK_SECRET for the hook listener")
+    secret = settings.hook_secret.get_secret_value()
+    authorization = "Basic " + base64.b64encode(f"tusd:{secret}".encode()).decode()
     database = database or Database(settings.database_url.get_secret_value())
     hooks = Hooks(database)
     show_log_lines()
@@ -286,10 +297,18 @@ def create_app(
     async def tusd_hook(request: Request) -> dict[str, Any]:
         # The body holds the uploader's headers, including the key, so it is
         # never logged.
+        supplied = request.headers.get("authorization", "")
+        if not supplied.isascii() or not hmac.compare_digest(supplied, authorization):
+            raise HTTPException(401, "Hook authentication required.")
+        payload = bytearray()
+        async for chunk in request.stream():
+            if len(chunk) > 65536 - len(payload):
+                raise HTTPException(413, "Hook body is too large.")
+            payload.extend(chunk)
         try:
-            body = await request.json()
+            body = json.loads(payload)
         except ValueError:
-            return {}
+            raise HTTPException(400, "Invalid hook body.") from None
         return await run_in_threadpool(hooks.handle, body)
 
     return app

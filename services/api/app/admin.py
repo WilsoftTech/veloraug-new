@@ -24,8 +24,10 @@ from fastapi import (
     Request,
     status,
 )
+from fastapi.responses import JSONResponse
 from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, Field, StringConstraints
+from pydantic_settings import SettingsError
 
 from app import admin_catalogue as work
 from app import app_settings, audit, editions
@@ -37,6 +39,7 @@ from app.images import ImageUrls
 from app.matching import clean_title, clear_match
 from app.playback import Granter, image_path
 from app.tmdb import DEFAULT_IMAGES, TmdbClient, TmdbError, TmdbNotFound
+from app.upload_resume import UploadSecurity
 
 logger = logging.getLogger("veloraug.admin")
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -1197,6 +1200,28 @@ def new_key(
         key_id, text, expires_at = work.make_key(conn, item_id, body.label, body.days)
     logger.info("Admin %s made key %s for item %s", user.user_id, key_id, item_id)
     return KeyMade(key_id=key_id, upload_key=text, expires_at=expires_at)
+
+
+@router.post("/uploads/{original_id}/resume")
+def resume_upload(
+    original_id: UUID, user: AdminUser, db: EditorDatabase
+) -> JSONResponse:
+    with editing(db, user) as conn:
+        found = conn.execute(
+            "select 1 from public.media_originals "
+            "where id = %s and state = 'uploading'",
+            (original_id,),
+        ).fetchone()
+    if not found:
+        raise HTTPException(404, "No unfinished upload.")
+    try:
+        security = UploadSecurity()
+    except (SettingsError, ValueError):
+        raise HTTPException(503, "Upload recovery is unavailable.") from None
+    return JSONResponse(
+        {"resume": security.issue(str(original_id))},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/keys/{key_id}/revoke")

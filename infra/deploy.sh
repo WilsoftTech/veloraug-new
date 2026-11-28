@@ -32,7 +32,7 @@ fail() { echo "STOPPED: $*" >&2; exit 1; }
 say() { printf '\n== %s\n' "$*"; }
 
 say "Settings files"
-for name in api media r2 tunnel; do
+for name in api media r2 tunnel hook upload; do
   file="$ROOT/env/$name.env"
   [ -s "$file" ] || fail "$file is missing or empty"
   mode=$(stat -c %a "$file")

@@ -15,6 +15,7 @@ It prints the IPN ID for VELORAUG_PESAPAL_IPN_ID.
 import sys
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import TracebackType
@@ -110,6 +111,7 @@ class PesapalClient:
         transport: httpx2.BaseTransport | None = None,
         timeout: float = TIMEOUT_SECONDS,
         clock=time.time,
+        status_cooldown: float = 0,
     ) -> None:
         if environment not in BASE_URLS:
             raise ValueError("The Pesapal environment is sandbox or live")
@@ -121,6 +123,11 @@ class PesapalClient:
         self._token: str | None = None
         self._token_until = 0.0
         self._lock = threading.Lock()
+        self._status_slots = threading.BoundedSemaphore(3)
+        self._status_lock = threading.Lock()
+        self._status_cooldown = status_cooldown
+        self._status_seen: OrderedDict[str, float] = OrderedDict()
+        self._status_running: set[str] = set()
         self._client = httpx2.Client(
             base_url=BASE_URLS[environment] + "/api",
             headers={"Accept": "application/json", "Content-Type": "application/json"},
@@ -182,12 +189,41 @@ class PesapalClient:
         return Order(tracking_id, safe_redirect(data.get("redirect_url")))
 
     def status(self, tracking_id: str) -> Status:
-        data = self._call(
-            "GET",
-            "/Transactions/GetTransactionStatus",
-            params={"orderTrackingId": tracking_id},
-        )
-        return parse_status(data)
+        if not self._status_slots.acquire(blocking=False):
+            raise PesapalUnavailable("Payment status is temporarily busy")
+        checking = False
+        try:
+            if self._status_cooldown:
+                with self._status_lock:
+                    now = time.monotonic()
+                    while self._status_seen:
+                        oldest = next(iter(self._status_seen))
+                        if self._status_seen[oldest] > now:
+                            break
+                        self._status_seen.popitem(last=False)
+                    if (
+                        tracking_id in self._status_seen
+                        or len(self._status_seen) >= 10000
+                    ):
+                        raise PesapalUnavailable(
+                            "Payment status was requested recently"
+                        )
+                    self._status_running.add(tracking_id)
+                    checking = True
+            data = self._call(
+                "GET",
+                "/Transactions/GetTransactionStatus",
+                params={"orderTrackingId": tracking_id},
+            )
+            return parse_status(data)
+        finally:
+            if checking:
+                with self._status_lock:
+                    self._status_running.remove(tracking_id)
+                    self._status_seen[tracking_id] = (
+                        time.monotonic() + self._status_cooldown
+                    )
+            self._status_slots.release()
 
     def register_ipn(self, url: str) -> str:
         data = self._call(

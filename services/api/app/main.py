@@ -14,10 +14,13 @@ from app.catalogue import Refresher
 from app.config import Settings
 from app.db import Database, DatabaseUnavailable
 from app.device_routes import router as device_router
+from app.pass_routes import _check_by_tracking
 from app.pass_routes import router as pass_router
+from app.payment_queue import PaymentQueue
 from app.pesapal import PesapalClient
 from app.playback import Granter
 from app.ratelimit import RateLimiter
+from app.request_budget import RequestBudget
 from app.routes import router
 from app.settings_routes import router as settings_router
 from app.tmdb import TmdbClient
@@ -47,6 +50,7 @@ def create_app(
             settings.pesapal_consumer_key.get_secret_value(),
             settings.pesapal_consumer_secret.get_secret_value(),
             environment=settings.pesapal_environment,
+            status_cooldown=2 if settings.payment_queue_path is not None else 0,
         )
     if editor_database is None and settings.editor_database_url is not None:
         editor_database = Database(
@@ -78,6 +82,20 @@ def create_app(
             database, TmdbClient(settings.tmdb_read_access_token.get_secret_value())
         )
 
+    queue = None
+    if (
+        settings.payment_queue_path is not None
+        and database is not None
+        and pesapal is not None
+    ):
+        queue = PaymentQueue(
+            settings.payment_queue_path,
+            lambda tracking_id: (
+                _check_by_tracking(database, pesapal, tracking_id, notified=True)
+                is not None
+            ),
+        )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if database is not None:
@@ -89,17 +107,23 @@ def create_app(
                 "VELORAUG_TMDB_READ_ACCESS_TOKEN isn't set: the catalogue serves "
                 "the details it has, and none are refreshed"
             )
-        yield
-        if refresher is not None:
-            refresher.close()
-        if tmdb is not None:
-            tmdb.close()
-        if pesapal is not None:
-            pesapal.close()
-        if database is not None:
-            database.close()
-        if editor_database is not None:
-            editor_database.close()
+        if queue is not None:
+            queue.thread.start()
+        try:
+            yield
+        finally:
+            if queue is not None:
+                queue.close()
+            if refresher is not None:
+                refresher.close()
+            if tmdb is not None:
+                tmdb.close()
+            if pesapal is not None:
+                pesapal.close()
+            if database is not None:
+                database.close()
+            if editor_database is not None:
+                editor_database.close()
 
     # Production has no documentation pages: decision 7 of
     # docs/step-11a-pilot-deployment-plan.md. Development keeps them.
@@ -113,6 +137,7 @@ def create_app(
         openapi_url=None if production else "/openapi.json",
     )
     app.state.settings = settings
+    app.state.payment_queue = queue
     # None when sign-in or the database isn't configured. Only development
     # allows that, and the routes that need them answer 503.
     app.state.token_verifier = token_verifier
@@ -138,6 +163,7 @@ def create_app(
             "VELORAUG_PASSES_REQUIRED is on, but Pesapal isn't set up: "
             "viewers without a pass can't buy one"
         )
+    app.add_middleware(RequestBudget)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,

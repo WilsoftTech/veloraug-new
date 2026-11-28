@@ -27,10 +27,15 @@ services:
     env_file:
       - path: /opt/veloraug/env/api.env
         required: true
+      - path: /opt/veloraug/env/upload.env
+        required: false
     # The API's own checks refuse to start production without sign-in, the
     # database and playback, so a missing setting stops here, loudly.
     environment:
       VELORAUG_ENVIRONMENT: production
+      VELORAUG_PAYMENT_QUEUE_PATH: /var/lib/veloraug-payments/notifications.sqlite3
+    volumes:
+      - payment-queue:/var/lib/veloraug-payments
     networks: [edge]
     restart: always
     logging: *logging
@@ -64,7 +69,9 @@ services:
     env_file:
       - path: /opt/veloraug/env/media.env
         required: true
-    networks: [uploads]
+      - path: /opt/veloraug/env/hook.env
+        required: true
+    networks: [uploads, tus-private]
     restart: always
     logging: *logging
     healthcheck:
@@ -81,11 +88,28 @@ services:
   # Receives uploads, resumably, through the tunnel. The image has ARM64
   # builds, checked on the server.
   tusd:
+    image: veloraug-api:prod
+    command: ["python", "-m", "uvicorn", "app.upload_proxy:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+    env_file:
+      - path: /opt/veloraug/env/upload.env
+        required: true
+      - path: /opt/veloraug/env/hook.env
+        required: true
+    environment:
+      VELORAUG_UPLOAD_WEB_ORIGIN: https://app.veloraug.com
+    networks: [edge, tus-private]
+    restart: always
+    depends_on:
+      - tusd-storage
+
+  tusd-storage:
     image: tusproject/tusd:v2.10.1
     # tusd's own user. The media worker runs as the same IDs, so it can read
     # and delete what tusd writes. /opt/veloraug/uploads belongs to 1000:1000.
     user: "1000:1000"
     command:
+      - -hooks-http=http://media-hooks:8000/tusd
+      - -hooks-http-forward-headers=Authorization
       - -host=0.0.0.0
       - -port=8080
       - -base-path=/files/
@@ -95,17 +119,16 @@ services:
       # used, not tusd's own http address.
       - -behind-proxy
       - -disable-download
-      - -hooks-http=http://media-hooks:8000/tusd
       - -hooks-enabled-events=pre-create,post-finish,pre-terminate
       # Only the production web app may upload from a browser.
       - -cors-allow-origin=^https://app\.veloraug\.com$$
-      - -cors-allow-headers=Upload-Key
+      - -cors-allow-headers=Upload-Key,Upload-Resume
       - -hooks-http-retry=0
       - -show-greeting=false
       - -expose-metrics=false
     volumes:
       - /opt/veloraug/uploads:/srv/tusd-data
-    networks: [edge, uploads]
+    networks: [tus-private]
     restart: always
     logging: *logging
     depends_on:
@@ -113,6 +136,32 @@ services:
         condition: service_healthy
 
   # Converts each upload and publishes it to the production bucket. No ports.
+  media-converter:
+    build:
+      context: ../services/api
+      dockerfile: Dockerfile.worker
+    image: veloraug-media-worker:prod
+    command: ["python", "-m", "app.media_converter"]
+    network_mode: none
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 4g
+    pids_limit: 256
+    cpus: 3
+    tmpfs: ["/tmp:size=256m"]
+    volumes:
+      - /opt/veloraug/uploads:/srv/uploads:ro
+      - /opt/veloraug/output:/srv/output
+      - /opt/veloraug/converter:/srv/converter
+    healthcheck:
+      test: ["CMD", "test", "-S", "/srv/converter/worker.sock"]
+      interval: 5s
+      timeout: 2s
+      retries: 8
+    restart: unless-stopped
+
   media-worker:
     build:
       context: ../services/api
@@ -127,6 +176,10 @@ services:
     volumes:
       - /opt/veloraug/uploads:/srv/uploads
       - /opt/veloraug/output:/srv/output
+      - /opt/veloraug/converter:/srv/converter
+    depends_on:
+      media-converter:
+        condition: service_healthy
     networks: [uploads]
     restart: always
     logging: *logging
@@ -150,7 +203,12 @@ services:
         condition: service_healthy
 
 networks:
+  tus-private:
+    internal: true
   # What the tunnel reaches: the API and tusd.
   edge: {}
   # tusd, its hooks and the worker. The API isn't on it.
   uploads: {}
+
+volumes:
+  payment-queue: {}
