@@ -34,7 +34,12 @@ from app import app_settings, audit, passes, ratelimit
 from app.admin import AdminUser, EditorDatabase
 from app.auth import VerifiedUser, current_user
 from app.db import Database
-from app.pesapal import PesapalClient, PesapalError, PesapalUnavailable
+from app.pesapal import (
+    PesapalClient,
+    PesapalError,
+    PesapalOrderNotSent,
+    PesapalUnavailable,
+)
 from app.viewer_routes import AppDatabase
 
 logger = logging.getLogger("veloraug.passes")
@@ -361,6 +366,12 @@ def checkout(
             email=payment.email,
             phone=payment.phone,
         )
+    except PesapalOrderNotSent:
+        with db.as_user(user.user_id) as conn:
+            passes.refused_by_pesapal(
+                conn, payment.id, "Pesapal authentication unavailable"
+            )
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, PESAPAL_DOWN) from None
     except PesapalUnavailable:
         logger.warning("payment %s submission outcome unknown", payment.id)
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, PESAPAL_DOWN) from None
