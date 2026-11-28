@@ -284,4 +284,11 @@ class Settings(BaseSettings):
                 "Production needs VELORAUG_PLAYBACK_SIGNING_KEY and "
                 "VELORAUG_MEDIA_GATEWAY_URL"
             )
+        if (
+            self.environment == "production"
+            and "passes_required" not in self.model_fields_set
+        ):
+            raise ValueError(
+                "Production needs an explicit VELORAUG_PASSES_REQUIRED setting"
+            )
         return self

@@ -16,6 +16,7 @@ const PREFIX = `movies/${MOVIE}/${ORIGINAL}`;
 let bucket: FakeBucket;
 let env: Env;
 let grant: string;
+let download: string;
 
 beforeEach(async () => {
   bucket = new FakeBucket();
@@ -26,7 +27,8 @@ beforeEach(async () => {
   bucket.put(`movies/${OTHER_MOVIE}/${OTHER_ORIGINAL}/master.m3u8`, "#EXTM3U\nother\n");
   bucket.put(`originals/${ORIGINAL}`, "the original");
   env = { MEDIA: bucket, PLAYBACK_SIGNING_KEY: SECRET, ALLOWED_ORIGINS: `${APP}, https://app.example` };
-  grant = await signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: NOW + 3600 });
+  grant = await signGrant(SECRET, { p: "playback", m: MOVIE, o: ORIGINAL, e: NOW + 3600 });
+  download = await signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: NOW + 3600, p: "download" });
 });
 
 function get(path: string, headers: Record<string, string> = {}, method = "GET") {
@@ -64,10 +66,10 @@ test("a relative playlist entry keeps the grant", () => {
 });
 
 test("missing, changed and expired grants are refused alike, without reading R2", async () => {
-  const expired = await signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: NOW });
-  const otherKey = await signGrant("z".repeat(40), { m: MOVIE, o: ORIGINAL, e: NOW + 60 });
+  const expired = await signGrant(SECRET, { p: "playback", m: MOVIE, o: ORIGINAL, e: NOW });
+  const otherKey = await signGrant("z".repeat(40), { p: "playback", m: MOVIE, o: ORIGINAL, e: NOW + 60 });
   const [payload, signature] = grant.split(".");
-  const swapped = await signGrant("z".repeat(40), { m: OTHER_MOVIE, o: OTHER_ORIGINAL, e: NOW + 60 });
+  const swapped = await signGrant("z".repeat(40), { p: "playback", m: OTHER_MOVIE, o: OTHER_ORIGINAL, e: NOW + 60 });
   for (const token of [expired, otherKey, `${swapped.split(".")[0]}.${signature}`, `${payload}.${"A".repeat(43)}`]) {
     const response = await get(`/v1/${token}/master.m3u8`);
     assert.equal(response.status, 403);
@@ -78,7 +80,7 @@ test("missing, changed and expired grants are refused alike, without reading R2"
 });
 
 test("a grant opens its own movie only", async () => {
-  const other = await signGrant(SECRET, { m: OTHER_MOVIE, o: OTHER_ORIGINAL, e: NOW + 60 });
+  const other = await signGrant(SECRET, { p: "playback", m: OTHER_MOVIE, o: OTHER_ORIGINAL, e: NOW + 60 });
   const response = await get(`/v1/${other}/master.m3u8`);
   assert.equal(await response.text(), "#EXTM3U\nother\n");
   assert.deepEqual(bucket.requested, [`movies/${OTHER_MOVIE}/${OTHER_ORIGINAL}/master.m3u8`]);
@@ -95,7 +97,7 @@ test("only published file names are served", async () => {
     `/v1/${grant}/720p/seg_1.ts`,
     `/v1/${grant}/720p/index.m3u8x`,
     `/v1/${grant}/download.mp4`,
-    `/v1/${grant}/720p/download.mp4x`,
+    `/v1/${download}/720p/download.mp4x`,
     `/v1/${grant}/master.m3u8/`,
     `/v1/${grant}//master.m3u8`,
     `/v2/${grant}/master.m3u8`,
@@ -113,7 +115,7 @@ test("a quality's download file is an attachment named as asked", async () => {
   bucket.put(`${PREFIX}/720p/download.mp4`, "the whole film", "video/mp4");
 
   const response = await get(
-    `/v1/${grant}/720p/download.mp4?name=${encodeURIComponent("Fast X - VJ Junior - 720p.mp4")}`,
+    `/v1/${download}/720p/download.mp4?name=${encodeURIComponent("Fast X - VJ Junior - 720p.mp4")}`,
   );
 
   assert.equal(response.status, 200);
@@ -129,7 +131,7 @@ test("a quality's download file is an attachment named as asked", async () => {
 test("a download resumes from where it stopped, with a range", async () => {
   bucket.put(`${PREFIX}/720p/download.mp4`, "0123456789", "video/mp4");
 
-  const response = await get(`/v1/${grant}/720p/download.mp4`, { Range: "bytes=4-" });
+  const response = await get(`/v1/${download}/720p/download.mp4`, { Range: "bytes=4-" });
 
   assert.equal(response.status, 206);
   assert.equal(response.headers.get("Content-Range"), "bytes 4-9/10");
@@ -139,7 +141,7 @@ test("a download resumes from where it stopped, with a range", async () => {
 test("HEAD on a download file gives its size, for the app to show", async () => {
   bucket.put(`${PREFIX}/720p/download.mp4`, "0123456789", "video/mp4");
 
-  const response = await get(`/v1/${grant}/720p/download.mp4`, {}, "HEAD");
+  const response = await get(`/v1/${download}/720p/download.mp4`, {}, "HEAD");
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Content-Length"), "10");
@@ -246,4 +248,32 @@ test("without a long enough signing key, nothing is served", async () => {
   env.PLAYBACK_SIGNING_KEY = undefined as unknown as string;
   assert.equal((await get(`/v1/${grant}/master.m3u8`)).status, 503);
   assert.deepEqual(bucket.requested, []);
+});
+
+test("each grant purpose opens only its own kind of file, before R2 is read", async () => {
+  // VUG-SEC-001: a download grant has no playback session, so it mustn't stream.
+  bucket.put(`${PREFIX}/720p/download.mp4`, "the whole film", "video/mp4");
+  const preview = await signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: NOW + 60, p: "preview" });
+  const unsigned = await signGrant(SECRET, { m: MOVIE, o: ORIGINAL, e: NOW + 60 });
+  const stream = ["master.m3u8", "720p/index.m3u8", "720p/init_2.mp4", "720p/seg_00000.m4s"];
+  const refused: [string, string][] = [
+    ...stream.map((file): [string, string] => [download, file]),
+    ...stream.map((file): [string, string] => [unsigned, file]),
+    [grant, "720p/download.mp4"],
+    [preview, "720p/download.mp4"],
+    [unsigned, "720p/download.mp4"],
+  ];
+  for (const [token, file] of refused) {
+    for (const method of ["GET", "HEAD"]) {
+      const response = await get(`/v1/${token}/${file}`, { Range: "bytes=0-" }, method);
+      assert.equal(response.status, 403, `${method} ${file}`);
+    }
+  }
+  assert.deepEqual(bucket.requested, []);
+
+  for (const file of stream) {
+    assert.equal((await get(`/v1/${grant}/${file}`)).status, 200, file);
+    assert.equal((await get(`/v1/${preview}/${file}`)).status, 200, file);
+  }
+  assert.equal((await get(`/v1/${download}/720p/download.mp4`)).status, 200);
 });

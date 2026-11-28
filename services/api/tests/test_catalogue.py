@@ -700,6 +700,79 @@ def test_deleting_every_admin_at_once_is_refused(owner):
         owner.execute("delete from public.admins")
 
 
+@pytest.fixture
+def committed_admins(owner_url):
+    """Admins committed for real, as two editor connections need, with the
+    table put back as it was afterwards."""
+    with psycopg.connect(owner_url, autocommit=True) as setup:
+        before = setup.execute(
+            "select user_id, email, added_by, added_at from public.admins"
+        ).fetchall()
+        clear_admins(setup)
+        yield setup
+        clear_admins(setup)
+        for row in before:
+            setup.execute(
+                "insert into public.admins (user_id, email, added_by, added_at) "
+                "values (%s, %s, %s, %s)",
+                row,
+            )
+
+
+@needs_database
+def test_two_removals_at_once_leave_an_admin(committed_admins, editor_url):
+    """VUG-SEC-011: each removal alone leaves an admin, but not both. The
+    second waits for the first, then sees what it removed."""
+    import threading
+
+    setup = committed_admins
+    first, second = str(uuid.uuid4()), str(uuid.uuid4())
+    add_admin(setup, first)
+    add_admin(setup, second)
+    outcome: list[object] = []
+
+    with psycopg.connect(editor_url) as one:
+        one.execute("delete from public.admins where user_id = %s", (first,))
+
+        def remove_second() -> None:
+            with psycopg.connect(editor_url) as two:
+                try:
+                    two.execute(
+                        "delete from public.admins where user_id = %s", (second,)
+                    )
+                    two.commit()
+                    outcome.append("removed")
+                except psycopg.errors.CheckViolation as error:
+                    outcome.append(error)
+
+        thread = threading.Thread(target=remove_second)
+        thread.start()
+        thread.join(1.0)
+        assert thread.is_alive() and outcome == []
+        one.commit()
+    thread.join(10)
+
+    assert len(outcome) == 1
+    assert isinstance(outcome[0], psycopg.errors.CheckViolation)
+    assert [str(row[0]) for row in list_admins(setup)] == [second]
+
+
+@needs_database
+def test_a_rolled_back_removal_lets_the_next_one_go(committed_admins, editor_url):
+    setup = committed_admins
+    first, second = str(uuid.uuid4()), str(uuid.uuid4())
+    add_admin(setup, first)
+    add_admin(setup, second)
+
+    with psycopg.connect(editor_url) as one:
+        one.execute("delete from public.admins where user_id = %s", (first,))
+        one.rollback()
+        one.execute("delete from public.admins where user_id = %s", (second,))
+        one.commit()
+
+    assert [str(row[0]) for row in list_admins(setup)] == [first]
+
+
 # --- Listing, refreshing and purging -----------------------------------------
 
 

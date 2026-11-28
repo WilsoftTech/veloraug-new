@@ -34,7 +34,12 @@ from app import app_settings, audit, passes, ratelimit
 from app.admin import AdminUser, EditorDatabase
 from app.auth import VerifiedUser, current_user
 from app.db import Database
-from app.pesapal import PesapalClient, PesapalError, PesapalUnavailable
+from app.pesapal import (
+    PesapalClient,
+    PesapalError,
+    PesapalOrderNotSent,
+    PesapalUnavailable,
+)
 from app.viewer_routes import AppDatabase
 
 logger = logging.getLogger("veloraug.passes")
@@ -44,6 +49,7 @@ PAYMENTS_OFF = "Buying passes isn't set up on this server."
 MAINTENANCE = "VeloraUG is being worked on. Try again a little later."
 NOT_FOR_SALE = "This pass isn't for sale."
 PESAPAL_DOWN = "Pesapal isn't answering. Try again in a few minutes."
+CHECKOUT_STARTING = "Your checkout is still starting. Try again in a few seconds."
 PESAPAL_REFUSED = "Pesapal couldn't start this payment. Try again later."
 NOT_FOUND = "There's no such payment."
 _TRACKING = re.compile(r"[0-9A-Za-z-]{8,64}")
@@ -149,6 +155,10 @@ class CheckoutIn(BaseModel):
     # in with, or asks for a phone number.
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=20)
+    # The app's name for one try at paying, kept while it retries, so a
+    # retried request answers the same payment, VUG-SEC-004. Optional for
+    # older apps.
+    attempt_id: UUID | None = None
 
     @field_validator("email")
     @classmethod
@@ -289,7 +299,7 @@ def my_payments(user: Viewer, db: AppDatabase) -> list[PaymentRow]:
         422: {"description": "No email or phone, or one that isn't valid."},
         429: {"description": ratelimit.TOO_MANY},
         502: {"description": PESAPAL_REFUSED},
-        503: {"description": PAYMENTS_OFF},
+        503: {"description": f"{PAYMENTS_OFF} Or: {CHECKOUT_STARTING}"},
     },
 )
 def checkout(
@@ -315,20 +325,36 @@ def checkout(
         )
     settings = request.app.state.settings
     with db.as_user(user.user_id) as conn:
-        again = passes.reusable_checkout(conn, body.plan_id, _now())
-    if again is not None:
-        response.status_code = status.HTTP_200_OK
-        return CheckoutOut(payment_id=again.id, redirect_url=again.redirect_url)
-    request.app.state.rate_limiter.check(
-        "checkout", str(user.user_id), ratelimit.CHECKOUT
-    )
-    with db.as_user(user.user_id) as conn:
         try:
-            payment = passes.start_payment(
-                conn, user.user_id, body.plan_id, email=body.email, phone=body.phone
+            payment, new = passes.reserve_checkout(
+                conn,
+                user.user_id,
+                body.plan_id,
+                _now(),
+                email=body.email,
+                phone=body.phone,
+                attempt_id=body.attempt_id,
             )
+            if new:
+                request.app.state.rate_limiter.check(
+                    "checkout", str(user.user_id), ratelimit.CHECKOUT
+                )
+        except passes.CheckoutEnded:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                {"code": "checkout_ended", "message": "Start a new checkout."},
+            ) from None
         except passes.NotForSale:
             raise HTTPException(status.HTTP_409_CONFLICT, NOT_FOR_SALE) from None
+        except passes.CheckoutStarting:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                CHECKOUT_STARTING,
+                headers={"Retry-After": "5"},
+            ) from None
+    if not new:
+        response.status_code = status.HTTP_200_OK
+        return CheckoutOut(payment_id=payment.id, redirect_url=payment.redirect_url)
     try:
         order = client.submit_order(
             reference=str(payment.id),
@@ -340,15 +366,20 @@ def checkout(
             email=payment.email,
             phone=payment.phone,
         )
+    except PesapalOrderNotSent:
+        with db.as_user(user.user_id) as conn:
+            passes.refused_by_pesapal(
+                conn, payment.id, "Pesapal authentication unavailable"
+            )
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, PESAPAL_DOWN) from None
+    except PesapalUnavailable:
+        logger.warning("payment %s submission outcome unknown", payment.id)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, PESAPAL_DOWN) from None
     except PesapalError as error:
         with db.as_user(user.user_id) as conn:
-            passes.refused_by_pesapal(conn, payment.id, str(error))
-        logger.warning("payment %s not started: %s", payment.id, error)
+            passes.refused_by_pesapal(conn, payment.id, "Pesapal refused the order")
+        logger.warning("payment %s not started (%s)", payment.id, type(error).__name__)
         audit.event("payment.not_started", payment_id=payment.id, user_id=user.user_id)
-        if isinstance(error, PesapalUnavailable):
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE, PESAPAL_DOWN
-            ) from None
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, PESAPAL_REFUSED) from None
     with db.as_user(user.user_id) as conn:
         passes.sent_to_pesapal(conn, payment.id, order.tracking_id, order.redirect_url)
@@ -408,14 +439,58 @@ def get_payment(
 
 
 def _check_by_tracking(
-    db: Database, client: PesapalClient, tracking_id: str, *, notified: bool
+    db: Database,
+    client: PesapalClient,
+    tracking_id: str,
+    *,
+    notified: bool,
+    reference: str | None = None,
 ) -> str | None:
     """Asks Pesapal about the payment with this tracking ID. Answers its
     state, or None if there's no such payment. Raises PesapalUnavailable."""
     with db.anonymous() as conn:
         owner = passes.owner_of(conn, tracking_id)
     if owner is None:
+        return _match_lost_order(db, client, tracking_id, reference)
+    return _check_known(db, client, owner, tracking_id, notified=notified)
+
+
+def _match_lost_order(
+    db: Database, client: PesapalClient, tracking_id: str, reference: str | None
+) -> str | None:
+    """A notification for an order whose answer never reached the API: the
+    payment is still started, with no tracking ID. Pesapal's own status must
+    name that payment before the tracking ID is kept, VUG-SEC-004."""
+    if not reference:
         return None
+    with db.anonymous() as conn:
+        payment = passes.started_by_reference(conn, reference)
+    if payment is None:
+        return None
+    try:
+        found = client.status(tracking_id)
+    except PesapalUnavailable:
+        raise
+    except PesapalError:
+        return None
+    if found.merchant_reference != str(payment.id):
+        return None
+    with db.as_user(payment.user_id) as conn:
+        passes.sent_to_pesapal(conn, payment.id, tracking_id)
+        state = passes.apply_status(conn, payment.id, found, _now())
+    logger.info("payment %s matched to its order after a lost answer", payment.id)
+    audit.event("payment.lost_order_matched", payment_id=payment.id)
+    return state
+
+
+def _check_known(
+    db: Database,
+    client: PesapalClient,
+    owner: UUID,
+    tracking_id: str,
+    *,
+    notified: bool,
+) -> str | None:
     with db.as_user(owner) as conn:
         found = conn.execute(
             "select id from public.payments where tracking_id = %s", (tracking_id,)
@@ -501,7 +576,9 @@ def pesapal_notification(
     if not _TRACKING.fullmatch(tracking_id):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Not a tracking ID.")
     try:
-        state = _check_by_tracking(db, client, tracking_id, notified=True)
+        state = _check_by_tracking(
+            db, client, tracking_id, notified=True, reference=reference
+        )
         done = state is not None
         if not done:
             logger.warning("Pesapal notified an unknown payment")

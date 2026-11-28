@@ -55,6 +55,14 @@ def test_the_shared_vector_matches():
         expires=VECTOR["expires"],
     )
     assert grant == VECTOR["grant"]
+    download = sign_grant(
+        VECTOR["key"].encode(),
+        item_id=uuid.UUID(VECTOR["movie_id"]),
+        original_id=uuid.UUID(VECTOR["original_id"]),
+        expires=VECTOR["expires"],
+        purpose="download",
+    )
+    assert download == VECTOR["download_grant"]
 
 
 def test_a_grant_is_a_signed_payload_naming_the_movie_and_original():
@@ -62,7 +70,12 @@ def test_a_grant_is_a_signed_payload_naming_the_movie_and_original():
     grant = sign_grant(KEY.encode(), item_id=movie, original_id=original, expires=7)
 
     payload, signature = grant.split(".")
-    assert json.loads(unb64(payload)) == {"m": str(movie), "o": str(original), "e": 7}
+    assert json.loads(unb64(payload)) == {
+        "m": str(movie),
+        "o": str(original),
+        "e": 7,
+        "p": "playback",
+    }
     expected = hmac.new(
         KEY.encode(), b"veloraug-playback-v1." + payload.encode(), hashlib.sha256
     ).digest()
@@ -220,7 +233,12 @@ def test_a_ready_published_movie_is_granted(api, owner, owner_url, media_url, ca
     body = response.json()
     token = body["playlist_url"].removeprefix(f"{GATEWAY}/v1/").split("/")[0]
     payload = json.loads(unb64(token.split(".")[0]))
-    assert payload == {"m": str(movie_id), "o": str(original), "e": NOW + 21600}
+    assert payload == {
+        "m": str(movie_id),
+        "o": str(original),
+        "e": NOW + 21600,
+        "p": "playback",
+    }
     assert body["expires_at"] == "2027-01-15T14:00:00Z"
     # The log names the item, never the user or the grant. A film from
     # before Milestone 9 keeps its ID as its item's.

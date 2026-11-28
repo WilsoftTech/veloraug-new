@@ -526,6 +526,7 @@ DEVICE_REQUIRED = "Register this device to watch on it."
 
 
 class DownloadOut(BaseModel):
+    heights: list[int]
     playlist_url: str
     expires_at: datetime
     # Each quality's file is <quality>/download.mp4 beside the playlist. The
@@ -601,6 +602,14 @@ def grant_download(
                 conn, user.user_id, settings, device_credential, now
             )
             name = viewer.download_name(conn, item_id)
+            heights = [
+                row[0]
+                for row in conn.execute(
+                    "select height from public.media_renditions where original_id = %s "
+                    "order by height desc",
+                    (original,),
+                )
+            ]
     if not visible:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_AVAILABLE)
     if original is None or name is None:
@@ -610,12 +619,14 @@ def grant_download(
         original,
         until=entitlement.ends_at if entitlement else None,
         seconds=playback.DOWNLOAD_GRANT_SECONDS,
+        purpose="download",
     )
     playback_logger.info("Download granted for item %s", item_id)
     return DownloadOut(
         playlist_url=grant.playlist_url,
         expires_at=grant.expires_at,
         file_name=name,
+        heights=heights,
     )
 
 

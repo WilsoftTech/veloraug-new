@@ -43,6 +43,10 @@ class PesapalUnavailable(PesapalError):
     """No answer, or a server error: worth trying again later."""
 
 
+class PesapalOrderNotSent(PesapalUnavailable):
+    """Could not authenticate before making the order request."""
+
+
 @dataclass(frozen=True)
 class Order:
     tracking_id: str
@@ -162,9 +166,14 @@ class PesapalClient:
             address["email_address"] = email
         if phone:
             address["phone_number"] = phone
-        data = self._call(
+        try:
+            token = self._token_now()
+        except PesapalUnavailable as error:
+            raise PesapalOrderNotSent(str(error)) from None
+        data = self._send(
             "POST",
             "/Transactions/SubmitOrderRequest",
+            headers={"Authorization": f"Bearer {token}"},
             json={
                 "id": reference,
                 "currency": currency,

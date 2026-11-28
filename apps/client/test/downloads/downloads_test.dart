@@ -39,6 +39,23 @@ void main() {
     expect(file.url.queryParameters['name'], 'Fast X - VJ Junior - 720p.mp4');
   });
 
+  test('the qualities come with the grant: no playlist is read', () async {
+    await downloads.offer(movieId);
+
+    expect(
+      server.requests.where((r) => r.url.path.endsWith('.m3u8')),
+      isEmpty,
+    );
+  });
+
+  test('an older API\'s grant still finds its qualities', () async {
+    server.heights = null;
+
+    final offer = await downloads.offer(movieId);
+
+    expect(offer.files.map((f) => f.quality.label), ['720p', '360p']);
+  });
+
   test('a quality whose file isn\'t made yet is left out', () async {
     server.sizes.remove('720p');
 

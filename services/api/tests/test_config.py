@@ -32,6 +32,9 @@ def test_settings_are_read_from_environment_variables(monkeypatch):
     monkeypatch.setenv("VELORAUG_PLAYBACK_SIGNING_KEY", "k" * 43)
     monkeypatch.setenv("VELORAUG_MEDIA_GATEWAY_URL", "https://media.example/")
 
+    with pytest.raises(ValidationError, match="PASSES_REQUIRED"):
+        Settings()
+    monkeypatch.setenv("VELORAUG_PASSES_REQUIRED", "false")
     settings = Settings()
 
     assert settings.environment == "production"

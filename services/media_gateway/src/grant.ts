@@ -16,6 +16,7 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 export const GRANT_PATTERN = "[A-Za-z0-9_-]{1,400}\\.[A-Za-z0-9_-]{43}";
 
 export interface Grant {
+  purpose: "playback" | "preview" | "download";
   movieId: string;
   originalId: string;
   expires: number;
@@ -68,8 +69,10 @@ export async function verifyGrant(
     return null;
   }
   if (typeof claims !== "object" || claims === null) return null;
-  const { m, o, e, s } = claims as Record<string, unknown>;
+  const { m, o, e, s, p } = claims as Record<string, unknown>;
   if (
+    (p !== "playback" && p !== "preview" && p !== "download") ||
+    (s !== undefined && p !== "playback") ||
     typeof m !== "string" ||
     typeof o !== "string" ||
     !UUID.test(m) ||
@@ -81,7 +84,7 @@ export async function verifyGrant(
     return null;
   }
   if (e <= nowSeconds) return null;
-  const grant: Grant = { movieId: m, originalId: o, expires: e };
+  const grant: Grant = { movieId: m, originalId: o, expires: e, purpose: p };
   if (typeof s === "string") grant.sessionId = s;
   return grant;
 }

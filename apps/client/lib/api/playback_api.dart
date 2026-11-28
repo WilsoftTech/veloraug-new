@@ -39,7 +39,14 @@ class PlaybackGrant {
 /// Permission to download one item's video as an .mp4 file: a grant with no
 /// playback session, so the download takes no stream, for a day.
 class DownloadGrant {
-  const DownloadGrant({required this.grant, required this.fileName});
+  const DownloadGrant({
+    required this.grant,
+    required this.fileName,
+    this.qualities,
+  });
+
+  /// Null when an older API lists qualities in the master playlist.
+  final List<VideoQuality>? qualities;
 
   final PlaybackGrant grant;
 
@@ -294,7 +301,25 @@ class PlaybackApi {
     if (name == null) {
       throw const PlaybackException(PlaybackFailure.unexpected);
     }
-    return DownloadGrant(grant: grant, fileName: name);
+    final heights = (answer.json as Map)['heights'];
+    if (heights != null && heights is! List) {
+      throw const PlaybackException(PlaybackFailure.unexpected);
+    }
+    return DownloadGrant(
+      grant: grant,
+      fileName: name,
+      qualities: heights is List
+          ? [
+              for (final height in heights.whereType<int>())
+                if (const {360, 480, 720, 1080}.contains(height))
+                  VideoQuality(
+                    label: '${height}p',
+                    height: height,
+                    path: '${height}p/index.m3u8',
+                  ),
+            ]
+          : null,
+    );
   }
 
   /// Asks for a grant. When the API asks for a registered device, this one

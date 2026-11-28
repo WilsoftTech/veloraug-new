@@ -171,7 +171,10 @@ export async function handle(
   }
   const signing = await signingKey(secret);
   const grant = await verifyGrant(signing, match[1], nowSeconds);
-  if (grant === null) return plain(403, "Not allowed.", cors);
+  const download = match[2].endsWith("/download.mp4");
+  if (grant === null || (grant.purpose === "download") !== download) {
+    return plain(403, "Not allowed.", cors);
+  }
   if (grant.sessionId !== undefined) {
     // Milestone 10: honoured only while its session is live.
     const apiUrl = env.API_URL ?? "";

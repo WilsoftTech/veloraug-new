@@ -54,8 +54,17 @@ Host github.com
 EOF
   chmod 600 "$HOME/.ssh/config"
 fi
-ssh-keyscan -t ed25519 github.com 2>/dev/null >>"$HOME/.ssh/known_hosts"
-sort -u -o "$HOME/.ssh/known_hosts" "$HOME/.ssh/known_hosts"
+# GitHub's Ed25519 host key, pinned (VUG-SEC-012). Published with its
+# fingerprint, SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU, at
+# https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
+# Kept in its own file, so an older trust-on-first-use entry in known_hosts
+# can't vouch for another key. Git then refuses any host that differs.
+GITHUB_HOST_KEY='github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl'
+GITHUB_HOSTS="$HOME/.ssh/veloraug_github_hosts"
+install -d -m 700 "$HOME/.ssh"
+printf '%s\n' "$GITHUB_HOST_KEY" >"$GITHUB_HOSTS"
+chmod 600 "$GITHUB_HOSTS"
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$GITHUB_HOSTS -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no"
 
 say "The repository"
 if [ -d "$ROOT/repo/.git" ]; then

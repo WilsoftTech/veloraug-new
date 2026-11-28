@@ -49,6 +49,17 @@ before=$(cat "$DEPLOYED_FILE" 2>/dev/null || git rev-parse HEAD)
 if $pull; then
   say "Pulling main"
   [ -z "$(git status --porcelain)" ] || fail "the checkout has local changes; see git status"
+  # GitHub's Ed25519 host key, pinned (VUG-SEC-012). Published with its
+  # fingerprint, SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU, at
+  # https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
+  # Kept in its own file, so an older trust-on-first-use entry in known_hosts
+  # can't vouch for another key. Git then refuses any host that differs.
+  GITHUB_HOST_KEY='github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl'
+  GITHUB_HOSTS="$HOME/.ssh/veloraug_github_hosts"
+  install -d -m 700 "$HOME/.ssh"
+  printf '%s\n' "$GITHUB_HOST_KEY" >"$GITHUB_HOSTS"
+  chmod 600 "$GITHUB_HOSTS"
+  export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$GITHUB_HOSTS -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no"
   git fetch --quiet origin main
   git checkout --quiet main
   git merge --ff-only --quiet origin/main
@@ -69,6 +80,10 @@ fi
 
 say "Building"
 "${COMPOSE[@]}" build --pull
+
+say "Checking API settings before restart"
+"${COMPOSE[@]}" run --rm --no-deps -T api python -c 'from app.config import Settings; Settings()' \
+  || fail "the API refuses its settings (above); nothing was restarted"
 
 say "Starting"
 "${COMPOSE[@]}" up -d --remove-orphans

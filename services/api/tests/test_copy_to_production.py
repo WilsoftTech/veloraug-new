@@ -361,12 +361,15 @@ def test_a_clashing_vj_on_production_stops_the_copy(dbs):
 @needs_database
 def test_databases_at_different_migrations_are_refused(dbs):
     source, target = dbs
+    (head,) = target.execute(
+        "select version_num from public.alembic_version"
+    ).fetchone()
     target.execute("update public.alembic_version set version_num = '0005'")
     try:
         with pytest.raises(CopyError, match="Migrate production first"):
             run(source, target, FakeFiles())
     finally:
-        target.execute("update public.alembic_version set version_num = '0019'")
+        target.execute("update public.alembic_version set version_num = %s", (head,))
 
 
 @needs_database

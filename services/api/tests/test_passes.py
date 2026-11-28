@@ -797,3 +797,325 @@ def test_the_database_refuses_passes_that_dont_match_a_payment(app_url, prices):
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             conn.execute("select email from public.admins")
         conn.rollback()
+
+
+# --- VUG-SEC-004: one checkout, one order ------------------------------------
+
+
+@pytest.fixture
+def app_db(app_url):
+    db = Database(app_url)
+    db.open()
+    yield db
+    db.close()
+
+
+def submitted(fake) -> int:
+    return sum(
+        r.url.path.endswith("/Transactions/SubmitOrderRequest") for r in fake.requests
+    )
+
+
+@needs_database
+def test_two_checkouts_at_once_reserve_one_payment(app_db, prices):
+    """The second waits for the first's reservation, then sees it."""
+    import threading
+
+    from app import passes
+
+    user = uuid.uuid4()
+    db = app_db
+    now = datetime.now(UTC)
+    outcome: list[object] = []
+    with db.as_user(user) as first:
+        payment, new = passes.reserve_checkout(
+            first, user, "velora_start", now, email="v@example.com", phone=None
+        )
+        assert new is True
+
+        def second() -> None:
+            with db.as_user(user) as conn:
+                try:
+                    outcome.append(
+                        passes.reserve_checkout(
+                            conn,
+                            user,
+                            "velora_start",
+                            now,
+                            email="v@example.com",
+                            phone=None,
+                        )
+                    )
+                except passes.CheckoutStarting as error:
+                    outcome.append(error)
+
+        thread = threading.Thread(target=second)
+        thread.start()
+        thread.join(1.0)
+        # Held by the first reservation's lock until it commits.
+        assert thread.is_alive() and outcome == []
+    thread.join(10)
+
+    assert len(outcome) == 1 and isinstance(outcome[0], passes.CheckoutStarting)
+    rows = prices.execute(
+        "select id from public.payments where user_id = %s", (user,)
+    ).fetchall()
+    assert [row[0] for row in rows] == [payment.id]
+
+
+@needs_database
+def test_a_checkout_still_starting_holds_off_another(api, app_db, fake, prices):
+    user = uuid.uuid4()
+    with app_db.as_user(user) as conn:
+        from app import passes
+
+        passes.reserve_checkout(
+            conn,
+            user,
+            "velora_start",
+            datetime.now(UTC),
+            email="v@example.com",
+            phone=None,
+        )
+
+    response = api.post(
+        "/api/v1/passes/checkout",
+        json={"plan_id": "velora_start", "email": "v@example.com"},
+        headers=as_user(user),
+    )
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "5"
+    assert submitted(fake) == 0
+    # Another plan is another purchase.
+    assert buy(api, user, "velora_flex")["redirect_url"]
+
+
+@needs_database
+def test_a_retried_attempt_answers_the_same_payment(api, fake, prices):
+    user, attempt = uuid.uuid4(), str(uuid.uuid4())
+
+    first = buy(api, user, attempt_id=attempt)
+    again = api.post(
+        "/api/v1/passes/checkout",
+        json={
+            "plan_id": "velora_start",
+            "email": "v@example.com",
+            "attempt_id": attempt,
+        },
+        headers=as_user(user),
+    )
+
+    assert again.status_code == 200
+    assert again.json() == first
+    assert submitted(fake) == 1
+    # Another viewer's attempt with the same ID is their own.
+    other = buy(api, uuid.uuid4(), attempt_id=attempt)
+    assert other["payment_id"] != first["payment_id"]
+
+
+@needs_database
+def test_an_ended_attempt_requires_a_new_attempt_id(api, fake, prices):
+    user, attempt = uuid.uuid4(), str(uuid.uuid4())
+    fake.refuse_orders = True
+    refused = api.post(
+        "/api/v1/passes/checkout",
+        json={
+            "plan_id": "velora_start",
+            "email": "v@example.com",
+            "attempt_id": attempt,
+        },
+        headers=as_user(user),
+    )
+    assert refused.status_code == 502
+    fake.refuse_orders = False
+
+    ended = api.post(
+        "/api/v1/passes/checkout",
+        json={
+            "plan_id": "velora_start",
+            "email": "v@example.com",
+            "attempt_id": attempt,
+        },
+        headers=as_user(user),
+    )
+    assert ended.status_code == 409
+    assert ended.json()["detail"]["code"] == "checkout_ended"
+    retried = buy(api, user, attempt_id=str(uuid.uuid4()))
+
+    states = prices.execute(
+        "select state from public.payments where user_id = %s order by created_at",
+        (user,),
+    ).fetchall()
+    assert states == [("abandoned",), ("pending",)]
+    assert retried["redirect_url"]
+
+
+def lost_order(app_db, fake, prices, user):
+    """A payment reserved and sent, whose order's answer never came back."""
+    from app import passes
+
+    with app_db.as_user(user) as conn:
+        payment, _ = passes.reserve_checkout(
+            conn,
+            user,
+            "velora_start",
+            datetime.now(UTC) - timedelta(minutes=5),
+            email="v@example.com",
+            phone=None,
+        )
+    prices.execute(
+        "update public.payments set created_at = now() - interval '5 minutes' "
+        "where id = %s",
+        (payment.id,),
+    )
+    tracking = "track-7777-0000-0000"
+    fake.orders[tracking] = {"id": str(payment.id), "amount": payment.amount_ugx}
+    return payment, tracking
+
+
+@needs_database
+def test_a_lost_orders_notification_finds_its_payment(api, app_db, fake, prices):
+    user = uuid.uuid4()
+    payment, tracking = lost_order(app_db, fake, prices, user)
+    fake.statuses[tracking] = COMPLETED
+
+    answer = api.get(
+        "/api/v1/passes/ipn",
+        params={
+            "OrderTrackingId": tracking,
+            "OrderNotificationType": "IPNCHANGE",
+            "OrderMerchantReference": str(payment.id),
+        },
+    ).json()
+
+    assert answer["status"] == 200
+    assert prices.execute(
+        "select state, tracking_id from public.payments where id = %s", (payment.id,)
+    ).fetchone() == ("completed", tracking)
+    assert my_pass(api, user)["active"] is True
+    # A later checkout isn't held off by it.
+    assert buy(api, user, "velora_flex")["redirect_url"]
+
+
+@needs_database
+def test_a_notification_naming_another_payment_matches_nothing(
+    api, app_db, fake, prices
+):
+    user = uuid.uuid4()
+    payment, tracking = lost_order(app_db, fake, prices, user)
+    fake.statuses[tracking] = COMPLETED
+    # Pesapal says this order is for some other reference.
+    fake.orders[tracking]["id"] = str(uuid.uuid4())
+
+    answer = api.get(
+        "/api/v1/passes/ipn",
+        params={"OrderTrackingId": tracking, "OrderMerchantReference": str(payment.id)},
+    ).json()
+
+    assert answer["status"] == 500
+    assert prices.execute(
+        "select state, tracking_id from public.payments where id = %s", (payment.id,)
+    ).fetchone() == ("started", None)
+    assert prices.execute("select count(*) from public.passes").fetchone()[0] == 0
+    for reference in ("not-a-uuid", str(uuid.uuid4())):
+        assert (
+            api.get(
+                "/api/v1/passes/ipn",
+                params={
+                    "OrderTrackingId": tracking,
+                    "OrderMerchantReference": reference,
+                },
+            ).json()["status"]
+            == 500
+        )
+
+
+@needs_database
+def test_reused_checkout_keeps_both_attempts_after_reuse_window(api, fake, prices):
+    user = uuid.uuid4()
+    first_attempt, second_attempt = str(uuid.uuid4()), str(uuid.uuid4())
+    first = buy(api, user, attempt_id=first_attempt)
+
+    def retry(attempt):
+        return api.post(
+            "/api/v1/passes/checkout",
+            json={
+                "plan_id": "velora_start",
+                "email": "v@example.com",
+                "attempt_id": attempt,
+            },
+            headers=as_user(user),
+        )
+
+    assert retry(second_attempt).json() == first
+    prices.execute(
+        "update public.payments set created_at = now() - interval '20 minutes' "
+        "where id = %s",
+        (first["payment_id"],),
+    )
+    newer = buy(api, user, attempt_id=str(uuid.uuid4()))
+    assert newer != first
+    for attempt in (first_attempt, second_attempt):
+        result = retry(attempt)
+        assert result.status_code == 200
+        assert result.json() == first
+    assert submitted(fake) == 2
+
+
+@needs_database
+def test_submission_timeout_keeps_the_reservation(api, fake, prices, monkeypatch):
+    from app.pesapal import PesapalUnavailable
+
+    calls = []
+
+    def submit(*, reference, amount, **kwargs):
+        calls.append(reference)
+        fake.orders["track-uncertain-1234"] = {"id": reference, "amount": amount}
+        raise PesapalUnavailable("Synthetic timeout")
+
+    monkeypatch.setattr(api.app.state.pesapal, "submit_order", submit)
+    user = uuid.uuid4()
+    body = {
+        "plan_id": "velora_start",
+        "email": "v@example.com",
+        "attempt_id": str(uuid.uuid4()),
+    }
+    for _ in range(2):
+        assert (
+            api.post(
+                "/api/v1/passes/checkout", json=body, headers=as_user(user)
+            ).status_code
+            == 503
+        )
+    assert len(calls) == 1
+    fake.statuses["track-uncertain-1234"] = COMPLETED
+    answer = api.get(
+        "/api/v1/passes/ipn",
+        params={
+            "OrderTrackingId": "track-uncertain-1234",
+            "OrderMerchantReference": calls[0],
+        },
+    )
+    assert answer.json()["status"] == 200
+    assert my_pass(api, user)["active"] is True
+
+
+@needs_database
+def test_checkout_saves_redirect_after_notification_sets_tracking(
+    app_db,
+    fake,
+    prices,
+):
+    from app import passes
+
+    user = uuid.uuid4()
+    payment, tracking = lost_order(app_db, fake, prices, user)
+    with app_db.as_user(user) as conn:
+        passes.sent_to_pesapal(conn, payment.id, tracking)
+    url = "https://pay.pesapal.com/checkout"
+    with app_db.as_user(user) as conn:
+        passes.sent_to_pesapal(conn, payment.id, tracking, url)
+        stored = passes.get_payment(conn, payment.id)
+    assert stored.redirect_url == url
+    assert stored.state == "pending"

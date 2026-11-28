@@ -41,6 +41,10 @@ MAX_STREAMS = 3
 # A checkout retried this soon, for the same plan at the same price, reuses
 # the payment already sent to Pesapal instead of making another.
 REUSE_CHECKOUT_FOR = timedelta(minutes=10)
+# How long a checkout may take to get its order from Pesapal. A newer one
+# still waiting holds off another for the same plan; an older one's answer
+# was lost, and Pesapal's notification may still match it.
+STARTING_FOR = timedelta(minutes=2)
 # The lock that serializes one viewer's passes.
 _PASS_LOCK = 6
 
@@ -245,6 +249,87 @@ def start_payment(
     return Payment(*row)
 
 
+class CheckoutStarting(Exception):
+    """Another request is asking Pesapal for this checkout's order now."""
+
+
+class CheckoutEnded(Exception):
+    """This attempt is already associated with an ended payment."""
+
+
+def reserve_checkout(
+    conn: psycopg.Connection,
+    user_id: UUID,
+    plan_id: str,
+    now: datetime,
+    *,
+    email: str | None,
+    phone: str | None,
+    attempt_id: UUID | None = None,
+) -> tuple[Payment, bool]:
+    """The payment to send the viewer to, and whether it was made just now,
+    VUG-SEC-004. Run in its own transaction: it holds a lock on the viewer's
+    checkouts until that commits, so two at once can't both make a payment.
+    Pesapal is asked for an order only after this has committed.
+
+    The same attempt, or the same plan at today's price within a few
+    minutes, answers the pending payment already made. One still being sent
+    to Pesapal raises CheckoutStarting. Raises NotForSale."""
+    conn.execute(
+        "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+        (f"veloraug.checkout.{user_id}",),
+    )
+    if attempt_id is not None:
+        payment = checkout_attempt(conn, attempt_id)
+        if payment is not None:
+            if payment.plan_id != plan_id:
+                raise CheckoutEnded
+            if payment.state == "pending" and payment.redirect_url is not None:
+                return payment, False
+            if payment.state in ("started", "pending") and (
+                payment.created_at > now - GIVE_UP_AFTER
+            ):
+                raise CheckoutStarting
+            raise CheckoutEnded
+    again = reusable_checkout(conn, plan_id, now)
+    if again is not None:
+        bind_checkout_attempt(conn, user_id, attempt_id, again.id)
+        return again, False
+    starting = conn.execute(
+        """
+        select 1 from public.payments
+        where plan_id = %s and state in ('started', 'pending') and redirect_url is null
+          and created_at > %s
+        limit 1
+        """,
+        (plan_id, now - STARTING_FOR),
+    ).fetchone()
+    if starting is not None:
+        raise CheckoutStarting
+    payment = start_payment(conn, user_id, plan_id, email=email, phone=phone)
+    bind_checkout_attempt(conn, user_id, attempt_id, payment.id)
+    return payment, True
+
+
+def started_by_reference(conn: psycopg.Connection, reference: str) -> Payment | None:
+    """The payment whose order Pesapal may have made though its answer was
+    lost: still started, with no tracking ID. Run in Database.anonymous: the
+    database shows only the payment with this exact ID, VUG-SEC-004."""
+    try:
+        payment_id = UUID(reference)
+    except ValueError:
+        return None
+    conn.execute(
+        "select set_config('app.payment_reference', %s, true)", (str(payment_id),)
+    )
+    row = conn.execute(
+        f"select {PAYMENT_COLUMNS} from public.payments where id = %s",
+        (payment_id,),
+    ).fetchone()
+    conn.execute("select set_config('app.payment_reference', '', true)")
+    return Payment(*row) if row else None
+
+
 def reusable_checkout(
     conn: psycopg.Connection, plan_id: str, now: datetime
 ) -> Payment | None:
@@ -265,6 +350,29 @@ def reusable_checkout(
     return Payment(*row) if row else None
 
 
+def checkout_attempt(conn: psycopg.Connection, attempt_id: UUID) -> Payment | None:
+    row = conn.execute(
+        f"""
+        select {PAYMENT_COLUMNS} from public.payments where id = (
+          select payment_id from public.checkout_attempts where attempt_id = %s
+        )
+        """,
+        (attempt_id,),
+    ).fetchone()
+    return Payment(*row) if row else None
+
+
+def bind_checkout_attempt(
+    conn: psycopg.Connection, user_id: UUID, attempt_id: UUID | None, payment_id: UUID
+) -> None:
+    if attempt_id is not None:
+        conn.execute(
+            "insert into public.checkout_attempts (user_id, attempt_id, payment_id) "
+            "values (%s, %s, %s)",
+            (user_id, attempt_id, payment_id),
+        )
+
+
 def sent_to_pesapal(
     conn: psycopg.Connection,
     payment_id: UUID,
@@ -274,11 +382,15 @@ def sent_to_pesapal(
     conn.execute(
         """
         update public.payments
-        set state = 'pending', tracking_id = %s, redirect_url = %s,
+        set state = case when state = 'started' then 'pending' else state end,
+          tracking_id = %s, redirect_url = coalesce(redirect_url, %s),
           updated_at = now()
-        where id = %s and state = 'started'
+        where id = %s and (
+          (state = 'started' and tracking_id is null)
+          or (tracking_id = %s and redirect_url is null and %s::text is not null)
+        )
         """,
-        (tracking_id, redirect_url, payment_id),
+        (tracking_id, redirect_url, payment_id, tracking_id, redirect_url),
     )
 
 

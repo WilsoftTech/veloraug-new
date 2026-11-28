@@ -103,7 +103,7 @@ def test_defaults_and_the_servers_setup_are_shown(admin_api, prices):
     assert body["values"]["pass_reminder_days"] == 3
     assert body["defaults"]["payment_timeout_minutes"] == 60
     server = body["server"]
-    assert server["schema_version"] == "0019"
+    assert server["schema_version"] == "0020"
     assert server["pesapal_configured"] is True
     assert server["payment_timeout_minutes_server"] == 60
     assert server["qualities"] == ["360p", "480p", "720p", "1080p"]

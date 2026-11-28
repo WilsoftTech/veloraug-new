@@ -56,6 +56,7 @@ String passFailureMessage(AppLocalizations l, PassFailure failure) =>
       PassFailure.signedOut => l.passSignInNeeded,
       PassFailure.notFound => l.somethingWentWrong,
       PassFailure.notForSale => l.passNotForSale,
+      PassFailure.checkoutEnded => l.paymentsUnavailable,
       PassFailure.needsContact => l.phoneNotValid,
       PassFailure.tooMany => l.tooManyAttempts,
       PassFailure.unavailable => l.paymentsUnavailable,
@@ -456,12 +457,21 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
     });
   }
 
+  String? _attemptPlan;
+  String? _attemptId;
+
   Future<void> _buy(PassPlan plan) async {
     final api = _api;
     if (api == null || _buying != null) return;
     final email = _email;
     if (email == null && !(_form.currentState?.validate() ?? false)) return;
     final l = context.l10n;
+    // A retry of the same plan after a failure is the same try at paying,
+    // so the API answers its payment rather than making another order.
+    if (_attemptPlan != plan.id) {
+      _attemptPlan = plan.id;
+      _attemptId = newAttemptId();
+    }
     setState(() {
       _buying = plan.id;
       _phase = _Phase.starting;
@@ -472,8 +482,11 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
         plan.id,
         email: email,
         phone: email == null ? _phone.text.trim() : null,
+        attemptId: _attemptId,
       );
       if (!mounted) return;
+      // Started: buying again later is a new purchase.
+      _attemptPlan = null;
       setState(() {
         _checkout = checkout;
         _payIn = _PayIn.app;
@@ -483,6 +496,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
       _deadline = DateTime.now().add(BuyPassScreen.checkFor);
       _scheduleCheck();
     } on PassException catch (error) {
+      if (error.failure == PassFailure.checkoutEnded) _attemptPlan = null;
       _fail(passFailureMessage(l, error.failure));
     }
   }
@@ -716,8 +730,7 @@ class _BuyPassScreenState extends State<BuyPassScreen> {
   List<Widget> _payingHere(AppLocalizations l) {
     final checkout = _checkout!;
     final media = MediaQuery.of(context);
-    final screen =
-        media.size.height - media.padding.vertical - kToolbarHeight;
+    final screen = media.size.height - media.padding.vertical - kToolbarHeight;
     final height = (screen - 120).clamp(200.0, 760.0);
     final theme = Theme.of(context);
     return [
