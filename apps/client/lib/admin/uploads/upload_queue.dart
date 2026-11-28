@@ -588,7 +588,11 @@ class UploadQueue extends ChangeNotifier {
     final url = task.uploadUrl;
     if (url != null && task.sent < task.size) {
       try {
-        await tus.terminate(url);
+        try {
+          await tus.terminate(url);
+        } on TusResumeRequired {
+          await tus.terminate(await _reauthorize(task, url));
+        }
       } on TusNotRemovable {
         // It finished just now: it is the draft's video, and stays.
       } on TusException {
@@ -702,6 +706,21 @@ class UploadQueue extends ChangeNotifier {
   bool _stopped(UploadTask task) =>
       task.phase == UploadPhase.paused || task.phase == UploadPhase.removing;
 
+  Future<Uri> _reauthorize(UploadTask task, Uri url) async {
+    if (url.origin != endpoint.origin || url.pathSegments.isEmpty) {
+      throw const TusGone();
+    }
+    try {
+      final credential = await api.resumeUpload(url.pathSegments.last);
+      final authorized = url.replace(fragment: credential);
+      task.uploadUrl = authorized;
+      await _persist(task);
+      return authorized;
+    } on AdminException {
+      throw const TusGone();
+    }
+  }
+
   Future<void> _run(UploadTask task) async {
     final cancel = task._cancel = TusCancel();
     try {
@@ -716,8 +735,16 @@ class UploadQueue extends ChangeNotifier {
         ..phase = UploadPhase.uploading
         ..retryAt = null;
       task._samples.clear();
-      final url = task.uploadUrl!;
-      var offset = fresh ? 0 : await tus.offset(url, cancel: cancel);
+      var url = task.uploadUrl!;
+      var offset = 0;
+      if (!fresh) {
+        try {
+          offset = await tus.offset(url, cancel: cancel);
+        } on TusResumeRequired {
+          url = await _reauthorize(task, url);
+          offset = await tus.offset(url, cancel: cancel);
+        }
+      }
       task.sent = offset;
       _sample(task);
       _changed();

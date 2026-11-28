@@ -96,6 +96,18 @@ Each container gets only the files it needs. Every value is production's own: ne
 
 To edit one: `nano /opt/veloraug/env/api.env`, then deploy again. Paste values in the editor on the server, never in a chat or a message.
 
+### Upload and payment safeguards
+
+The tunnel still sends uploads to `tusd:8080`. This service checks a short-lived resume credential before relaying requests to private storage. The current admin web app can reauthorize a saved unfinished upload. For older Python uploader state, an admin can request a fresh credential for the original via the admin API's `POST /api/v1/admin/uploads/{original_id}/resume` route. Append that credential as a URL fragment to the saved `url` field on the uploader's machine. The CLI sends it in the `Upload-Resume` header. Keep it out of tickets and logs.
+
+Generate two independent random values of at least 32 characters. Put `VELORAUG_MEDIA_HOOK_SECRET` in `hook.env` and `VELORAUG_UPLOAD_RESUME_KEY` in `upload.env`. Give both files mode 600. For development, use the ignored `services/api/.env.hook` and `services/api/.env.upload` files. On an existing host, create `/opt/veloraug/converter` with owner UID and GID 1000 and mode 750. The converter uses a private Unix socket, a read-only input mount and an isolated network namespace. Keep its output on capacity-monitored storage with reserved host space.
+
+Release the updated admin web app before switching upload ingress. Check creation, pause, resume and reauthorization on development using a short synthetic film. Rotate the resume key to invalidate outstanding credentials and reauthorize unfinished uploads. Preserve the upload data directory through changes. Keep authenticated ingress in place during rollback or pause uploads.
+
+The production API stores pending Pesapal notifications in the `payment-queue` Docker volume. Keep that volume across restarts and rollbacks. The API acknowledges a durable enqueue. Its worker verifies provider status before updating billing state. Reconcile delayed payments before removing any queue state.
+
+Set the edge request budget for the catalogue search, payment callback and upload routes in Cloudflare. Apply the two earlier security changes before deploying this phase and verify checkout recovery and media grants together in development.
+
 ### Deploy
 
 Over SSH, from this PC:

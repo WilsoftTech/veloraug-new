@@ -1243,6 +1243,13 @@ class AdminApi {
     ),
   );
 
+  Future<String> resumeUpload(String originalId) async {
+    final json = _need<Map<String, Object?>>(
+      await _send('POST', '/uploads/${_id(originalId)}/resume'),
+    );
+    return _need<String>(json['resume']);
+  }
+
   Future<void> revokeKey(String keyId) async {
     await _send('POST', '/keys/${_id(keyId)}/revoke');
   }

@@ -12,6 +12,8 @@ services:
     env_file:
       - path: ../services/api/.env
         required: false
+      - path: ../services/api/.env.upload
+        required: false
     ports:
       # 127.0.0.1 keeps the API reachable from this computer only.
       - "127.0.0.1:8000:8000"
@@ -52,7 +54,9 @@ services:
     env_file:
       - path: ../services/api/.env.media
         required: true
-    networks: [uploads]
+      - path: ../services/api/.env.hook
+        required: true
+    networks: [uploads, tus-private]
     healthcheck:
       test:
         - CMD
@@ -67,8 +71,24 @@ services:
   # Receives uploads, resumably. Pinned to a release with ARM64 images.
   tusd:
     profiles: [uploads]
+    image: veloraug-api:local
+    command: ["python", "-m", "uvicorn", "app.upload_proxy:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+    env_file:
+      - path: ../services/api/.env.upload
+        required: true
+      - path: ../services/api/.env.hook
+        required: true
+    networks: [tus-private]
+    ports: ["127.0.0.1:1080:8080"]
+    depends_on:
+      - tusd-storage
+
+  tusd-storage:
+    profiles: [uploads]
     image: tusproject/tusd:v2.10.1
     command:
+      - -hooks-http=http://media-hooks:8000/tusd
+      - -hooks-http-forward-headers=Authorization
       - -host=0.0.0.0
       - -port=8080
       - -base-path=/files/
@@ -78,12 +98,11 @@ services:
       - -disable-download
       # An unfinished upload can be removed, from the admin screens' Remove.
       # The pre-terminate hook refuses any upload that has finished.
-      - -hooks-http=http://media-hooks:8000/tusd
       - -hooks-enabled-events=pre-create,post-finish,pre-terminate
       # The admin screens upload from the browser, Step 9G. Only the local
       # web app's address may, and it may send the upload key.
       - -cors-allow-origin=^http://localhost:8765$$
-      - -cors-allow-headers=Upload-Key
+      - -cors-allow-headers=Upload-Key,Upload-Resume
       # A pre-create call is never repeated: a repeat could find its own key
       # already used, and refuse the upload it had just accepted.
       - -hooks-http-retry=0
@@ -93,21 +112,47 @@ services:
     volumes:
       # Git ignores this folder. The media worker reads it from Step 7D.
       - ../services/worker/uploads:/srv/tusd-data
-    ports:
-      - "127.0.0.1:1080:8080"
-    networks: [uploads]
+    networks: [tus-private]
     depends_on:
       media-hooks:
         condition: service_healthy
 
   # Checks each received upload and converts it to 360p-1080p HLS, Step 7D.
   # The API's code with FFmpeg added. No ports.
+  media-converter:
+    profiles: [uploads]
+    build:
+      context: ../services/api
+      dockerfile: Dockerfile.worker
+    image: veloraug-media-worker:local
+    command: ["python", "-m", "app.media_converter"]
+    network_mode: none
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 4g
+    pids_limit: 256
+    cpus: 3
+    tmpfs: ["/tmp:size=256m"]
+    volumes:
+      - ../services/worker/uploads:/srv/uploads:ro
+      - ../services/worker/transcoding:/srv/output
+      - ../services/worker/converter:/srv/converter
+    healthcheck:
+      test: ["CMD", "test", "-S", "/srv/converter/worker.sock"]
+      interval: 5s
+      timeout: 2s
+      retries: 8
+    restart: unless-stopped
+
   media-worker:
     profiles: [uploads]
     build:
       context: ../services/api
       dockerfile: Dockerfile.worker
     image: veloraug-media-worker:local
+    user: "1000:1000"
     env_file:
       - path: ../services/api/.env.media
         required: true
@@ -120,8 +165,14 @@ services:
       - ../services/worker/uploads:/srv/uploads
       # Git ignores this folder too.
       - ../services/worker/transcoding:/srv/output
+      - ../services/worker/converter:/srv/converter
+    depends_on:
+      media-converter:
+        condition: service_healthy
     networks: [uploads]
     restart: unless-stopped
 
 networks:
+  tus-private:
+    internal: true
   uploads: {}

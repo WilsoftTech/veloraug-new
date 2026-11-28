@@ -118,6 +118,10 @@ class TusTooLarge extends TusException {
 }
 
 /// The upload's address no longer works, so it must start again.
+class TusResumeRequired extends TusException {
+  const TusResumeRequired();
+}
+
 class TusGone extends TusException {
   const TusGone();
 }
@@ -161,7 +165,8 @@ class TusClient {
       final url = endpoint.resolve(location);
       // Only ever send the file back to the same server.
       if (url.origin != endpoint.origin) throw const TusRetry(201);
-      return url;
+      final resume = reply.headers['upload-resume'];
+      return resume == null ? url : url.replace(fragment: resume);
     }
     throw switch (reply.status) {
       403 => const TusKeyRefused(),
@@ -174,8 +179,8 @@ class TusClient {
   Future<int> offset(Uri upload, {TusCancel? cancel}) async {
     final reply = await transport.send(
       'HEAD',
-      upload,
-      _headers(),
+      upload.removeFragment(),
+      _headers(_resume(upload)),
       cancel: cancel,
     );
     if (reply.status == 200 || reply.status == 204) {
@@ -183,6 +188,7 @@ class TusClient {
       if (offset != null && offset >= 0) return offset;
     }
     throw switch (reply.status) {
+      401 => const TusResumeRequired(),
       403 || 404 || 410 => const TusGone(),
       _ => TusRetry(reply.status),
     };
@@ -200,8 +206,9 @@ class TusClient {
   }) async {
     final reply = await transport.send(
       'PATCH',
-      upload,
+      upload.removeFragment(),
       _headers({
+        ..._resume(upload),
         'Upload-Offset': '$from',
         'Content-Type': 'application/offset+octet-stream',
       }),
@@ -222,13 +229,22 @@ class TusClient {
     };
   }
 
+  Map<String, String> _resume(Uri upload) =>
+      upload.fragment.isEmpty ? const {} : {'Upload-Resume': upload.fragment};
+
   /// Removes an unfinished upload and its bytes from the server. One
   /// already gone counts as removed.
   Future<void> terminate(Uri upload) async {
-    final reply = await transport.send('DELETE', upload, _headers());
+    final reply = await transport.send(
+      'DELETE',
+      upload.removeFragment(),
+      _headers(_resume(upload)),
+    );
     switch (reply.status) {
       case 204 || 200 || 404 || 410:
         return;
+      case 401:
+        throw const TusResumeRequired();
       case 403:
         throw const TusNotRemovable();
       default:

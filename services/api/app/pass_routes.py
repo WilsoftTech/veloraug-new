@@ -13,6 +13,7 @@ a token or Pesapal's keys.
 import html
 import logging
 import re
+import sqlite3
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
@@ -501,13 +502,19 @@ def pesapal_notification(
     if not _TRACKING.fullmatch(tracking_id):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Not a tracking ID.")
     try:
-        state = _check_by_tracking(db, client, tracking_id, notified=True)
-        done = state is not None
+        queue = request.app.state.payment_queue
+        if queue is None:
+            state = _check_by_tracking(db, client, tracking_id, notified=True)
+            done = state is not None
+        else:
+            with db.anonymous() as conn:
+                known = passes.owner_of(conn, tracking_id) is not None
+            done = known and queue.submit(tracking_id)
         if not done:
             logger.warning("Pesapal notified an unknown payment")
             audit.event("payment.unknown_notification")
-    except PesapalUnavailable as error:
-        logger.warning("Pesapal notification not checked: %s", error)
+    except (PesapalUnavailable, sqlite3.Error) as error:
+        logger.warning("Pesapal notification not checked: %s", type(error).__name__)
         done = False
     return JSONResponse(
         {

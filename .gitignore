@@ -119,3 +119,5 @@ Thumbs.db
 desktop.ini
 .idea/
 *.iml
+
+/services/worker/converter/

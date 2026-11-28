@@ -238,6 +238,10 @@ def list_editions(
 ) -> EditionPage:
     """Published editions, newest first. `vj` is a VJ's slug; `q` searches
     titles and VJ names. Needs no sign-in."""
+    if q:
+        request.app.state.rate_limiter.check(
+            "search", "public", ratelimit.Limit(300, 60)
+        )
     with db.anonymous() as conn:
         rows = viewer.list_editions(
             conn,

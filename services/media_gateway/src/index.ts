@@ -265,10 +265,28 @@ async function images(
     if (declared > MAX_IMAGE_BYTES) {
       return plain(413, "Images can be at most 2 MB.", cors);
     }
-    const bytes = new Uint8Array(await request.arrayBuffer());
-    if (bytes.length > MAX_IMAGE_BYTES) {
-      return plain(413, "Images can be at most 2 MB.", cors);
+    const reader = request.body?.getReader();
+    const buffer = new Uint8Array(MAX_IMAGE_BYTES);
+    let length = 0;
+    if (reader) {
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value.byteLength > buffer.length - length) {
+            await reader.cancel();
+            return plain(413, "Images can be at most 2 MB.", cors);
+          }
+          buffer.set(value, length);
+          length += value.byteLength;
+        }
+      } catch {
+        return plain(400, "Could not read the image.", cors);
+      } finally {
+        reader.releaseLock();
+      }
     }
+    const bytes = buffer.slice(0, length);
     if (!looksLike(grant.type, bytes)) {
       return plain(415, "That file isn't the image it says it is.", cors);
     }

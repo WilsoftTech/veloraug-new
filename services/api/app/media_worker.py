@@ -25,10 +25,13 @@ Run with:
 
 import json
 import logging
+import math
+import os
 import re
 import shutil
+import signal
 import subprocess
-import tempfile
+import threading
 import time
 import uuid
 from collections.abc import Callable
@@ -41,6 +44,22 @@ from app.media_publisher import Publisher, R2Settings, R2Store
 from app.playback import DOWNLOAD_FILE
 
 logger = logging.getLogger("veloraug.media_worker")
+
+ORIGINAL_INPUT = [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,mpegts,mpeg,flv",
+]
+MAX_CONVERSION_SECONDS = 12 * 60 * 60
+MAX_JOIN_SECONDS = 30 * 60
+MAX_IDLE_SECONDS = 10 * 60
+MIN_FREE_BYTES = 1024**3
+MAX_OUTPUT_BYTES = 80 * 1024**3
+MAX_LOG_BYTES = 8192
+TOOL_ENV = {"PATH": os.defpath, "LANG": "C.UTF-8"}
+if os.name == "nt":
+    TOOL_ENV["SystemRoot"] = os.environ.get("SystemRoot", r"C:\Windows")
 
 
 @dataclass(frozen=True)
@@ -197,6 +216,8 @@ def _rotation(stream: dict) -> int:
 def parse_probe(data: dict) -> Probe:
     """What FFprobe found, or the reason the file is refused."""
     streams = data.get("streams") or []
+    if len(streams) > 32:
+        raise Refused("The file has too many tracks.")
     video = next(
         (
             s
@@ -211,6 +232,8 @@ def parse_probe(data: dict) -> Probe:
     width, height = int(video.get("width") or 0), int(video.get("height") or 0)
     if width <= 0 or height <= 0:
         raise Refused("The video's size can't be read.")
+    if width * height > 4096 * 2304:
+        raise Refused("The video exceeds the supported pixel count.")
     # FFmpeg turns a phone's sideways video upright, so the upright size counts.
     if abs(_rotation(video)) % 180 == 90:
         width, height = height, width
@@ -224,6 +247,8 @@ def parse_probe(data: dict) -> Probe:
             break
     if duration <= 0:
         raise Refused("The file's length can't be read.")
+    if not math.isfinite(duration) or duration > 8 * 3600:
+        raise Refused("The video exceeds the supported duration.")
     audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
     probe = Probe(
         width=width,
@@ -300,6 +325,7 @@ def ffmpeg_command(source: Path, rungs: list[Rung], has_audio: bool) -> list[str
         "-progress",
         "pipe:1",
         "-nostats",
+        *ORIGINAL_INPUT,
         "-i",
         str(source),
         "-filter_complex",
@@ -439,27 +465,91 @@ def progress_percent(line: str, duration_seconds: float) -> int | None:
     return max(0, min(99, int(done * 100)))
 
 
+def output_size(folder: Path) -> int:
+    total = 0
+    for path in folder.rglob("*"):
+        if path.is_file():
+            try:
+                total += path.stat().st_size
+            except FileNotFoundError:
+                continue
+    return total
+
+
 def stream_process(
     command: list[str], cwd: Path, on_line: Callable[[str], None]
 ) -> subprocess.CompletedProcess:
-    """Runs a command, handing each line it writes to stdout to on_line as
-    it comes. stderr goes to a file, so a chatty one can't block the pipe."""
-    with tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as err:
-        with subprocess.Popen(
-            command,
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=err,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        ) as process:
-            assert process.stdout is not None
-            for line in process.stdout:
-                on_line(line.rstrip("\n"))
+    """Forward progress, bound the stderr tail and stop stalled conversions."""
+    with subprocess.Popen(
+        command,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=TOOL_ENV,
+        start_new_session=os.name == "posix",
+    ) as process:
+        assert process.stdout is not None and process.stderr is not None
+        tail = bytearray()
+        stop = threading.Event()
+        failure = []
+        last_progress = time.monotonic()
+        position = -1
+
+        def drain_errors():
+            while chunk := process.stderr.read1(4096):
+                tail.extend(chunk)
+                del tail[:-MAX_LOG_BYTES]
+
+        def supervise():
+            deadline = time.monotonic() + MAX_CONVERSION_SECONDS
+            while not stop.wait(1):
+                if process.poll() is not None:
+                    return
+                if time.monotonic() >= deadline:
+                    failure.append("Media conversion exceeded its time limit.")
+                elif time.monotonic() - last_progress >= MAX_IDLE_SECONDS:
+                    failure.append("Media conversion stopped making progress.")
+                elif (
+                    output_size(cwd) > MAX_OUTPUT_BYTES
+                    or shutil.disk_usage(cwd).free < MIN_FREE_BYTES
+                ):
+                    failure.append("Media conversion exceeded its output limit.")
+                if failure:
+                    try:
+                        if os.name == "posix":
+                            os.killpg(process.pid, signal.SIGKILL)
+                        else:
+                            process.kill()
+                    except ProcessLookupError:
+                        pass
+                    return
+
+        stderr = threading.Thread(target=drain_errors)
+        watchdog = threading.Thread(target=supervise)
+        stderr.start()
+        watchdog.start()
+        try:
+            while line := process.stdout.readline(4096):
+                text = line.decode("utf-8", errors="replace").rstrip("\n")
+                if match := re.fullmatch(r"out_time_us=([0-9]{1,18})", text):
+                    current = int(match[1])
+                    if current > position:
+                        position = current
+                        last_progress = time.monotonic()
+                on_line(text)
+        except BaseException:
+            process.kill()
+            raise
+        finally:
+            stop.set()
+            watchdog.join()
             code = process.wait()
-        err.seek(0)
-        return subprocess.CompletedProcess(command, code, "", err.read())
+            stderr.join()
+        if failure:
+            raise ConversionFailed(failure[0])
+        return subprocess.CompletedProcess(
+            command, code, "", tail.decode("utf-8", errors="replace")
+        )
 
 
 def last_line(text: str, source: Path) -> str:
@@ -626,11 +716,13 @@ class Worker:
                 "json",
                 "-show_format",
                 "-show_streams",
+                *ORIGINAL_INPUT,
                 str(source),
             ],
             capture_output=True,
             text=True,
             timeout=300,
+            env=TOOL_ENV,
         )
         try:
             data = json.loads(result.stdout or "{}")
@@ -685,11 +777,21 @@ class Worker:
         and keep. Copied, not converted again, so it takes seconds. Answers
         what went wrong, or None."""
         for rung in rungs:
+            remaining = min(
+                MAX_OUTPUT_BYTES - output_size(out),
+                shutil.disk_usage(out).free - MIN_FREE_BYTES,
+            )
+            if remaining <= 0:
+                return "The conversion exceeded the available output space."
+            command = download_command(rung.name)
+            command[-1:-1] = ["-fs", str(remaining)]
             result = self.run(
-                download_command(rung.name),
+                command,
                 cwd=out,
                 capture_output=True,
                 text=True,
+                timeout=MAX_JOIN_SECONDS,
+                env=TOOL_ENV,
             )
             made = out / rung.name / DOWNLOAD_FILE
             if result.returncode != 0 or not made.exists():
@@ -714,12 +816,22 @@ class Worker:
             return "failed"
         try:
             probe = self.probe(source)
-        except Refused as refusal:
-            self._set(original_id, "refused", reason=str(refusal))
+        except (
+            Refused,
+            ConversionFailed,
+            subprocess.TimeoutExpired,
+            OSError,
+        ) as refusal:
+            reason = (
+                str(refusal)
+                if isinstance(refusal, Refused)
+                else "Could not probe the media."
+            )
+            self._set(original_id, "refused", reason=reason)
             # Nothing can come of a refused file, so it isn't kept.
             source.unlink(missing_ok=True)
             source.with_name(source.name + ".info").unlink(missing_ok=True)
-            logger.info("original %s refused: %s", original_id, refusal)
+            logger.info("original %s refused: %s", original_id, reason)
             return "refused"
 
         rungs = ladder(probe)
@@ -757,9 +869,15 @@ class Worker:
                 on_progress=lambda percent: self.report(original_id, percent),
                 duration_seconds=float(probe.duration_seconds),
             )
-        except ConversionFailed as failure:
-            self._set(original_id, "failed", reason=str(failure))
-            logger.error("original %s failed: %s", original_id, failure)
+        except (ConversionFailed, OSError, subprocess.TimeoutExpired) as failure:
+            shutil.rmtree(self.output_dir / str(original_id), ignore_errors=True)
+            reason = (
+                str(failure)
+                if isinstance(failure, ConversionFailed)
+                else "Media conversion timed out."
+            )
+            self._set(original_id, "failed", reason=reason)
+            logger.error("original %s failed: %s", original_id, reason)
             return "failed"
         elapsed = self.clock() - started
         self._set(original_id, "publishing")
@@ -892,8 +1010,15 @@ def main() -> None:
             "in 'publishing'"
         )
     try:
+        from app import media_converter
+
         Worker(
-            database, settings.upload_dir, settings.output_dir, publisher=publisher
+            database,
+            settings.upload_dir,
+            settings.output_dir,
+            publisher=publisher,
+            run=media_converter.run,
+            stream=media_converter.stream,
         ).run_forever(settings.poll_seconds)
     finally:
         database.close()

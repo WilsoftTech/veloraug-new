@@ -20,10 +20,11 @@ import getpass
 import http.client
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urldefrag, urljoin, urlsplit
 
 DEFAULT_SERVER = "http://127.0.0.1:1080/files/"
 TUS_VERSION = "1.0.0"
@@ -42,7 +43,45 @@ class Retry(Exception):
     """A dropped connection or a server hiccup. Worth trying again."""
 
 
+def upload_origin(url: str) -> tuple[str, str, int]:
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        port = parts.port
+    except ValueError:
+        raise UploadError("Invalid upload address.") from None
+    if (
+        not host
+        or parts.username is not None
+        or parts.fragment
+        or (
+            parts.scheme != "https"
+            and not (
+                parts.scheme == "http" and host in ("127.0.0.1", "localhost", "::1")
+            )
+        )
+    ):
+        raise UploadError("Uploads need HTTPS, except for local development.")
+    return parts.scheme, host, port or (443 if parts.scheme == "https" else 80)
+
+
+def resume_address(server: str, candidate: str) -> str:
+    url = urljoin(server, candidate)
+    prefix = urlsplit(server).path.rstrip("/") + "/"
+    path = urlsplit(url).path
+    target, resume = urldefrag(url)
+    if (
+        (resume and re.fullmatch(r"[0-9]{1,12}\.[0-9a-f]{64}", resume) is None)
+        or upload_origin(target) != upload_origin(server)
+        or not path.startswith(prefix)
+        or re.fullmatch(r"[A-Za-z0-9_-]+", path[len(prefix) :]) is None
+    ):
+        raise UploadError("The server returned an invalid upload location.")
+    return url
+
+
 def connect(url: str) -> http.client.HTTPConnection:
+    upload_origin(urldefrag(url).url)
     parts = urlsplit(url)
     if parts.scheme == "https":
         return http.client.HTTPSConnection(
@@ -95,15 +134,26 @@ def create(server: str, key: str, path: Path, size: int) -> str:
         ),
     )
     if status == 201 and headers.get("location"):
-        return urljoin(server, headers["location"])
+        target = resume_address(server, headers["location"])
+        resume = headers.get("upload-resume")
+        if resume:
+            return resume_address(server, f"{target}#{resume}")
+        return target
     if status >= 500 and status != 503:
         raise Retry(f"HTTP {status}")
     # The server's sentence explains a refusal: a bad key, a file too large.
     raise UploadError(text or f"The server refused the upload (HTTP {status}).")
 
 
+def resume_headers(url: str) -> dict[str, str]:
+    token = urlsplit(url).fragment
+    return {"Upload-Resume": token} if token else {}
+
+
 def offset(url: str) -> int:
-    status, headers, _ = request("HEAD", url, tus_headers())
+    status, headers, _ = request("HEAD", url, tus_headers(**resume_headers(url)))
+    if status == 401:
+        raise UploadError("This upload needs a fresh resume credential from the owner.")
     if status in (404, 410):
         raise UploadError(
             "This upload can't be resumed any more. Ask VeloraUG's owner for a "
@@ -124,6 +174,7 @@ def send_chunk(url: str, path: Path, start: int, length: int) -> int:
         conn.putrequest("PATCH", path_of(url))
         for name, value in tus_headers(
             **{
+                **resume_headers(url),
                 "Upload-Offset": str(start),
                 "Content-Type": "application/offset+octet-stream",
                 "Content-Length": str(length),
@@ -142,6 +193,10 @@ def send_chunk(url: str, path: Path, start: int, length: int) -> int:
                 left -= len(data)
         response = conn.getresponse()
         text = response.read(4096).decode("utf-8", "replace").strip()
+        if response.status == 401:
+            raise UploadError(
+                "This upload needs a fresh resume credential from the owner."
+            )
         if response.status == 204:
             return int(response.getheader("Upload-Offset", start + length))
         if response.status >= 500 or response.status == 409:
@@ -170,12 +225,19 @@ def load_state(path: Path, size: int, server: str) -> str | None:
         raise UploadError(
             f"{saved.name} can't be read. Delete it to start again."
         ) from None
-    if state.get("size") != size or state.get("server") != server:
+    if (
+        not isinstance(state, dict)
+        or state.get("size") != size
+        or state.get("server") != server
+    ):
         raise UploadError(
             f"{saved.name} is for a different file or server. Delete it to start "
             "again, with a new key."
         )
-    return state.get("url")
+    url = state.get("url")
+    if not isinstance(url, str):
+        raise UploadError("The saved upload address is missing.")
+    return resume_address(server, url)
 
 
 def save_state(path: Path, size: int, server: str, url: str) -> None:

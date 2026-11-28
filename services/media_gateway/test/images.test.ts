@@ -133,3 +133,26 @@ test("image types are told by their first bytes", () => {
   assert.equal(looksLike("image/png", JPEG), false);
   assert.equal(looksLike("image/gif", JPEG), false);
 });
+
+
+test("an unstated image size is capped while reading", async () => {
+  const grant = await signUploadGrant(SECRET, { p: PATH, t: "image/jpeg", e: NOW + 600 });
+  let reads = 0;
+  let cancelled = false;
+  const body = new ReadableStream({
+    pull(controller) {
+      reads++;
+      controller.enqueue(new Uint8Array(1024 * 1024));
+    },
+    cancel() { cancelled = true; },
+  });
+  const request = new Request("https://media.example/i/" + grant, {
+    method: "PUT", headers: { "Content-Type": "image/jpeg" },
+    body, duplex: "half",
+  } as RequestInit);
+  const response = await handle(request, env, NOW);
+  assert.equal(response.status, 413);
+  assert.ok(reads <= 3);
+  assert.equal(cancelled, true);
+  assert.deepEqual(bucket.written, []);
+});
