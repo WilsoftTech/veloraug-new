@@ -181,6 +181,9 @@ enum PassFailure {
   /// 409: the pass isn't for sale any more.
   notForSale,
 
+  /// The checkout attempt has ended. A new purchase needs a new attempt.
+  checkoutEnded,
+
   /// 422: no email or phone, or one that isn't valid.
   needsContact,
 
@@ -423,6 +426,7 @@ extension PassRequests on PlaybackApi {
       200 || 201 || 204 => null,
       401 => PassFailure.signedOut,
       404 => PassFailure.notFound,
+      409 when answer.code == 'checkout_ended' => PassFailure.checkoutEnded,
       409 => PassFailure.notForSale,
       422 => PassFailure.needsContact,
       429 => PassFailure.tooMany,

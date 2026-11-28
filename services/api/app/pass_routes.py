@@ -320,16 +320,6 @@ def checkout(
         )
     settings = request.app.state.settings
     with db.as_user(user.user_id) as conn:
-        again = passes.reusable_checkout(conn, body.plan_id, _now())
-        if again is None and body.attempt_id is not None:
-            again = passes.pending_attempt(conn, body.attempt_id)
-    if again is not None:
-        response.status_code = status.HTTP_200_OK
-        return CheckoutOut(payment_id=again.id, redirect_url=again.redirect_url)
-    request.app.state.rate_limiter.check(
-        "checkout", str(user.user_id), ratelimit.CHECKOUT
-    )
-    with db.as_user(user.user_id) as conn:
         try:
             payment, new = passes.reserve_checkout(
                 conn,
@@ -340,6 +330,15 @@ def checkout(
                 phone=body.phone,
                 attempt_id=body.attempt_id,
             )
+            if new:
+                request.app.state.rate_limiter.check(
+                    "checkout", str(user.user_id), ratelimit.CHECKOUT
+                )
+        except passes.CheckoutEnded:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                {"code": "checkout_ended", "message": "Start a new checkout."},
+            ) from None
         except passes.NotForSale:
             raise HTTPException(status.HTTP_409_CONFLICT, NOT_FOR_SALE) from None
         except passes.CheckoutStarting:
@@ -362,15 +361,14 @@ def checkout(
             email=payment.email,
             phone=payment.phone,
         )
+    except PesapalUnavailable:
+        logger.warning("payment %s submission outcome unknown", payment.id)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, PESAPAL_DOWN) from None
     except PesapalError as error:
         with db.as_user(user.user_id) as conn:
-            passes.refused_by_pesapal(conn, payment.id, str(error))
-        logger.warning("payment %s not started: %s", payment.id, error)
+            passes.refused_by_pesapal(conn, payment.id, "Pesapal refused the order")
+        logger.warning("payment %s not started (%s)", payment.id, type(error).__name__)
         audit.event("payment.not_started", payment_id=payment.id, user_id=user.user_id)
-        if isinstance(error, PesapalUnavailable):
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE, PESAPAL_DOWN
-            ) from None
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, PESAPAL_REFUSED) from None
     with db.as_user(user.user_id) as conn:
         passes.sent_to_pesapal(conn, payment.id, order.tracking_id, order.redirect_url)

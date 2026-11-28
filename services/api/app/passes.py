@@ -221,7 +221,6 @@ def start_payment(
     *,
     email: str | None,
     phone: str | None,
-    attempt_id: UUID | None = None,
 ) -> Payment:
     plan = next((p for p in plans(conn) if p.id == plan_id), None)
     if plan is None or plan.price_ugx is None:
@@ -231,8 +230,8 @@ def start_payment(
     row = conn.execute(
         f"""
         insert into public.payments (user_id, plan_id, days, amount_ugx, email,
-          phone, plan_name, max_devices, max_streams, attempt_id)
-        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+          phone, plan_name, max_devices, max_streams)
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         returning {PAYMENT_COLUMNS}
         """,
         (
@@ -245,7 +244,6 @@ def start_payment(
             plan.display_name,
             plan.max_devices,
             plan.max_streams,
-            attempt_id,
         ),
     ).fetchone()
     return Payment(*row)
@@ -253,6 +251,10 @@ def start_payment(
 
 class CheckoutStarting(Exception):
     """Another request is asking Pesapal for this checkout's order now."""
+
+
+class CheckoutEnded(Exception):
+    """This attempt is already associated with an ended payment."""
 
 
 def reserve_checkout(
@@ -278,25 +280,25 @@ def reserve_checkout(
         (f"veloraug.checkout.{user_id}",),
     )
     if attempt_id is not None:
-        row = conn.execute(
-            f"select {PAYMENT_COLUMNS} from public.payments where attempt_id = %s",
-            (attempt_id,),
-        ).fetchone()
-        if row is not None:
-            payment = Payment(*row)
+        payment = checkout_attempt(conn, attempt_id)
+        if payment is not None:
+            if payment.plan_id != plan_id:
+                raise CheckoutEnded
             if payment.state == "pending" and payment.redirect_url is not None:
                 return payment, False
-            if payment.state == "started" and payment.created_at > now - STARTING_FOR:
+            if payment.state in ("started", "pending") and (
+                payment.created_at > now - GIVE_UP_AFTER
+            ):
                 raise CheckoutStarting
-            # That attempt ended: this is a new one, under no attempt ID.
-            attempt_id = None
+            raise CheckoutEnded
     again = reusable_checkout(conn, plan_id, now)
     if again is not None:
+        bind_checkout_attempt(conn, user_id, attempt_id, again.id)
         return again, False
     starting = conn.execute(
         """
         select 1 from public.payments
-        where plan_id = %s and state = 'started' and tracking_id is null
+        where plan_id = %s and state in ('started', 'pending') and redirect_url is null
           and created_at > %s
         limit 1
         """,
@@ -304,9 +306,8 @@ def reserve_checkout(
     ).fetchone()
     if starting is not None:
         raise CheckoutStarting
-    payment = start_payment(
-        conn, user_id, plan_id, email=email, phone=phone, attempt_id=attempt_id
-    )
+    payment = start_payment(conn, user_id, plan_id, email=email, phone=phone)
+    bind_checkout_attempt(conn, user_id, attempt_id, payment.id)
     return payment, True
 
 
@@ -349,16 +350,27 @@ def reusable_checkout(
     return Payment(*row) if row else None
 
 
-def pending_attempt(conn: psycopg.Connection, attempt_id: UUID) -> Payment | None:
-    """The viewer's pending payment made for this attempt, if any."""
+def checkout_attempt(conn: psycopg.Connection, attempt_id: UUID) -> Payment | None:
     row = conn.execute(
         f"""
-        select {PAYMENT_COLUMNS} from public.payments
-        where attempt_id = %s and state = 'pending' and redirect_url is not null
+        select {PAYMENT_COLUMNS} from public.payments where id = (
+          select payment_id from public.checkout_attempts where attempt_id = %s
+        )
         """,
         (attempt_id,),
     ).fetchone()
     return Payment(*row) if row else None
+
+
+def bind_checkout_attempt(
+    conn: psycopg.Connection, user_id: UUID, attempt_id: UUID | None, payment_id: UUID
+) -> None:
+    if attempt_id is not None:
+        conn.execute(
+            "insert into public.checkout_attempts (user_id, attempt_id, payment_id) "
+            "values (%s, %s, %s)",
+            (user_id, attempt_id, payment_id),
+        )
 
 
 def sent_to_pesapal(
@@ -370,11 +382,15 @@ def sent_to_pesapal(
     conn.execute(
         """
         update public.payments
-        set state = 'pending', tracking_id = %s, redirect_url = %s,
+        set state = case when state = 'started' then 'pending' else state end,
+          tracking_id = %s, redirect_url = coalesce(redirect_url, %s),
           updated_at = now()
-        where id = %s and state = 'started'
+        where id = %s and (
+          (state = 'started' and tracking_id is null)
+          or (tracking_id = %s and redirect_url is null and %s::text is not null)
+        )
         """,
-        (tracking_id, redirect_url, payment_id),
+        (tracking_id, redirect_url, payment_id, tracking_id, redirect_url),
     )
 
 

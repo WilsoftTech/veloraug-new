@@ -915,7 +915,7 @@ def test_a_retried_attempt_answers_the_same_payment(api, fake, prices):
 
 
 @needs_database
-def test_an_ended_attempt_starts_a_new_payment(api, fake, prices):
+def test_an_ended_attempt_requires_a_new_attempt_id(api, fake, prices):
     user, attempt = uuid.uuid4(), str(uuid.uuid4())
     fake.refuse_orders = True
     refused = api.post(
@@ -930,7 +930,18 @@ def test_an_ended_attempt_starts_a_new_payment(api, fake, prices):
     assert refused.status_code == 502
     fake.refuse_orders = False
 
-    retried = buy(api, user, attempt_id=attempt)
+    ended = api.post(
+        "/api/v1/passes/checkout",
+        json={
+            "plan_id": "velora_start",
+            "email": "v@example.com",
+            "attempt_id": attempt,
+        },
+        headers=as_user(user),
+    )
+    assert ended.status_code == 409
+    assert ended.json()["detail"]["code"] == "checkout_ended"
+    retried = buy(api, user, attempt_id=str(uuid.uuid4()))
 
     states = prices.execute(
         "select state from public.payments where user_id = %s order by created_at",
@@ -1018,3 +1029,93 @@ def test_a_notification_naming_another_payment_matches_nothing(
             ).json()["status"]
             == 500
         )
+
+
+@needs_database
+def test_reused_checkout_keeps_both_attempts_after_reuse_window(api, fake, prices):
+    user = uuid.uuid4()
+    first_attempt, second_attempt = str(uuid.uuid4()), str(uuid.uuid4())
+    first = buy(api, user, attempt_id=first_attempt)
+
+    def retry(attempt):
+        return api.post(
+            "/api/v1/passes/checkout",
+            json={
+                "plan_id": "velora_start",
+                "email": "v@example.com",
+                "attempt_id": attempt,
+            },
+            headers=as_user(user),
+        )
+
+    assert retry(second_attempt).json() == first
+    prices.execute(
+        "update public.payments set created_at = now() - interval '20 minutes' "
+        "where id = %s",
+        (first["payment_id"],),
+    )
+    newer = buy(api, user, attempt_id=str(uuid.uuid4()))
+    assert newer != first
+    for attempt in (first_attempt, second_attempt):
+        result = retry(attempt)
+        assert result.status_code == 200
+        assert result.json() == first
+    assert submitted(fake) == 2
+
+
+@needs_database
+def test_submission_timeout_keeps_the_reservation(api, fake, prices, monkeypatch):
+    from app.pesapal import PesapalUnavailable
+
+    calls = []
+
+    def submit(*, reference, amount, **kwargs):
+        calls.append(reference)
+        fake.orders["track-uncertain-1234"] = {"id": reference, "amount": amount}
+        raise PesapalUnavailable("Synthetic timeout")
+
+    monkeypatch.setattr(api.app.state.pesapal, "submit_order", submit)
+    user = uuid.uuid4()
+    body = {
+        "plan_id": "velora_start",
+        "email": "v@example.com",
+        "attempt_id": str(uuid.uuid4()),
+    }
+    for _ in range(2):
+        assert (
+            api.post(
+                "/api/v1/passes/checkout", json=body, headers=as_user(user)
+            ).status_code
+            == 503
+        )
+    assert len(calls) == 1
+    fake.statuses["track-uncertain-1234"] = COMPLETED
+    answer = api.get(
+        "/api/v1/passes/ipn",
+        params={
+            "OrderTrackingId": "track-uncertain-1234",
+            "OrderMerchantReference": calls[0],
+        },
+    )
+    assert answer.json()["status"] == 200
+    assert my_pass(api, user)["active"] is True
+
+
+@needs_database
+def test_checkout_saves_redirect_after_notification_sets_tracking(
+    app_db,
+    fake,
+    prices,
+):
+    from app import passes
+
+    user = uuid.uuid4()
+    payment, tracking = lost_order(app_db, fake, prices, user)
+    with app_db.as_user(user) as conn:
+        passes.sent_to_pesapal(conn, payment.id, tracking)
+    url = "https://pay.pesapal.com/checkout"
+    with app_db.as_user(user) as conn:
+        passes.sent_to_pesapal(conn, payment.id, tracking, url)
+        stored = passes.get_payment(conn, payment.id)
+    assert stored.redirect_url == url
+    assert stored.state == "pending"

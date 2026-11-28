@@ -18,7 +18,7 @@ for a tracking ID, by the reference set for the transaction.
 VUG-SEC-011. Removing admins takes one lock first, so two removals at once
 are judged one after the other and the last admin always stays.
 
-Additive only: the new column is nullable and old rows keep working.
+Additive only: existing payments keep working.
 """
 
 from alembic import op
@@ -43,10 +43,26 @@ UPGRADE = [
       ))
     """,
     # --- VUG-SEC-004 ---------------------------------------------------------
-    "alter table public.payments add column attempt_id uuid",
     """
-    create unique index payments_attempt_idx
-      on public.payments (user_id, attempt_id) where attempt_id is not null
+    create table public.checkout_attempts (
+      user_id uuid not null,
+      attempt_id uuid not null,
+      payment_id uuid not null references public.payments (id) on delete cascade,
+      primary key (user_id, attempt_id)
+    )
+    """,
+    "create index checkout_attempts_payment_idx "
+    "on public.checkout_attempts (payment_id)",
+    "alter table public.checkout_attempts enable row level security",
+    "alter table public.checkout_attempts force row level security",
+    f"grant select, insert on public.checkout_attempts to {APP_ROLE}",
+    f"""
+    create policy checkout_attempts_own on public.checkout_attempts to {APP_ROLE}
+      using (user_id = public.current_app_user_id())
+      with check (user_id = public.current_app_user_id() and exists (
+        select from public.payments p
+        where p.id = payment_id and p.user_id = checkout_attempts.user_id
+      ))
     """,
     f"""
     create policy payments_app_by_reference on public.payments for select
@@ -81,8 +97,7 @@ DOWNGRADE = [
     "drop trigger admins_lock_removals on public.admins",
     "drop function public.lock_admin_removals()",
     "drop policy payments_app_by_reference on public.payments",
-    "drop index public.payments_attempt_idx",
-    "alter table public.payments drop column attempt_id",
+    "drop table public.checkout_attempts",
     "drop policy renditions_app_ready on public.media_renditions",
     f"revoke select on table public.media_renditions from {APP_ROLE}",
 ]
